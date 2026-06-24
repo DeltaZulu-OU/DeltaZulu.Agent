@@ -5,6 +5,7 @@ using System.Reactive.Kql;
 using System.Reactive.Kql.CustomTypes;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Text;
 
 namespace DeltaZulu.Agent.Kql;
 
@@ -117,10 +118,89 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
         }
     }
 
+    /// <summary>
+    /// Normalizes Kusto syntax aliases that are not accepted by Microsoft.Rx.Kql.
+    /// </summary>
+    public static string NormalizeQueryForRxKql(string query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        const string notInAlias = "notin";
+        var normalized = new StringBuilder(query.Length);
+        var inSingleQuotedString = false;
+        var inDoubleQuotedString = false;
+
+        for (var i = 0; i < query.Length; i++)
+        {
+            var current = query[i];
+
+            if (current == '\'' && !inDoubleQuotedString)
+            {
+                normalized.Append(current);
+                if (inSingleQuotedString && i + 1 < query.Length && query[i + 1] == '\'')
+                {
+                    normalized.Append(query[++i]);
+                    continue;
+                }
+
+                inSingleQuotedString = !inSingleQuotedString;
+                continue;
+            }
+
+            if (current == '"' && !inSingleQuotedString)
+            {
+                normalized.Append(current);
+                if (inDoubleQuotedString && i + 1 < query.Length && query[i + 1] == '"')
+                {
+                    normalized.Append(query[++i]);
+                    continue;
+                }
+
+                inDoubleQuotedString = !inDoubleQuotedString;
+                continue;
+            }
+
+            if (!inSingleQuotedString
+                && !inDoubleQuotedString
+                && IsKeywordAt(query, i, notInAlias))
+            {
+                normalized.Append("!in");
+                i += notInAlias.Length - 1;
+                continue;
+            }
+
+            normalized.Append(current);
+        }
+
+        return normalized.ToString();
+    }
+
+    private static bool IsKeywordAt(string text, int index, string keyword)
+    {
+        if (index + keyword.Length > text.Length)
+        {
+            return false;
+        }
+
+        if (index > 0 && IsKqlIdentifierCharacter(text[index - 1]))
+        {
+            return false;
+        }
+
+        if (index + keyword.Length < text.Length && IsKqlIdentifierCharacter(text[index + keyword.Length]))
+        {
+            return false;
+        }
+
+        return string.Compare(text, index, keyword, 0, keyword.Length, StringComparison.OrdinalIgnoreCase) == 0;
+    }
+
+    private static bool IsKqlIdentifierCharacter(char value) => char.IsLetterOrDigit(value) || value == '_';
+
     private string CreateTemporaryQueryFile(ResourceProfile profile)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agent-{profile.Id}-{Guid.NewGuid():N}.kql");
-        File.WriteAllText(path, profile.Filter.Query);
+        File.WriteAllText(path, NormalizeQueryForRxKql(profile.Filter.Query));
         _temporaryQueryFiles.Add(path);
         return path;
     }

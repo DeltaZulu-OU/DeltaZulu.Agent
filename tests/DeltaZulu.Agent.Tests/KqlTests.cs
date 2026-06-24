@@ -31,6 +31,26 @@ public sealed class KqlTests
         Assert.AreSame(sourceException, observedException);
     }
 
+    [TestMethod]
+    public void NormalizeQueryForRxKql_RewritesNotInAliasOutsideStrings()
+    {
+        var query = "Source | where EventID notin (4656, 4658) | where Message has 'notin' | where Other NOTIN (1)";
+
+        var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
+
+        Assert.AreEqual("Source | where EventID !in (4656, 4658) | where Message has 'notin' | where Other !in (1)", result);
+    }
+
+    [TestMethod]
+    public void NormalizeQueryForRxKql_DoesNotRewriteIdentifierSubstrings()
+    {
+        var query = "Source | where Annotationnotin == 'x' | where notinValue == 'notin'";
+
+        var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
+
+        Assert.AreEqual(query, result);
+    }
+
     private static ResourceProfile CreatePassThroughProfile() => new()
     {
         SchemaVersion = 1,
