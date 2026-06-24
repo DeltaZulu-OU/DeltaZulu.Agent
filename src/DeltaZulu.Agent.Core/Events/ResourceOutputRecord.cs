@@ -21,8 +21,15 @@ public sealed record ResourceOutputRecord
     public static ResourceOutputRecord FromSource(SourceEvent source, string? profileId = null, string? profileVersion = null)
     {
         var metadata = new Dictionary<string, object?>(source.Metadata.ToDictionary(), StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(profileId)) metadata["profileId"] = profileId;
-        if (!string.IsNullOrWhiteSpace(profileVersion)) metadata["profileVersion"] = profileVersion;
+        if (!string.IsNullOrWhiteSpace(profileId))
+        {
+            metadata["profileId"] = profileId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(profileVersion))
+        {
+            metadata["profileVersion"] = profileVersion;
+        }
 
         return new ResourceOutputRecord
         {

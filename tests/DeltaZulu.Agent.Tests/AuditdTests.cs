@@ -23,10 +23,7 @@ public sealed class AuditdTests
     }
 
     [TestMethod]
-    public void Parse_RejectsLinesWithoutAuditPrefix()
-    {
-        Assert.ThrowsExactly<FormatException>(() => new AuditdRecordParser().Parse("not an audit record"));
-    }
+    public void Parse_RejectsLinesWithoutAuditPrefix() => Assert.ThrowsExactly<FormatException>(() => new AuditdRecordParser().Parse("not an audit record"));
 
     [TestMethod]
     public void Flush_GroupsRecordsAndBuildsOrderedArgvForExecve()

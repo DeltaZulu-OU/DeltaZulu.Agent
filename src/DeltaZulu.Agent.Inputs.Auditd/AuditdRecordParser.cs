@@ -29,10 +29,22 @@ public sealed partial class AuditdRecordParser
         var i = 0;
         while (i < payload.Length)
         {
-            while (i < payload.Length && char.IsWhiteSpace(payload[i])) i++;
+            while (i < payload.Length && char.IsWhiteSpace(payload[i]))
+            {
+                i++;
+            }
+
             var keyStart = i;
-            while (i < payload.Length && payload[i] != '=' && !char.IsWhiteSpace(payload[i])) i++;
-            if (i >= payload.Length || payload[i] != '=') break;
+            while (i < payload.Length && payload[i] != '=' && !char.IsWhiteSpace(payload[i]))
+            {
+                i++;
+            }
+
+            if (i >= payload.Length || payload[i] != '=')
+            {
+                break;
+            }
+
             var key = payload[keyStart..i];
             i++;
 
@@ -51,7 +63,11 @@ public sealed partial class AuditdRecordParser
             else
             {
                 var valueStart = i;
-                while (i < payload.Length && !char.IsWhiteSpace(payload[i])) i++;
+                while (i < payload.Length && !char.IsWhiteSpace(payload[i]))
+                {
+                    i++;
+                }
+
                 value = CoerceValue(key, payload[valueStart..i], quoted: false);
             }
 
@@ -63,18 +79,32 @@ public sealed partial class AuditdRecordParser
 
     private static object? CoerceValue(string key, string value, bool quoted)
     {
-        if (value == "(null)") return null;
+        if (value == "(null)")
+        {
+            return null;
+        }
+
         if ((key.StartsWith("a", StringComparison.OrdinalIgnoreCase) && key.Length > 1 && int.TryParse(key[1..], out _))
             || key.Equals("proctitle", StringComparison.OrdinalIgnoreCase))
         {
             var decoded = TryDecodeHexString(value);
-            if (decoded is not null) return decoded;
+            if (decoded is not null)
+            {
+                return decoded;
+            }
         }
 
         if (!quoted)
         {
-            if (long.TryParse(value, out var l)) return l;
-            if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) return value;
+            if (long.TryParse(value, out var l))
+            {
+                return l;
+            }
+
+            if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                return value;
+            }
         }
 
         return value;
@@ -82,10 +112,17 @@ public sealed partial class AuditdRecordParser
 
     private static string? TryDecodeHexString(string value)
     {
-        if (value.Length == 0 || value.Length % 2 != 0) return null;
+        if (value.Length == 0 || value.Length % 2 != 0)
+        {
+            return null;
+        }
+
         for (var i = 0; i < value.Length; i++)
         {
-            if (!Uri.IsHexDigit(value[i])) return null;
+            if (!Uri.IsHexDigit(value[i]))
+            {
+                return null;
+            }
         }
 
         try

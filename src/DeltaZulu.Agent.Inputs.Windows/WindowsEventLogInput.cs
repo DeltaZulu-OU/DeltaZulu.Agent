@@ -19,15 +19,11 @@ public sealed class WindowsEventLogInput : IResourceInput
         Name = name ?? logName;
     }
 
-    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default)
-    {
-        return System.Reactive.Linq.Observable.Create<SourceEvent>(observer =>
-        {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _ = Task.Run(() => PollAsync(observer, cts.Token), cts.Token);
-            return Disposable.Create(() => cts.Cancel());
-        });
-    }
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => System.Reactive.Linq.Observable.Create<SourceEvent>(observer => {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _ = Task.Run(() => PollAsync(observer, cts.Token), cts.Token);
+        return Disposable.Create(() => cts.Cancel());
+    });
 
     private async Task PollAsync(IObserver<SourceEvent> observer, CancellationToken cancellationToken)
     {
@@ -35,7 +31,7 @@ public sealed class WindowsEventLogInput : IResourceInput
         {
             if (!TryResolveLogName(out var logName, out var errorMessage))
             {
-                observer.OnCompleted();
+                observer.OnError(new InvalidOperationException(errorMessage ?? $"Unable to resolve Windows Event Log '{_requestedLogName}'."));
                 return;
             }
 
@@ -54,8 +50,14 @@ public sealed class WindowsEventLogInput : IResourceInput
         }
         catch (Exception ex)
         {
-            observer.OnError(ex);
+            observer.OnError(CreatePollingException(ex));
         }
+    }
+
+    private Exception CreatePollingException(Exception exception)
+    {
+        var logName = string.IsNullOrWhiteSpace(_resolvedLogName) ? _requestedLogName : _resolvedLogName;
+        return new InvalidOperationException($"Windows Event Log input '{Name}' failed while reading '{logName}': {exception.Message}", exception);
     }
 
     private long ReadLatestRecordId(string logName)

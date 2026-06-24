@@ -14,10 +14,7 @@ public sealed class ConsoleNdjsonSink : IResourceSink
         Name = name;
     }
 
-    public void OnNext(ResourceOutputRecord value)
-    {
-        Console.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
-    }
+    public void OnNext(ResourceOutputRecord value) => Console.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
 
     public void OnError(Exception error)
     {

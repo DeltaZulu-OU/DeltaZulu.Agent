@@ -20,47 +20,42 @@ public sealed class SyslogFileTailInput : IResourceInput
         _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(200);
     }
 
-    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default)
-    {
-        return Observable.Create<SourceEvent>(observer =>
-        {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _ = Task.Run(async () =>
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _ = Task.Run(async () => {
+            try
             {
-                try
+                using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                stream.Seek(0, SeekOrigin.End);
+
+                while (!cts.IsCancellationRequested)
                 {
-                    using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                    using var reader = new StreamReader(stream);
-                    stream.Seek(0, SeekOrigin.End);
-
-                    while (!cts.IsCancellationRequested)
+                    var line = await reader.ReadLineAsync(cts.Token).ConfigureAwait(false);
+                    if (line is null)
                     {
-                        var line = await reader.ReadLineAsync(cts.Token).ConfigureAwait(false);
-                        if (line is null)
-                        {
-                            await Task.Delay(_pollInterval, cts.Token).ConfigureAwait(false);
-                            continue;
-                        }
-
-                        if (line.Length > 0)
-                        {
-                            observer.OnNext(_parser.Parse(line, Name));
-                        }
+                        await Task.Delay(_pollInterval, cts.Token).ConfigureAwait(false);
+                        continue;
                     }
 
-                    observer.OnCompleted();
+                    if (line.Length > 0)
+                    {
+                        observer.OnNext(_parser.Parse(line, Name));
+                    }
                 }
-                catch (OperationCanceledException)
-                {
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }, cts.Token);
 
-            return Disposable.Create(() => cts.Cancel());
-        });
-    }
+                observer.OnCompleted();
+            }
+            catch (OperationCanceledException)
+            {
+                observer.OnCompleted();
+            }
+            catch (Exception ex)
+            {
+                observer.OnError(ex);
+            }
+        }, cts.Token);
+
+        return Disposable.Create(() => cts.Cancel());
+    });
 }

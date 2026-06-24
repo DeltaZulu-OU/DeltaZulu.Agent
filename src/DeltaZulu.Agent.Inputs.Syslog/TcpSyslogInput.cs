@@ -24,42 +24,36 @@ public sealed class TcpSyslogInput : IResourceInput
         _parser = new LightweightSyslogParser();
     }
 
-    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default)
-    {
-        return Observable.Create<SourceEvent>(observer =>
-        {
-            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var listener = new TcpListener(_address, _port);
-            listener.Start();
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var listener = new TcpListener(_address, _port);
+        listener.Start();
 
-            _ = Task.Run(async () =>
+        _ = Task.Run(async () => {
+            try
             {
-                try
+                while (!linkedCts.IsCancellationRequested)
                 {
-                    while (!linkedCts.IsCancellationRequested)
-                    {
-                        var client = await listener.AcceptTcpClientAsync(linkedCts.Token).ConfigureAwait(false);
-                        _ = Task.Run(() => ReadClientAsync(client, observer, linkedCts.Token), linkedCts.Token);
-                    }
+                    var client = await listener.AcceptTcpClientAsync(linkedCts.Token).ConfigureAwait(false);
+                    _ = Task.Run(() => ReadClientAsync(client, observer, linkedCts.Token), linkedCts.Token);
                 }
-                catch (OperationCanceledException)
-                {
-                    observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-            }, linkedCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                observer.OnCompleted();
+            }
+            catch (Exception ex)
+            {
+                observer.OnError(ex);
+            }
+        }, linkedCts.Token);
 
-            return Disposable.Create(() =>
-            {
-                linkedCts.Cancel();
-                listener.Stop();
-                linkedCts.Dispose();
-            });
+        return Disposable.Create(() => {
+            linkedCts.Cancel();
+            listener.Stop();
+            linkedCts.Dispose();
         });
-    }
+    });
 
     private async Task ReadClientAsync(TcpClient client, IObserver<SourceEvent> observer, CancellationToken cancellationToken)
     {
@@ -68,8 +62,16 @@ public sealed class TcpSyslogInput : IResourceInput
         while (!cancellationToken.IsCancellationRequested)
         {
             var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-            if (line is null) break;
-            if (line.Length == 0) continue;
+            if (line is null)
+            {
+                break;
+            }
+
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
             observer.OnNext(_parser.Parse(line, Name, client.Client.RemoteEndPoint?.ToString()));
         }
     }

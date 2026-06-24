@@ -8,7 +8,7 @@ public sealed class NdjsonFileSink : IResourceSink
 {
     private readonly FileStream _stream;
     private readonly JsonSerializerOptions _jsonOptions;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private bool _disposed;
 
     public string Name { get; }
@@ -32,7 +32,10 @@ public sealed class NdjsonFileSink : IResourceSink
     {
         lock (_lock)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
 
             JsonSerializer.Serialize(_stream, value, _jsonOptions);
             _stream.WriteByte((byte)'\n');
@@ -44,7 +47,10 @@ public sealed class NdjsonFileSink : IResourceSink
         var errorRecord = NdjsonErrorRecord.FromException(error);
         lock (_lock)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
 
             JsonSerializer.Serialize(_stream, errorRecord, _jsonOptions);
             _stream.WriteByte((byte)'\n');
@@ -58,7 +64,10 @@ public sealed class NdjsonFileSink : IResourceSink
     {
         lock (_lock)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
 
             _disposed = true;
             _stream.Dispose();

@@ -8,10 +8,7 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class CoreTests
 {
     [TestMethod]
-    public void CoerceToNullableDictionary_ReturnsNullForNull()
-    {
-        Assert.IsNull(DictionaryCoercion.CoerceToNullableDictionary(null));
-    }
+    public void CoerceToNullableDictionary_ReturnsNullForNull() => Assert.IsNull(DictionaryCoercion.CoerceToNullableDictionary(null));
 
     [TestMethod]
     public void CoerceToNullableDictionary_CopiesDictionariesWithCaseInsensitiveKeys()

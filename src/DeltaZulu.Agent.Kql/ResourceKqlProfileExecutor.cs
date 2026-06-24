@@ -104,7 +104,11 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
 
         foreach (var subscription in _subscriptions)

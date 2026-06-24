@@ -9,7 +9,10 @@ public static class DictionaryCoercion
 
     public static IReadOnlyDictionary<string, object?>? CoerceToNullableDictionary(object? value)
     {
-        if (value is null) return null;
+        if (value is null)
+        {
+            return null;
+        }
 
         if (value is IReadOnlyDictionary<string, object?> ro)
         {

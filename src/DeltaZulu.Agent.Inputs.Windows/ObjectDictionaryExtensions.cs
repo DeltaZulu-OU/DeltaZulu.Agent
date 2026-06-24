@@ -21,7 +21,10 @@ internal static class ObjectDictionaryExtensions
                 continue;
             }
 
-            if (value is null) continue;
+            if (value is null)
+            {
+                continue;
+            }
 
             if (IsSimple(value.GetType()))
             {

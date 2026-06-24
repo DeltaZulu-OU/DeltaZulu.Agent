@@ -18,15 +18,11 @@ public sealed class CsvFileInput : IResourceInput
         Name = name;
     }
 
-    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default)
-    {
-        return Observable.Create<SourceEvent>(observer =>
-        {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _ = Task.Run(() => ReadAsync(observer, cts.Token), cts.Token);
-            return Disposable.Create(() => cts.Cancel());
-        });
-    }
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _ = Task.Run(() => ReadAsync(observer, cts.Token), cts.Token);
+        return Disposable.Create(() => cts.Cancel());
+    });
 
     private async Task ReadAsync(IObserver<SourceEvent> observer, CancellationToken cancellationToken)
     {
@@ -75,11 +71,31 @@ public sealed class CsvFileInput : IResourceInput
 
     private static object? Coerce(string? value)
     {
-        if (value is null) return null;
-        if (DateTimeOffset.TryParse(value, out var dto)) return dto;
-        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l)) return l;
-        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d)) return d;
-        if (bool.TryParse(value, out var b)) return b;
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (DateTimeOffset.TryParse(value, out var dto))
+        {
+            return dto;
+        }
+
+        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l))
+        {
+            return l;
+        }
+
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+        {
+            return d;
+        }
+
+        if (bool.TryParse(value, out var b))
+        {
+            return b;
+        }
+
         return value;
     }
 }

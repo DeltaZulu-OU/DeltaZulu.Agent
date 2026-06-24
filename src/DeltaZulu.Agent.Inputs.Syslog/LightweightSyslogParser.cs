@@ -55,7 +55,10 @@ public sealed partial class LightweightSyslogParser
     private static bool TryParseRfc5424(string body, IDictionary<string, object?> fields)
     {
         var match = Rfc5424Regex.Match(body);
-        if (!match.Success) return false;
+        if (!match.Success)
+        {
+            return false;
+        }
 
         fields["SyslogVersion"] = match.Groups["version"].Value;
         if (DateTimeOffset.TryParse(match.Groups["timestamp"].Value, out var timestamp))
@@ -71,7 +74,11 @@ public sealed partial class LightweightSyslogParser
         fields["AppName"] = NullDash(match.Groups["app"].Value);
         fields["ProcessName"] = NullDash(match.Groups["app"].Value);
         fields["ProcId"] = NullDash(match.Groups["proc"].Value);
-        if (int.TryParse(NullDash(match.Groups["proc"].Value), out var pid)) fields["ProcessId"] = pid;
+        if (int.TryParse(NullDash(match.Groups["proc"].Value), out var pid))
+        {
+            fields["ProcessId"] = pid;
+        }
+
         fields["MsgId"] = NullDash(match.Groups["msgid"].Value);
         fields["StructuredData"] = NullDash(match.Groups["structured"].Value);
         fields["Message"] = match.Groups["message"].Value;
@@ -81,7 +88,10 @@ public sealed partial class LightweightSyslogParser
     private static bool TryParseRfc3164(string body, IDictionary<string, object?> fields)
     {
         var match = Rfc3164Regex.Match(body);
-        if (!match.Success) return false;
+        if (!match.Success)
+        {
+            return false;
+        }
 
         var timestampText = match.Groups["timestamp"].Value;
         if (DateTime.TryParseExact(timestampText, "MMM d HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var timestamp)
@@ -98,14 +108,21 @@ public sealed partial class LightweightSyslogParser
         fields["Hostname"] = match.Groups["host"].Value;
         fields["ProcessName"] = match.Groups["proc"].Value;
         fields["AppName"] = match.Groups["proc"].Value;
-        if (int.TryParse(match.Groups["pid"].Value, out var pid)) fields["ProcessId"] = pid;
+        if (int.TryParse(match.Groups["pid"].Value, out var pid))
+        {
+            fields["ProcessId"] = pid;
+        }
+
         fields["Message"] = match.Groups["message"].Value;
         return true;
     }
 
     private static void ExtractKeyValues(IDictionary<string, object?> fields)
     {
-        if (!fields.TryGetValue("Message", out var messageObject) || messageObject is not string message) return;
+        if (!fields.TryGetValue("Message", out var messageObject) || messageObject is not string message)
+        {
+            return;
+        }
 
         var extracted = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (Match match in KeyValueRegex.Matches(message))

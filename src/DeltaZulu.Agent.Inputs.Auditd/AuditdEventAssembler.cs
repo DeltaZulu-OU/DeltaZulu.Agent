@@ -29,7 +29,11 @@ public sealed class AuditdEventAssembler
 
     public SourceEvent? Flush(string id)
     {
-        if (!_pending.Remove(id, out var records)) return null;
+        if (!_pending.Remove(id, out var records))
+        {
+            return null;
+        }
+
         return BuildEvent(id, records);
     }
 
@@ -38,7 +42,10 @@ public sealed class AuditdEventAssembler
         foreach (var id in _pending.Keys.ToList())
         {
             var evt = Flush(id);
-            if (evt is not null) yield return evt;
+            if (evt is not null)
+            {
+                yield return evt;
+            }
         }
     }
 
