@@ -31,54 +31,52 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
             return Observable.Empty<ResourceOutputRecord>();
         }
 
-        ScalarFunctionFactory.AddFunctions(typeof(ResourceQlScalarFunctions));
+        ScalarFunctionFactory.AddFunctions(typeof(AgentScalarFunctions));
 
-        var output = new Subject<ResourceOutputRecord>();
-        var queryPath = CreateTemporaryQueryFile(profile);
-        var tableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
+        return Observable.Create<ResourceOutputRecord>(observer => {
+            var queryPath = CreateTemporaryQueryFile(profile);
+            var tableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
+            var disposables = new CompositeDisposable();
 
-        var kqlRows = source.Select(e => DictionaryCoercion.ToKqlDictionary(e.ToKqlRow()));
+            var kqlRows = source.Select(e => DictionaryCoercion.ToKqlDictionary(e.ToKqlRow()));
 
-        KqlNodeHub? hub = null;
-        try
-        {
-            hub = KqlNodeHub.FromFiles(
-                kqlRows,
-                kqlOutput => OnKqlOutput(kqlOutput, profile, output),
-                tableName,
-                queryPath);
-
-            foreach (var failedQuery in hub._node.FailedKqlQueryList)
+            try
             {
-                output.OnError(failedQuery.FailureReason);
+                var hub = KqlNodeHub.FromFiles(
+                    kqlRows,
+                    kqlOutput => OnKqlOutput(kqlOutput, profile, observer),
+                    tableName,
+                    queryPath);
+
+                foreach (var failedQuery in hub._node.FailedKqlQueryList)
+                {
+                    observer.OnError(failedQuery.FailureReason);
+                }
+
+                if (hub._node.FailedKqlQueryList.Count > 0)
+                {
+                    observer.OnCompleted();
+                    return disposables;
+                }
+
+                hub._node.KqlKqlQueryFailed += (_, args) => observer.OnError(args.Exception);
+                hub._node.EnableFailedKqlQueryEvents = true;
+
+                if (hub._outputSubscription is not null)
+                {
+                    _subscriptions.Add(hub._outputSubscription);
+                    disposables.Add(hub._outputSubscription);
+                }
+
+                disposables.Add(cancellationToken.Register(observer.OnCompleted));
+            }
+            catch (Exception ex)
+            {
+                observer.OnError(ex);
+                observer.OnCompleted();
             }
 
-            if (hub._node.FailedKqlQueryList.Count > 0)
-            {
-                output.OnCompleted();
-                return output;
-            }
-
-            hub._node.KqlKqlQueryFailed += (_, args) => output.OnError(args.Exception);
-            hub._node.EnableFailedKqlQueryEvents = true;
-
-            if (hub._outputSubscription is not null)
-            {
-                _subscriptions.Add(hub._outputSubscription);
-            }
-        }
-        catch (Exception ex)
-        {
-            output.OnError(ex);
-            output.OnCompleted();
-        }
-
-        cancellationToken.Register(() => output.OnCompleted());
-
-        return Observable.Create<ResourceOutputRecord>(observer =>
-        {
-            var subscription = output.Subscribe(observer);
-            return Disposable.Create(() => subscription.Dispose());
+            return disposables;
         });
     }
 
@@ -98,7 +96,7 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 
     private string CreateTemporaryQueryFile(ResourceProfile profile)
     {
-        var path = Path.Combine(Path.GetTempPath(), $"resourceql-{profile.Id}-{Guid.NewGuid():N}.kql");
+        var path = Path.Combine(Path.GetTempPath(), $"agent-{profile.Id}-{Guid.NewGuid():N}.kql");
         File.WriteAllText(path, profile.Filter.Query);
         _temporaryQueryFiles.Add(path);
         return path;

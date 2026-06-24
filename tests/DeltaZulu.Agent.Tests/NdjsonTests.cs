@@ -72,7 +72,7 @@ public sealed class NdjsonTests
 
         var record = NdjsonErrorRecord.FromException(exception);
 
-        Assert.AreEqual("resourceql.error", record.Type);
+        Assert.AreEqual("agent.error", record.Type);
         Assert.AreEqual("boom", record.Message);
         Assert.AreEqual(typeof(InvalidOperationException).FullName, record.ExceptionType);
     }

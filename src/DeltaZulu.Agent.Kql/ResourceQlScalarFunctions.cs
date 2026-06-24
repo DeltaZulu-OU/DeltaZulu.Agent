@@ -5,9 +5,9 @@ using System.Runtime.Caching;
 
 namespace DeltaZulu.Agent.Kql;
 
-public static class ResourceQlScalarFunctions
+public static class AgentScalarFunctions
 {
-    private static readonly MemoryCache ProcessNameCache = new("ResourceQLProcessNameCache");
+    private static readonly MemoryCache ProcessNameCache = new("AgentProcessNameCache");
 
     [KqlScalarFunction("ntohs")]
     public static int NetworkToHostPort(ushort port)

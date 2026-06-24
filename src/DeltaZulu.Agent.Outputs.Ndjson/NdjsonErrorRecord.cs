@@ -2,7 +2,7 @@ namespace DeltaZulu.Agent.Outputs.Ndjson;
 
 public sealed record NdjsonErrorRecord
 {
-    public string Type { get; init; } = "resourceql.error";
+    public string Type { get; init; } = "agent.error";
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
     public string Message { get; init; } = string.Empty;
     public string? ExceptionType { get; init; }
