@@ -15,10 +15,16 @@ public sealed class ConsoleNdjsonSink : IResourceSink
     }
 
     public void OnNext(ResourceOutputRecord value)
-        => Console.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
+    {
+        Console.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
+        Console.Out.Flush();
+    }
 
     public void OnError(Exception error)
-        => Console.Error.WriteLine(JsonSerializer.Serialize(NdjsonErrorRecord.FromException(error), _jsonOptions));
+    {
+        Console.Error.WriteLine(JsonSerializer.Serialize(NdjsonErrorRecord.FromException(error), _jsonOptions));
+        Console.Error.Flush();
+    }
 
     public void OnCompleted()
     { }

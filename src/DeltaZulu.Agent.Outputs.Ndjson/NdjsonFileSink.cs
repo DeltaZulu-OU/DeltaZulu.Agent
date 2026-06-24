@@ -25,6 +25,8 @@ public sealed class NdjsonFileSink : IResourceSink
     {
         lock (_lock)
         {
+            if (_disposed) return;
+
             _writer.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
             _writer.Flush();
         }
@@ -35,6 +37,8 @@ public sealed class NdjsonFileSink : IResourceSink
         var errorRecord = NdjsonErrorRecord.FromException(error);
         lock (_lock)
         {
+            if (_disposed) return;
+
             _writer.WriteLine(JsonSerializer.Serialize(errorRecord, _jsonOptions));
             _writer.Flush();
         }
@@ -44,10 +48,11 @@ public sealed class NdjsonFileSink : IResourceSink
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
         lock (_lock)
         {
+            if (_disposed) return;
+
+            _disposed = true;
             _writer.Dispose();
         }
     }

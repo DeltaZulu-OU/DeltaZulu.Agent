@@ -1,3 +1,4 @@
+using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Outputs.Ndjson;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Text.Json;
@@ -15,6 +16,53 @@ public sealed class NdjsonTests
         StringAssert.Contains(json, "\"OriginalName\":\"value\"");
         Assert.IsFalse(json.Contains("Missing", StringComparison.Ordinal));
         Assert.IsFalse(json.Contains(Environment.NewLine, StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void CreateDefault_IgnoresObjectCycles()
+    {
+        var node = new CyclicNode();
+        node.Next = node;
+
+        var record = new ResourceOutputRecord
+        {
+            Event = new Dictionary<string, object?>
+            {
+                ["CyclicValue"] = node
+            }
+        };
+
+        var json = JsonSerializer.Serialize(record, NdjsonSerializerOptions.CreateDefault());
+
+        StringAssert.Contains(json, "\"CyclicValue\"");
+        StringAssert.Contains(json, "\"Name\":\"root\"");
+    }
+
+    private sealed class CyclicNode
+    {
+        public string Name { get; init; } = "root";
+        public CyclicNode? Next { get; set; }
+    }
+
+    [TestMethod]
+    public void NdjsonFileSink_DisposeIsIdempotent()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"deltazulu-{Guid.NewGuid():N}.ndjson");
+        try
+        {
+            using var sink = new NdjsonFileSink(path);
+
+            sink.Dispose();
+            sink.Dispose();
+            sink.OnNext(new ResourceOutputRecord());
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
     }
 
     [TestMethod]

@@ -32,6 +32,7 @@ internal static class Program
         if (args[0] is "--version" or "version")
         {
             Console.WriteLine($"DeltaZulu.Agent {Version}");
+            Console.Out.Flush();
             return 0;
         }
 
@@ -75,6 +76,7 @@ internal static class Program
         catch (Exception ex)
         {
             Console.Error.WriteLine($"error: {ex.Message}");
+            Console.Error.Flush();
             return 1;
         }
     }
@@ -204,6 +206,7 @@ internal static class Program
                 foreach (var error in result.Errors)
                 {
                     Console.Error.WriteLine($"warning: {error}");
+                    Console.Error.Flush();
                 }
             }
 
@@ -232,6 +235,7 @@ internal static class Program
         if (format == "json")
         {
             Console.WriteLine(JsonSerializer.Serialize(schemas, NdjsonSerializerOptions.CreateDefault()));
+            Console.Out.Flush();
             return;
         }
 
@@ -240,6 +244,7 @@ internal static class Program
         {
             Console.WriteLine($"{schema.Id}\t{schema.Source}\t{schema.Platform}\t{schema.Family}\t{schema.Table}\t{schema.Schema}");
         }
+        Console.Out.Flush();
     }
 
     private static List<ResourceSchemaDescription> CreateBuiltInSchemas() =>
@@ -328,7 +333,9 @@ internal static class Program
 
     private static bool IsHelp(string value) => value is "-h" or "--help" or "help";
 
-    private static void PrintUsage() => Console.WriteLine("""
+    private static void PrintUsage()
+    {
+        Console.WriteLine("""
 Usage:
   dzagent <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
   dzagent <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
@@ -364,6 +371,8 @@ Examples:
   dzagent winlog Security --kql "Source | where EventId == 4688"
   dzagent schemas profiles json
 """);
+        Console.Out.Flush();
+    }
 
     private sealed record ResourceSchemaDescription(
         string Id,
@@ -414,7 +423,11 @@ Examples:
         public void OnCompleted()
         { }
 
-        public void OnError(Exception error) => Console.Error.WriteLine(error.Message);
+        public void OnError(Exception error)
+        {
+            Console.Error.WriteLine(error.Message);
+            Console.Error.Flush();
+        }
 
         public void OnNext(ResourceOutputRecord value)
         {
@@ -427,6 +440,7 @@ Examples:
             value.Metadata.TryGetValue("ingestedAt", out var timestamp);
             value.Metadata.TryGetValue("sourceName", out var source);
             Console.WriteLine($"{timestamp}\t{source}\t{JsonSerializer.Serialize(value.Event, _jsonOptions)}");
+            Console.Out.Flush();
         }
     }
 
