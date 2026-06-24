@@ -2,7 +2,47 @@
 
 Agent is a restructured version of the original RealTimeKql library. It is a daemon-consumable .NET library for resource-native event filtering and field selection using KQL-style YAML profiles.
 
-This package is not a daemon, CLI, installer, SIEM, or server-side normalization engine. A future daemon can host this library and wire it to local syslog, Windows Event Log, ETW, auditd plugin input, files, and output sinks.
+This package is not a daemon, installer, SIEM, or server-side normalization engine. It now includes a thin CLI host for local exploration; a future daemon can host the same libraries and wire them to local syslog, Windows Event Log, ETW, auditd plugin input, files, and output sinks.
+
+
+## Command line tool
+
+DeltaZulu now includes a small `dzagent`-style console host in `src/DeltaZulu.Agent.Cli`.
+It is intentionally thin: the executable wires the existing input libraries, KQL profile executor, pipeline helper, and NDJSON output sinks together so local event exploration has the same resource-profile behavior as daemon hosts.
+
+```text
+Usage: dzagent <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
+
+Inputs:
+  syslog <file>             Tail a local syslog-style file for new events.
+  syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
+  csv <file.csv>            Process a CSV file and then exit.
+  auditd <file>             Process an auditd log file and then exit.
+  winlog <logname>          Listen for new Windows Event Log events (Windows build).
+  evtx <file.evtx>          Process an EVTX file (Windows build).
+  etl <file.etl>            Process an ETL trace file (Windows build).
+  etw <session>             Listen to a real-time ETW session (Windows build).
+
+Outputs:
+  json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
+  table                    Print a compact console table.
+
+Options:
+  --profile, -q, --query    Apply a DeltaZulu YAML resource profile containing KQL.
+  --address <ip>            syslogserver bind address.
+  --port <port>             syslogserver TCP port.
+```
+
+Examples:
+
+```bash
+dzagent syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
+dzagent csv events.csv json out.ndjson --profile profiles/linux/syslog/pam.yaml
+dzagent syslogserver --address 127.0.0.1 --port 5514
+```
+
+Without a profile, source events pass through unchanged into the standard DeltaZulu NDJSON envelope.
+With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Kql`.
 
 ## Current restructuring goals
 

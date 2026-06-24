@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
   <Project Path="src/DeltaZulu.Agent.Core/DeltaZulu.Agent.Core.csproj" />
   <Project Path="src/DeltaZulu.Agent.Inputs.Auditd/DeltaZulu.Agent.Inputs.Auditd.csproj" />
   <Project Path="src/DeltaZulu.Agent.Inputs.Files/DeltaZulu.Agent.Inputs.Files.csproj" />
