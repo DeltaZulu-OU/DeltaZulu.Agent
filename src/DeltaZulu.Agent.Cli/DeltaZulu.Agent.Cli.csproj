@@ -4,6 +4,8 @@
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <AssemblyName>DeltaZulu.Agent</AssemblyName>
     <RootNamespace>DeltaZulu.Agent.Cli</RootNamespace>
+    <StartupObject>DeltaZulu.Agent.Cli.Program</StartupObject>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
