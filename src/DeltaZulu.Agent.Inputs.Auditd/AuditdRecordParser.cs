@@ -3,9 +3,9 @@ using System.Text.RegularExpressions;
 
 namespace DeltaZulu.Agent.Inputs.Auditd;
 
-public sealed class AuditdRecordParser
+public sealed partial class AuditdRecordParser
 {
-    private static readonly Regex PrefixRegex = new(@"^type=(?<type>[A-Z0-9_]+)\s+msg=audit\((?<id>[^)]+)\):\s*(?<payload>.*)$", RegexOptions.Compiled);
+    private static readonly Regex PrefixRegex = CreatePrefixRegex();
 
     public AuditdRecord Parse(string line)
     {
@@ -98,4 +98,7 @@ public sealed class AuditdRecordParser
             return null;
         }
     }
+
+    [GeneratedRegex(@"^type=(?<type>[A-Z0-9_]+)\s+msg=audit\((?<id>[^)]+)\):\s*(?<payload>.*)$")]
+    private static partial Regex CreatePrefixRegex();
 }

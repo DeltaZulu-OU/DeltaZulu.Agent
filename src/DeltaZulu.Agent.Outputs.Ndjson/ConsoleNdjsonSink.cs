@@ -17,7 +17,6 @@ public sealed class ConsoleNdjsonSink : IResourceSink
     public void OnNext(ResourceOutputRecord value)
     {
         Console.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
-        Console.Out.Flush();
     }
 
     public void OnError(Exception error)

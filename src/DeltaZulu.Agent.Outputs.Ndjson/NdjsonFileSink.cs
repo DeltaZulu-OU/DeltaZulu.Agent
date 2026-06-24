@@ -6,7 +6,7 @@ namespace DeltaZulu.Agent.Outputs.Ndjson;
 
 public sealed class NdjsonFileSink : IResourceSink
 {
-    private readonly StreamWriter _writer;
+    private readonly FileStream _stream;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly object _lock = new();
     private bool _disposed;
@@ -17,7 +17,14 @@ public sealed class NdjsonFileSink : IResourceSink
     {
         Name = name;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
-        _writer = new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read));
+        _stream = new FileStream(path, new FileStreamOptions
+        {
+            Mode = FileMode.Append,
+            Access = FileAccess.Write,
+            Share = FileShare.Read,
+            BufferSize = 64 * 1024,
+            Options = FileOptions.SequentialScan
+        });
         _jsonOptions = NdjsonSerializerOptions.CreateDefault();
     }
 
@@ -27,8 +34,8 @@ public sealed class NdjsonFileSink : IResourceSink
         {
             if (_disposed) return;
 
-            _writer.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
-            _writer.Flush();
+            JsonSerializer.Serialize(_stream, value, _jsonOptions);
+            _stream.WriteByte((byte)'\n');
         }
     }
 
@@ -39,8 +46,9 @@ public sealed class NdjsonFileSink : IResourceSink
         {
             if (_disposed) return;
 
-            _writer.WriteLine(JsonSerializer.Serialize(errorRecord, _jsonOptions));
-            _writer.Flush();
+            JsonSerializer.Serialize(_stream, errorRecord, _jsonOptions);
+            _stream.WriteByte((byte)'\n');
+            _stream.Flush();
         }
     }
 
@@ -53,7 +61,7 @@ public sealed class NdjsonFileSink : IResourceSink
             if (_disposed) return;
 
             _disposed = true;
-            _writer.Dispose();
+            _stream.Dispose();
         }
     }
 }

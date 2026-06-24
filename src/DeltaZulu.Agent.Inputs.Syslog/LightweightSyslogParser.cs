@@ -9,12 +9,12 @@ namespace DeltaZulu.Agent.Inputs.Syslog;
 /// It covers common RFC 3164 and RFC 5424 shapes and preserves RawMessage for server-side recovery.
 /// A stricter parser package can replace this class behind the same input boundary later.
 /// </summary>
-public sealed class LightweightSyslogParser
+public sealed partial class LightweightSyslogParser
 {
-    private static readonly Regex PriorityRegex = new(@"^<(?<pri>\d{1,3})>(?<rest>.*)$", RegexOptions.Compiled);
-    private static readonly Regex Rfc5424Regex = new(@"^(?<version>\d)\s+(?<timestamp>\S+)\s+(?<host>\S+)\s+(?<app>\S+)\s+(?<proc>\S+)\s+(?<msgid>\S+)\s+(?<structured>(?:-|\[.*\]))\s*(?<message>.*)$", RegexOptions.Compiled);
-    private static readonly Regex Rfc3164Regex = new(@"^(?<timestamp>[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?<host>\S+)\s+(?<proc>[^\s:\[]+)(?:\[(?<pid>\d+)\])?:?\s*(?<message>.*)$", RegexOptions.Compiled);
-    private static readonly Regex KeyValueRegex = new(@"(?<key>[A-Za-z][A-Za-z0-9_\.-]{1,64})=(?:(?<quoted>""[^""]*"")|(?<value>[^\s]+))", RegexOptions.Compiled);
+    private static readonly Regex PriorityRegex = CreatePriorityRegex();
+    private static readonly Regex Rfc5424Regex = CreateRfc5424Regex();
+    private static readonly Regex Rfc3164Regex = CreateRfc3164Regex();
+    private static readonly Regex KeyValueRegex = CreateKeyValueRegex();
 
     public SourceEvent Parse(string rawMessage, string sourceName, string? sourceAddress = null)
     {
@@ -140,4 +140,16 @@ public sealed class LightweightSyslogParser
 
         return new SourceEvent(metadata, fields);
     }
+
+    [GeneratedRegex(@"^<(?<pri>\d{1,3})>(?<rest>.*)$")]
+    private static partial Regex CreatePriorityRegex();
+
+    [GeneratedRegex(@"^(?<version>\d)\s+(?<timestamp>\S+)\s+(?<host>\S+)\s+(?<app>\S+)\s+(?<proc>\S+)\s+(?<msgid>\S+)\s+(?<structured>(?:-|\[.*\]))\s*(?<message>.*)$")]
+    private static partial Regex CreateRfc5424Regex();
+
+    [GeneratedRegex(@"^(?<timestamp>[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?<host>\S+)\s+(?<proc>[^\s:\[]+)(?:\[(?<pid>\d+)\])?:?\s*(?<message>.*)$")]
+    private static partial Regex CreateRfc3164Regex();
+
+    [GeneratedRegex(@"(?<key>[A-Za-z][A-Za-z0-9_\.-]{1,64})=(?:(?<quoted>""[^""]*"")|(?<value>[^\s]+))")]
+    private static partial Regex CreateKeyValueRegex();
 }
