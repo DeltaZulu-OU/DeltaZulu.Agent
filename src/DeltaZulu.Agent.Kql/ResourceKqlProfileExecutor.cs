@@ -37,11 +37,25 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
             var queryPath = CreateTemporaryQueryFile(profile);
             var tableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
             var disposables = new CompositeDisposable();
+            var errorSignaled = 0;
 
-            var kqlRows = source.Select(e => DictionaryCoercion.ToKqlDictionary(e.ToKqlRow()));
+            var kqlRows = new Subject<IDictionary<string, object>>();
+            disposables.Add(kqlRows);
 
             try
             {
+                var sourceSubscription = source.Subscribe(
+                    sourceEvent => kqlRows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow())),
+                    error => {
+                        kqlRows.OnError(error);
+                        if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                        {
+                            observer.OnError(error);
+                        }
+                    },
+                    kqlRows.OnCompleted);
+                disposables.Add(sourceSubscription);
+
                 var hub = KqlNodeHub.FromFiles(
                     kqlRows,
                     kqlOutput => OnKqlOutput(kqlOutput, profile, observer),
@@ -50,16 +64,23 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 
                 foreach (var failedQuery in hub._node.FailedKqlQueryList)
                 {
-                    observer.OnError(failedQuery.FailureReason);
+                    if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                    {
+                        observer.OnError(failedQuery.FailureReason);
+                    }
                 }
 
                 if (hub._node.FailedKqlQueryList.Count > 0)
                 {
-                    observer.OnCompleted();
                     return disposables;
                 }
 
-                hub._node.KqlKqlQueryFailed += (_, args) => observer.OnError(args.Exception);
+                hub._node.KqlKqlQueryFailed += (_, args) => {
+                    if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                    {
+                        observer.OnError(args.Exception);
+                    }
+                };
                 hub._node.EnableFailedKqlQueryEvents = true;
 
                 if (hub._outputSubscription is not null)
@@ -72,8 +93,10 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
             }
             catch (Exception ex)
             {
-                observer.OnError(ex);
-                observer.OnCompleted();
+                if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                {
+                    observer.OnError(ex);
+                }
             }
 
             return disposables;

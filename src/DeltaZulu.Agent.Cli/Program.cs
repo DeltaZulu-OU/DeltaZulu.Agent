@@ -67,7 +67,13 @@ internal static class Program
 
             using var subscription = trackedPipeline.Start(cts.Token);
             completed.Wait(cts.Token);
-            return doneSink.Error is null ? 0 : 1;
+            if (doneSink.Error is not null)
+            {
+                LogPipelineError(doneSink.Error);
+                return 1;
+            }
+
+            return 0;
         }
         catch (OperationCanceledException)
         {
@@ -75,10 +81,17 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"error: {ex.Message}");
+            LogPipelineError(ex);
             Console.Error.Flush();
             return 1;
         }
+    }
+
+    private static void LogPipelineError(Exception exception)
+    {
+        Console.Error.WriteLine("error: unhandled pipeline exception");
+        Console.Error.WriteLine(exception);
+        Console.Error.Flush();
     }
 
     private static List<ResourceSchemaDescription> CreateBuiltInSchemas() =>
