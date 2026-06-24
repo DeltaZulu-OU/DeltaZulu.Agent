@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: windows.eventlog.security
-name: Windows Security Event Log resource filter
+name: Windows Security Event Log noise suppression profile
 version: 1.0.0
 enabled: true
 resource:
@@ -23,5 +23,35 @@ filter:
   language: kql
   query: |
     Source
-    | where EventId in (4624, 4625, 4634, 4648, 4672)
+    // Wazuh default suppressed events. These events are noisy, but may need to be re-enabled for some detection use cases.
+    // 4656(S, F): A handle to an object was requested.
+    // 4658(S): The handle to an object was closed.
+    // 4659(S): A handle to an object was requested with intent to delete.
+    // 4660(S): An object was deleted.
+    // 4663(S): An attempt was made to access an object.
+    // 4670(S): Permissions on an object were changed.
+    // 4690(S): An attempt was made to duplicate a handle to an object.
+    // 4703(S): A user right was adjusted.
+    // 4907(S): Auditing settings on an object were changed.
+    // 4957(S): Windows Firewall did not apply a rule.
+    // 5145(S, F): A network share object was checked for desired access.
+    // 5152(F): The Windows Filtering Platform blocked a packet.
+    // 5156(S): The Windows Filtering Platform permitted a connection.
+    // 5157(F): The Windows Filtering Platform blocked a connection.
+    // 5447(S): A Windows Filtering Platform filter was changed.
+    | where EventId notin (4656, 4658, 4659, 4660, 4663, 4670, 4690, 4703, 4907, 4957, 5145, 5152, 5156, 5157, 5447)
+    // Suppress common network noise for EventID 5140.
+    | where not (EventId == 5140 and AccessMask == '0x1' and ((ShareName has @'\C$' and IpAddress == '127.0.0.1') or (ShareName has @'\SYSVOL')))
+    // Suppress logoff noise for DWM, Font Driver Host, and valid anonymous logoff activity related to SMB or RDP.
+    | where not (EventId == 4634 and (TargetDomainName in ('Window Manager', 'Font Driver Host') or TargetUserName == 'ANONYMOUS LOGON'))
+    // Suppress known executables run by SYSTEM, Local Service, or Network Service.
+    | where not (EventId == 4688 and SubjectLogonId in ('0x3e7', '0x3e4', '0x3e5') and ParentProcessName in~ (@'C:\Windows\System32\svchost.exe', @'C:\Windows\System32\services.exe', @'C:\Windows\System32\SearchIndexer.exe', @'C:\Windows\System32\winlogon.exe', @'C:\Windows\System32\gpupdate.exe', @'C:\Windows\System32\MusNotification.exe', @'C:\Windows\System32\sdbinst.exe', @'C:\Windows\System32\LogonUI.exe', @'C:\Windows\System32\smss.exe', @'C:\Windows\System32\powercfg.exe', @'C:\Windows\System32\CompatTelRunner.exe'))
+    // Suppress noisy service start-type changes for TrustedInstaller and BITS.
+    | where not (EventId == 7040 and param4 in ('TrustedInstaller', 'BITS'))
+    // Suppress scheduled task events managed by SYSTEM, Local Service, and Network Service.
+    | where not (EventId in (4698, 4699, 4700, 4701, 4702) and SubjectUserSid in ('S-1-5-18', 'S-1-5-19', 'S-1-5-20'))
+    // Suppress noisy "A privileged service was called" events from known application binaries.
+    | where not (EventId == 4673 and ProcessName in~ (@'C:\Program Files\Google\Chrome\Application\chrome.exe', @'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', @'C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_1.24.25200.0_x64__8wekyb3d8bbwe\WindowsPackageManagerServer.exe'))
+    // Remove service and system logons, anonymous logons, and Local System events from success/failure logon capture.
+    | where not (EventId in (4624, 4625, 4634) and (LogonType in (0, 5) or TargetUserName == 'ANONYMOUS LOGON' or TargetUserSid == 'S-1-5-18'))
     | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata
