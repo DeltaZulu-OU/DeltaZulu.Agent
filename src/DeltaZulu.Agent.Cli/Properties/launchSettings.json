@@ -2,7 +2,7 @@
   "profiles": {
     "DeltaZulu.Agent.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "winlog Security json security-4688.ndjson --kql \"Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata\""
+      "commandLineArgs": "winlog Security table --kql \"Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata\""
     }
   }
 }

@@ -106,6 +106,7 @@ internal static class Program
             if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
             {
                 Console.Error.WriteLine($"error: {errorMessage}");
+                Console.Error.Flush();
                 return false;
             }
         }
