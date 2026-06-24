@@ -45,19 +45,10 @@ public sealed class ResourceProfileValidator
             errors.Add("input.schema is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(profile.Filter.Language))
-        {
-            errors.Add("filter.language is required.");
-        }
-
-        if (!profile.Filter.Language.Equals("kql", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(profile.Filter.Language)
+            && !profile.Filter.Language.Equals("kql", StringComparison.OrdinalIgnoreCase))
         {
             errors.Add("Only filter.language: kql is supported in this implementation.");
-        }
-
-        if (string.IsNullOrWhiteSpace(profile.Filter.Query))
-        {
-            errors.Add("filter.query is required.");
         }
 
         if (!profile.Output.Format.Equals("ndjson", StringComparison.OrdinalIgnoreCase))

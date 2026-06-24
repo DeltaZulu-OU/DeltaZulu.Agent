@@ -1,13 +1,12 @@
 schemaVersion: 1
-id: windows.eventlog.sysmon-operational
-name: Sysmon Operational Event Log resource filter
+id: windows.eventlog.application-experience-program-inventory
+name: Application Experience Program Inventory Event Log
 version: 1.0.0
 enabled: true
 resource:
   platform: windows
   family: eventlog
-  channel: Microsoft-Windows-Sysmon/Operational
-  provider: Microsoft-Windows-Sysmon
+  channel: Microsoft-Windows-Application-Experience/Program-Inventory
 input:
   table: Source
   schema: WindowsEventLog.Native

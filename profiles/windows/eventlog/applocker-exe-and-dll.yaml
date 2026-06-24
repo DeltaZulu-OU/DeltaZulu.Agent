@@ -1,0 +1,26 @@
+schemaVersion: 1
+id: windows.eventlog.applocker-exe-and-dll
+name: AppLocker EXE and DLL Event Log
+version: 1.0.0
+enabled: true
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-AppLocker/EXE and DLL
+input:
+  table: Source
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Source
+    | where EventId in (8003, 8004)
+    | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata

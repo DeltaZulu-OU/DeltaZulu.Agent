@@ -200,7 +200,11 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
     private string CreateTemporaryQueryFile(ResourceProfile profile)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agent-{profile.Id}-{Guid.NewGuid():N}.kql");
-        File.WriteAllText(path, NormalizeQueryForRxKql(profile.Filter.Query));
+        var query = string.IsNullOrWhiteSpace(profile.Filter.Query)
+            ? profile.Input.Table
+            : profile.Filter.Query;
+
+        File.WriteAllText(path, NormalizeQueryForRxKql(query));
         _temporaryQueryFiles.Add(path);
         return path;
     }

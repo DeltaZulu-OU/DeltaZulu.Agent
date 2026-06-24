@@ -1,13 +1,12 @@
 schemaVersion: 1
-id: windows.eventlog.sysmon-operational
-name: Sysmon Operational Event Log resource filter
+id: windows.eventlog.dns-client-operational
+name: DNS Client Operational Event Log
 version: 1.0.0
 enabled: true
 resource:
   platform: windows
   family: eventlog
-  channel: Microsoft-Windows-Sysmon/Operational
-  provider: Microsoft-Windows-Sysmon
+  channel: Microsoft-Windows-DNS-Client/Operational
 input:
   table: Source
   schema: WindowsEventLog.Native

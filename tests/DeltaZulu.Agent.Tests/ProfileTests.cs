@@ -15,6 +15,17 @@ public sealed class ProfileTests
     }
 
     [TestMethod]
+    public void Validate_AcceptsProfileWithoutFilterQuery()
+    {
+        var profile = CreateValidProfile();
+        profile.Filter = new ResourceFilter();
+
+        var errors = new ResourceProfileValidator().Validate(profile);
+
+        Assert.AreEqual(0, errors.Count);
+    }
+
+    [TestMethod]
     public void Validate_ReportsBusinessRuleViolationsTogether()
     {
         var profile = CreateValidProfile();

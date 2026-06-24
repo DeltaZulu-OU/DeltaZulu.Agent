@@ -1,0 +1,26 @@
+schemaVersion: 1
+id: windows.eventlog.applocker-msi-and-script
+name: AppLocker MSI and Script Event Log
+version: 1.0.0
+enabled: true
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-AppLocker/MSI and Script
+input:
+  table: Source
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Source
+    | where EventId in (8006, 8007)
+    | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata
