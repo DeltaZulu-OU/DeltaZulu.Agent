@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.2.3" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.2.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Auditd\DeltaZulu.Agent.Inputs.Auditd.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Files\DeltaZulu.Agent.Inputs.Files.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Syslog\DeltaZulu.Agent.Inputs.Syslog.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Kql\DeltaZulu.Agent.Kql.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Outputs.Ndjson\DeltaZulu.Agent.Outputs.Ndjson.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Profiles\DeltaZulu.Agent.Profiles.csproj" />
+  </ItemGroup>
+</Project>
