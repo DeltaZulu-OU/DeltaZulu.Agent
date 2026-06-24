@@ -1,0 +1,26 @@
+schemaVersion: 1
+id: linux.syslog.pam
+name: PAM syslog resource filter
+version: 1.0.0
+enabled: true
+resource:
+  platform: linux
+  family: syslog
+  service: pam
+input:
+  table: Source
+  schema: LinuxSyslog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Source
+    | where Message has "pam_" or Message has_any ("authentication failure", "session opened", "session closed")
+    | project Timestamp, Hostname, Facility, Severity, ProcessName, ProcessId, Message, ExtractedData, RawMessage, _metadata

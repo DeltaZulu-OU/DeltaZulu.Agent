@@ -1,0 +1,27 @@
+schemaVersion: 1
+id: linux.syslog.sshd
+name: OpenSSH daemon syslog resource filter
+version: 1.0.0
+enabled: true
+resource:
+  platform: linux
+  family: syslog
+  service: sshd
+input:
+  table: Source
+  schema: LinuxSyslog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Source
+    | where ProcessName == "sshd" or AppName == "sshd"
+    | where Message has_any ("Failed password", "Accepted password", "Accepted publickey", "Invalid user", "Disconnected from", "Connection closed by")
+    | project Timestamp, Hostname, Facility, Severity, ProcessName, ProcessId, AppName, ProcId, Message, ExtractedData, RawMessage, _metadata

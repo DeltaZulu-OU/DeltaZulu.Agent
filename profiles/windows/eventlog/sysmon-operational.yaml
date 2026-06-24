@@ -1,0 +1,28 @@
+schemaVersion: 1
+id: windows.eventlog.sysmon-operational
+name: Sysmon Operational Event Log resource filter
+version: 1.0.0
+enabled: true
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-Sysmon/Operational
+  provider: Microsoft-Windows-Sysmon
+input:
+  table: Source
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Source
+    | where Channel == "Microsoft-Windows-Sysmon/Operational" or ProviderName == "Microsoft-Windows-Sysmon"
+    | where EventId in (1, 3, 7, 10, 11, 12, 13, 22)
+    | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata

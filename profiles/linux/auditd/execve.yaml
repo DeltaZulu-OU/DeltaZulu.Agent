@@ -1,0 +1,32 @@
+schemaVersion: 1
+id: linux.auditd.execve
+name: Linux auditd execve resource filter
+version: 1.0.0
+enabled: true
+resource:
+  platform: linux
+  family: auditd
+  service: auditd
+  recordTypes:
+    - SYSCALL
+    - EXECVE
+    - CWD
+    - PATH
+    - PROCTITLE
+input:
+  table: Source
+  schema: LinuxAuditd.AssembledEvent
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Source
+    | where SYSCALL.SYSCALL == "execve" or SYSCALL.syscall == 59
+    | project ID, SYSCALL, EXECVE, CWD, PATH, PROCTITLE, RawEvent, _metadata

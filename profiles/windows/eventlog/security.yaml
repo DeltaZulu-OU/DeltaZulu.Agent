@@ -1,0 +1,27 @@
+schemaVersion: 1
+id: windows.eventlog.security
+name: Windows Security Event Log resource filter
+version: 1.0.0
+enabled: true
+resource:
+  platform: windows
+  family: eventlog
+  channel: Security
+  provider: Microsoft-Windows-Security-Auditing
+input:
+  table: Source
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Source
+    | where EventId in (4624, 4625, 4634, 4648, 4672)
+    | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata
