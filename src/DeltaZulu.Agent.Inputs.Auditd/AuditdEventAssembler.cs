@@ -4,7 +4,7 @@ namespace DeltaZulu.Agent.Inputs.Auditd;
 
 /// <summary>
 /// LAUREL-inspired audit event assembler. It groups audit records by msg=audit(TIME:SEQUENCE).
-/// This restructuring keeps it intentionally conservative; process tracking/enrichment is roadmap-only.
+/// This agent keeps it intentionally conservative; process tracking/enrichment is roadmap-only.
 /// </summary>
 public sealed class AuditdEventAssembler
 {

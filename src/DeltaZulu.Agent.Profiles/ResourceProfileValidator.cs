@@ -14,9 +14,9 @@ public sealed class ResourceProfileValidator
         if (string.IsNullOrWhiteSpace(profile.Input.Table)) errors.Add("input.table is required.");
         if (string.IsNullOrWhiteSpace(profile.Input.Schema)) errors.Add("input.schema is required.");
         if (string.IsNullOrWhiteSpace(profile.Filter.Language)) errors.Add("filter.language is required.");
-        if (!profile.Filter.Language.Equals("kql", StringComparison.OrdinalIgnoreCase)) errors.Add("Only filter.language: kql is supported in this restructuring.");
+        if (!profile.Filter.Language.Equals("kql", StringComparison.OrdinalIgnoreCase)) errors.Add("Only filter.language: kql is supported in this implementation.");
         if (string.IsNullOrWhiteSpace(profile.Filter.Query)) errors.Add("filter.query is required.");
-        if (!profile.Output.Format.Equals("ndjson", StringComparison.OrdinalIgnoreCase)) errors.Add("Only output.format: ndjson is supported in this restructuring.");
+        if (!profile.Output.Format.Equals("ndjson", StringComparison.OrdinalIgnoreCase)) errors.Add("Only output.format: ndjson is supported in this implementation.");
         if (!profile.Output.PreserveOriginalFieldNames) errors.Add("preserveOriginalFieldNames must remain true. Server-side normalization owns semantic field mapping.");
         return errors;
     }

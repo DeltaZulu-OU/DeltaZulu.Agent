@@ -55,7 +55,7 @@ Agent output is one JSON object per line:
 
 ## Inputs
 
-The restructuring keeps the original input families but moves them behind `IResourceInput`:
+The implementation keeps the RealTimeKql-inspired input families behind `IResourceInput`:
 
 - syslog over TCP and syslog file tailing,
 - CSV file input,
@@ -73,7 +73,7 @@ Queries should usually include `_metadata` in the projection so the NDJSON write
 
 ## Enrichment
 
-Enrichment is not implemented in this restructuring. The future model should use typed resource-local state providers, for example:
+Enrichment is not implemented in this agent. The future model should use typed resource-local state providers, for example:
 
 - `WindowsSidResolver`,
 - `WindowsLogonSessionState`,

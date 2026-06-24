@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace DeltaZulu.Agent.Inputs.Syslog;
 
 /// <summary>
-/// Dependency-free syslog parser used to remove the missing Microsoft.Syslog project reference from the original library.
+/// Dependency-free syslog parser used to avoid taking a Microsoft.Syslog project dependency.
 /// It covers common RFC 3164 and RFC 5424 shapes and preserves RawMessage for server-side recovery.
 /// A stricter parser package can replace this class behind the same input boundary later.
 /// </summary>

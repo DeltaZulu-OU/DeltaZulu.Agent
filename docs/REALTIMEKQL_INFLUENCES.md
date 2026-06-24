@@ -1,10 +1,10 @@
-# Migration from the original library
+# RealTimeKql influences
 
-This implementation is a restructuring, not a greenfield rewrite. The original design mixed input, KQL processing, output, and lifecycle behavior around `EventComponent`. The new structure separates those responsibilities.
+This implementation is inspired by RealTimeKql, but it is not a restructuring of that codebase. RealTimeKql mixed input, KQL processing, output, and lifecycle behavior around `EventComponent`; DeltaZulu.Agent uses separate host-neutral components for those responsibilities.
 
-## Main replacements
+## Conceptual mapping
 
-| Original | New |
+| RealTimeKql concept | DeltaZulu.Agent concept |
 |---|---|
 | `RealTimeKqlLibrary` namespace | `DeltaZulu.Agent.*` namespaces |
 | `EventComponent` | `IResourceInput` + `ResourcePipeline` + profile executor |
@@ -13,12 +13,12 @@ This implementation is a restructuring, not a greenfield rewrite. The original d
 | `ModifierSubject<T>` | Rx `Select`, `Subject<T>`, or `Observable.Create` |
 | Query file array in constructor | YAML resource profile with embedded KQL |
 | JSON array file output | NDJSON envelope output |
-| ADX/Blob direct output | intentionally not carried into the first restructuring; emit NDJSON and let the daemon/server forward |
+| ADX/Blob direct output | intentionally not included in this agent; emit NDJSON and let the daemon/server forward |
 | `Microsoft.Syslog` project reference | lightweight parser behind `DeltaZulu.Agent.Inputs.Syslog`; can later be replaced by a parser adapter |
 
-## Preserved source capability
+## Inspired source capability
 
-The Windows input project carries forward the original ETW/ETL/EVTX/Event Log concept using `Tx.Windows` and `Tx.Windows.Logs`.
+The Windows input project follows the same ETW/ETL/EVTX/Event Log problem space using `Tx.Windows` and `Tx.Windows.Logs`.
 
 ## Breaking API policy
 

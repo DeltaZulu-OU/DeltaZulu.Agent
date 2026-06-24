@@ -26,8 +26,8 @@ public sealed class ProfileTests
         var errors = new ResourceProfileValidator().Validate(profile);
 
         CollectionAssert.Contains(errors.ToList(), "schemaVersion must be greater than zero.");
-        CollectionAssert.Contains(errors.ToList(), "Only filter.language: kql is supported in this restructuring.");
-        CollectionAssert.Contains(errors.ToList(), "Only output.format: ndjson is supported in this restructuring.");
+        CollectionAssert.Contains(errors.ToList(), "Only filter.language: kql is supported in this implementation.");
+        CollectionAssert.Contains(errors.ToList(), "Only output.format: ndjson is supported in this implementation.");
         CollectionAssert.Contains(errors.ToList(), "preserveOriginalFieldNames must remain true. Server-side normalization owns semantic field mapping.");
     }
 
