@@ -3,7 +3,7 @@ id: windows.eventlog.vhdmp-operational
 name: VHDMP Operational Event Log
 version: 1.0.0
 enabled: true
-mandatory: true
+mandatory: false
 resource:
   platform: windows
   family: eventlog

@@ -3,7 +3,7 @@ id: windows.eventlog.sysmon-operational
 name: Sysmon Operational Event Log resource filter
 version: 1.0.0
 enabled: true
-mandatory: true
+mandatory: false
 resource:
   platform: windows
   family: eventlog

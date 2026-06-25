@@ -460,7 +460,7 @@ internal static partial class Program
         }
 
         schemas = schemas
-            .OrderBy(schema => schema.EventLog, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(schema => schema.Source, StringComparer.OrdinalIgnoreCase)
             .ThenBy(schema => schema.Platform, StringComparer.OrdinalIgnoreCase)
             .ThenBy(schema => schema.Family, StringComparer.OrdinalIgnoreCase)
             .ThenBy(schema => schema.Id, StringComparer.OrdinalIgnoreCase)
