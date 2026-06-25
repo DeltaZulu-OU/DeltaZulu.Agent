@@ -15,6 +15,9 @@ namespace DeltaZulu.Agent.Kql;
 /// </summary>
 public sealed class ResourceKqlProfileExecutor : IDisposable
 {
+    private static readonly Lazy<bool> ScalarFunctionsRegistered = new(RegisterScalarFunctions, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private readonly object _gate = new();
     private readonly List<IDisposable> _subscriptions = [];
     private readonly List<string> _temporaryQueryFiles = [];
     private bool _disposed;
@@ -32,7 +35,7 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
             return Observable.Empty<ResourceOutputRecord>();
         }
 
-        ScalarFunctionFactory.AddFunctions(typeof(AgentScalarFunctions));
+        _ = ScalarFunctionsRegistered.Value;
 
         return Observable.Create<ResourceOutputRecord>(observer => {
             var queryPath = CreateTemporaryQueryFile(profile);
@@ -86,7 +89,11 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 
                 if (hub._outputSubscription is not null)
                 {
-                    _subscriptions.Add(hub._outputSubscription);
+                    lock (_gate)
+                    {
+                        _subscriptions.Add(hub._outputSubscription);
+                    }
+
                     disposables.Add(hub._outputSubscription);
                 }
 
@@ -102,6 +109,12 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 
             return disposables;
         });
+    }
+
+    private static bool RegisterScalarFunctions()
+    {
+        ScalarFunctionFactory.AddFunctions(typeof(AgentScalarFunctions));
+        return true;
     }
 
     private void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output)
@@ -205,7 +218,10 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
             : profile.Filter.Query;
 
         File.WriteAllText(path, NormalizeQueryForRxKql(query));
-        _temporaryQueryFiles.Add(path);
+        lock (_gate)
+        {
+            _temporaryQueryFiles.Add(path);
+        }
         return path;
     }
 
@@ -218,12 +234,20 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 
         _disposed = true;
 
-        foreach (var subscription in _subscriptions)
+        IDisposable[] subscriptions;
+        string[] temporaryQueryFiles;
+        lock (_gate)
+        {
+            subscriptions = [.. _subscriptions];
+            temporaryQueryFiles = [.. _temporaryQueryFiles];
+        }
+
+        foreach (var subscription in subscriptions)
         {
             subscription.Dispose();
         }
 
-        foreach (var temporaryQueryFile in _temporaryQueryFiles)
+        foreach (var temporaryQueryFile in temporaryQueryFiles)
         {
             try { File.Delete(temporaryQueryFile); }
             catch { /* best effort cleanup */ }

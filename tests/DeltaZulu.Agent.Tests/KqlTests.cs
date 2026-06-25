@@ -31,6 +31,31 @@ public sealed class KqlTests
     }
 
     [TestMethod]
+    public void Execute_CanBeCreatedConcurrentlyWithoutReregisteringScalarFunctions()
+    {
+        var exceptions = new List<Exception>();
+
+        Parallel.For(0, 64, _ => {
+            try
+            {
+                using var executor = new ResourceKqlProfileExecutor();
+                using var subscription = executor
+                    .Execute(Observable.Empty<SourceEvent>(), CreatePassThroughProfile())
+                    .Subscribe(_ => { });
+            }
+            catch (Exception ex)
+            {
+                lock (exceptions)
+                {
+                    exceptions.Add(ex);
+                }
+            }
+        });
+
+        Assert.AreEqual(0, exceptions.Count, string.Join(Environment.NewLine, exceptions));
+    }
+
+    [TestMethod]
     public void NormalizeQueryForRxKql_RewritesNotInAliasOutsideStrings()
     {
         var query = "EventLog | where EventID notin (4656, 4658) | where Message has 'notin' | where Other NOTIN (1)";
