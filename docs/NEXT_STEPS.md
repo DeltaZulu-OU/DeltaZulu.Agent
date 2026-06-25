@@ -1,21 +1,42 @@
 # Next steps before merging
 
-1. Restore and build locally with .NET 10 SDK.
+The repository already contains the buffer library, RELP-neutral forwarder contracts, buffered forwarder sink, and demo ACK server. The remaining merge blockers are validation, fixture coverage, and production transport hardening.
+
+## Immediate validation
+
+1. Restore and build locally with the .NET 10 SDK.
 2. Fix any `Microsoft.Rx.Kql` and `Tx.Windows` API compatibility issues exposed by the build.
-3. Add test projects and fixture-based tests.
-4. Prove whether nested field access works in profile KQL:
+3. Run the existing Agent and Buffer test projects on a .NET 10-capable host.
+4. Add CI or documented local commands that make the required SDK and Windows-only target expectations explicit.
+
+## Profile and fixture coverage
+
+5. Add golden raw-input to NDJSON-output fixtures for syslog, CSV, auditd, Windows Event Log, and ETW/ETL where host-neutral fixtures are possible.
+6. Prove whether nested field access works in profile KQL:
    - `EventData.TargetUserSid`,
    - `SYSCALL.SYSCALL`,
    - `EXECVE.ARGV`,
    - `_metadata.profileId`.
-5. Decide whether KQL row exposure must be flattened for nested fields.
-6. Add golden raw-input to NDJSON-output fixtures.
-7. Harden auditd assembler completion rules and malformed-record handling.
-8. Add daemon-facing examples after the library compiles.
-9. Build and validate `DeltaZulu.Buffer` with .NET 10 SDK.
-10. Follow the forwarder-first plan in [FORWARDER_PLAN.md](FORWARDER_PLAN.md): wire `DeltaZuluBufferHost` after KQL filtering and before transport.
-11. Add a demo/mock ACK server that prints collected log batches to the console before implementing the RELP.Net adapter.
-12. Implement RELP-neutral delivery records, batches, acknowledgements, and a transport port so RELP.Net remains an infrastructure adapter.
-13. Implement two-buffer pattern: primary buffer for delivery, secondary buffer for dead-letter overflow with its own retry loop.
-14. Add buffer and forwarder health metrics to the Agent's diagnostic output.
-15. Defer broad Clean/Onion project restructuring until the forwarder demo and RELP adapter prove the boundaries.
+7. Decide whether KQL row exposure must be flattened for nested fields.
+8. Harden profile validation around metadata preservation and malformed profile diagnostics.
+
+## Input hardening
+
+9. Harden auditd assembler completion rules and malformed-record handling.
+10. Extend auditd decoding toward LAUREL-level behavior without adding server-side normalization to the edge.
+11. Improve Windows Event Log field extraction documentation with examples for common Security, Sysmon, PowerShell, SMB, and Defender profiles.
+
+## Forwarder hardening
+
+12. Exercise the existing buffered forwarder path against the demo ACK server for success, transient failure, retry, permanent failure, dead-letter, and restart recovery.
+13. Add daemon-facing examples for the `forwarder` sink and `forwarder-server` command.
+14. Add buffer and forwarder health metrics to the Agent diagnostic output.
+15. Preserve delivery identity and metadata outside user-controlled KQL projections.
+16. Implement the RELP.Net adapter behind `IForwarderTransport` after the demo path is validated.
+17. Add TLS, certificate validation, reconnect/backoff, endpoint failover, and production receiver documentation after plain RELP works.
+
+## Architecture discipline
+
+18. Keep `DeltaZulu.Buffer` as the authoritative durability and backpressure layer.
+19. Keep RELP.Net details behind the forwarder transport adapter.
+20. Defer broad Clean/Onion project restructuring until the RELP adapter and daemon host prove which boundaries need extraction.
