@@ -15,20 +15,23 @@ Usage:
   dzagent <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
   dzagent <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
   dzagent schemas [<profiles-dir>] [table|json]
+  dzagent forwarder-server [--address <ip>] [--port <port>]
 
 Inputs:
   syslog <file>             Tail a local syslog-style file for new events.
   syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
   csv <file.csv>            Process a CSV file and then exit.
   auditd <file>             Process an auditd log file and then exit.
-  eventlog <logname>          Listen for new Windows Event Log events (Windows build).
+  eventlog <logname>        Listen for new Windows Event Log events (Windows build).
   evtx <file.evtx>          Process an EVTX file (Windows build).
   etl <file.etl>            Process an ETL trace file (Windows build).
   etw <session>             Listen to a real-time ETW session (Windows build).
 
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
-  table                    Print a compact console table.
+  table                     Print a compact console table.
+  forwarder [buffer-dir]    Buffer filtered records locally and send them to the demo forwarder server.
+
 
 Options:
   --profile <profile.yaml>  Apply a DeltaZulu YAML resource profile containing KQL.
@@ -37,7 +40,10 @@ Options:
   --schema <columns>        Resource schema text to associate with --kql.
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
-  --port <port>             syslogserver TCP port.
+  --port <port>             syslogserver TCP port, or forwarder-server TCP port.
+  --forwarder-host <host>    Demo forwarder target host for forwarder output (default 127.0.0.1).
+  --forwarder-port <port>    Demo forwarder target port for forwarder output (default 6514).
+  --forwarder-buffer <dir>   Buffer directory for forwarder output.
 ```
 
 Examples:
@@ -46,7 +52,8 @@ Examples:
 dzagent syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
 dzagent csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
 dzagent syslogserver --address 127.0.0.1 --port 5514
-dzagent schemas profiles json
+dzagent forwarder-server --address 127.0.0.1 --port 6514
+dzagent syslog /var/log/auth.log forwarder ./buffer --forwarder-host 127.0.0.1 --forwarder-port 6514
 ```
 
 Windows process creation examples:
@@ -111,6 +118,7 @@ src/
   DeltaZulu.Agent.Profiles/
   DeltaZulu.Agent.Kql/
   DeltaZulu.Agent.Outputs.Ndjson/
+  DeltaZulu.Agent.Forwarder/
   DeltaZulu.Agent.Inputs.Syslog/
   DeltaZulu.Agent.Inputs.Files/
   DeltaZulu.Agent.Inputs.Auditd/

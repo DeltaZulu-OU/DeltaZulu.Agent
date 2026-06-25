@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Forwarder\DeltaZulu.Agent.Forwarder.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Inputs.Auditd\DeltaZulu.Agent.Inputs.Auditd.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Inputs.Files\DeltaZulu.Agent.Inputs.Files.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Inputs.Syslog\DeltaZulu.Agent.Inputs.Syslog.csproj" />

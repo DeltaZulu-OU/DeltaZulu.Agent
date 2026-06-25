@@ -10,6 +10,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Forwarder\DeltaZulu.Agent.Forwarder.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Buffer\DeltaZulu.Buffer.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Auditd\DeltaZulu.Agent.Inputs.Auditd.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Files\DeltaZulu.Agent.Inputs.Files.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Syslog\DeltaZulu.Agent.Inputs.Syslog.csproj" />

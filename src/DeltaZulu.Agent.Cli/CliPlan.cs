@@ -75,7 +75,9 @@ internal static partial class Program
             return new CliPlan(input, inputArg, output, outputArg, options);
         }
 
-        private static bool IsOutput(string value) => value.Equals("json", StringComparison.OrdinalIgnoreCase) || value.Equals("table", StringComparison.OrdinalIgnoreCase);
+        private static bool IsOutput(string value) => value.Equals("json", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("table", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("forwarder", StringComparison.OrdinalIgnoreCase);
 
         private static bool IsInput(string value) => value.Equals("syslog", StringComparison.OrdinalIgnoreCase)
             || value.Equals("syslogserver", StringComparison.OrdinalIgnoreCase)

@@ -13,6 +13,9 @@
 7. Harden auditd assembler completion rules and malformed-record handling.
 8. Add daemon-facing examples after the library compiles.
 9. Build and validate `DeltaZulu.Buffer` with .NET 10 SDK.
-10. Wire `DeltaZuluBufferHost` into the Agent pipeline between inputs and output sinks.
-11. Implement two-buffer pattern: primary buffer for delivery, secondary buffer for dead-letter overflow with its own retry loop.
-12. Add buffer health metrics to the Agent's diagnostic output.
+10. Follow the forwarder-first plan in [FORWARDER_PLAN.md](FORWARDER_PLAN.md): wire `DeltaZuluBufferHost` after KQL filtering and before transport.
+11. Add a demo/mock ACK server that prints collected log batches to the console before implementing the RELP.Net adapter.
+12. Implement RELP-neutral delivery records, batches, acknowledgements, and a transport port so RELP.Net remains an infrastructure adapter.
+13. Implement two-buffer pattern: primary buffer for delivery, secondary buffer for dead-letter overflow with its own retry loop.
+14. Add buffer and forwarder health metrics to the Agent's diagnostic output.
+15. Defer broad Clean/Onion project restructuring until the forwarder demo and RELP adapter prove the boundaries.
