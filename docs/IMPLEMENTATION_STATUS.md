@@ -14,7 +14,7 @@
 - Auditd parser and basic event assembler.
 - Windows Event Log, EVTX, ETL, and ETW inputs using the original Tx.Windows approach.
 - Sample profiles for sshd, PAM, auditd execve, Windows Security, Sysmon, and ETW kernel process.
-- Forwarder project with RELP-neutral delivery records, buffered chunk sending, demo TCP transport, and a console-printing demo ACK server.
+- Forwarder project with RELP-neutral delivery records, buffered chunk sending, demo TCP transport, a console-printing demo ACK server, and buffered-forwarder health snapshots.
 
 ## DeltaZulu.Buffer
 

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text.Json;
 using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.Buffer.Chunks;
 using DeltaZulu.Buffer.Dispatch;
@@ -87,6 +88,56 @@ public sealed class ForwarderTests
         Assert.AreEqual(chunkId.Value, transport.Batch!.BatchId);
         Assert.AreEqual(1, transport.Batch.Records.Count);
         Assert.AreEqual("42", transport.Batch.Records[0].RecordId);
+    }
+
+    [TestMethod]
+    public void BufferedForwarderSink_HealthSnapshot_ReportsBufferAndForwarderCounters()
+    {
+        using var directory = new TemporaryDirectory();
+        var transport = new CapturingTransport();
+        var options = new DeltaZulu.Buffer.Configuration.DeltaZuluBufferOptions
+        {
+            StoragePath = directory.Path,
+            MaxChunkRecords = 1,
+            MaxChunkBytes = 4096,
+            MaxChunkAge = TimeSpan.FromMinutes(5)
+        };
+
+        using var sink = new BufferedForwarderSink(options, transport);
+        sink.OnNext(new ResourceOutputRecord
+        {
+            Metadata = new Dictionary<string, object?>
+            {
+                ["collectorId"] = "agent-01",
+                ["sourceType"] = "Syslog",
+                ["sourceName"] = "auth.log",
+                ["profileId"] = "linux.sshd"
+            },
+            Event = new Dictionary<string, object?>
+            {
+                ["RecordId"] = "42",
+                ["Message"] = "accepted publickey"
+            }
+        });
+        sink.OnCompleted();
+
+        var health = sink.GetHealthSnapshot();
+
+        Assert.AreEqual(1, health.Buffer.RecordsAcceptedTotal);
+        Assert.IsGreaterThanOrEqualTo(1, health.BatchesSentTotal);
+        Assert.IsGreaterThanOrEqualTo(1, health.BatchesAcknowledgedTotal);
+        Assert.AreEqual(0, health.BatchesDeadLetteredTotal);
+        Assert.IsNotNull(health.LastForwarderActivityUtc);
+
+        var observation = sink.GetHealthOutputRecord(new CollectorObservationMetadata
+        {
+            AgentId = "agent-01",
+            HostId = "host-01"
+        });
+
+        Assert.AreEqual(ForwarderHealthObservation.RecordKind, observation.Metadata["recordKind"]);
+        Assert.AreEqual(1L, observation.Event["recordsAcceptedTotal"]);
+        Assert.AreEqual(0L, observation.Event["batchesDeadLetteredTotal"]);
     }
 
     private static byte[] CreateChunkBytes(byte[] payload)

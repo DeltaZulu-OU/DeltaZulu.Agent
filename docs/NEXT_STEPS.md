@@ -30,7 +30,7 @@ The repository already contains the buffer library, RELP-neutral forwarder contr
 
 12. Exercise the existing buffered forwarder path against the demo ACK server for success, transient failure, retry, permanent failure, dead-letter, and restart recovery.
 13. Add daemon-facing examples for the `forwarder` sink and `forwarder-server` command.
-14. Add buffer and forwarder health metrics to the Agent diagnostic output.
+14. Wire the buffered-forwarder health snapshot into the Agent diagnostic output surface.
 15. Preserve delivery identity and metadata outside user-controlled KQL projections.
 16. Implement the RELP.Net adapter behind `IForwarderTransport` after the demo path is validated.
 17. Add TLS, certificate validation, reconnect/backoff, endpoint failover, and production receiver documentation after plain RELP works.
