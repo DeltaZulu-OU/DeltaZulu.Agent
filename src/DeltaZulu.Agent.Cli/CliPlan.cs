@@ -5,8 +5,10 @@ namespace DeltaZulu.Agent.Cli;
 
 internal static partial class Program
 {
-    private sealed record CliPlan(string InputCommand, string? InputArgument, string OutputCommand, string? OutputArgument, IReadOnlyDictionary<string, string?> Options)
+    private sealed record CliPlan(string? InputCommand, string? InputArgument, string OutputCommand, string? OutputArgument, IReadOnlyDictionary<string, string?> Options)
     {
+        public bool IsProfileMode => !string.IsNullOrWhiteSpace(Option("--profile"));
+
         public string? Option(string name) => Options.TryGetValue(name, out var value) ? value : null;
 
         public static CliPlan Parse(string[] args)
@@ -43,10 +45,21 @@ internal static partial class Program
 
                 if (input is null)
                 {
-                    input = token.ToLowerInvariant();
-                    if (index + 1 < args.Length && !args[index + 1].StartsWith('-') && !IsOutput(args[index + 1]))
+                    if (IsInput(token))
                     {
-                        inputArg = args[++index];
+                        input = token.ToLowerInvariant();
+                        if (index + 1 < args.Length && !args[index + 1].StartsWith('-') && !IsOutput(args[index + 1]))
+                        {
+                            inputArg = args[++index];
+                        }
+                    }
+                    else if (inputArg is null)
+                    {
+                        inputArg = token;
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"unexpected argument '{token}'");
                     }
                     continue;
                 }
@@ -54,9 +67,9 @@ internal static partial class Program
                 throw new ArgumentException($"unexpected argument '{token}'");
             }
 
-            if (string.IsNullOrWhiteSpace(input))
+            if (string.IsNullOrWhiteSpace(input) && !options.ContainsKey("--profile"))
             {
-                throw new ArgumentException("input command is required. Put an input such as 'winlog Security' before or after --kql.");
+                throw new ArgumentException("input command is required unless --profile is used. Put an input such as 'winlog Security' before or after --kql.");
             }
 
             return new CliPlan(input, inputArg, output, outputArg, options);

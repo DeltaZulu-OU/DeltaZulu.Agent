@@ -56,8 +56,13 @@ internal static partial class Program
                 cts.Cancel();
             };
 
-            using var executor = new ResourceKqlProfileExecutor();
             using var sink = CreateSink(plan);
+            if (plan.IsProfileMode)
+            {
+                return RunProfiles(plan, sink, cts.Token);
+            }
+
+            using var executor = new ResourceKqlProfileExecutor();
             using var completed = new ManualResetEventSlim(false);
             using var doneSink = new CompletionTrackingSink(sink, completed);
             var trackedPipeline = new ResourcePipeline(
@@ -183,7 +188,7 @@ internal static partial class Program
         Version = "1.0.0",
         Resource = new ResourceDescriptor {
             Platform = plan.Option("--platform") ?? "local",
-            Family = plan.InputCommand
+            Family = plan.InputCommand ?? "inline"
         },
         Input = new ResourceInputContract {
             Table = plan.Option("--table") ?? "Source",
@@ -199,21 +204,112 @@ internal static partial class Program
         }
     };
 
-    private static IResourceInput CreateInput(CliPlan plan) => plan.InputCommand switch {
-        "syslog" => new SyslogFileTailInput(plan.InputArgument ?? throw new ArgumentException("syslog requires <file>")),
+    private static IResourceInput CreateInput(CliPlan plan) => CreateInput(plan, null);
+
+    private static IResourceInput CreateInput(CliPlan plan, ResourceProfile? profile)
+    {
+        var inputCommand = plan.InputCommand ?? ProfileFamilyToInputCommand(profile)
+            ?? throw new ArgumentException("input command is required when no profile resource family is available.");
+
+        return inputCommand switch {
+        "syslog" => new SyslogFileTailInput(plan.InputArgument ?? throw new ArgumentException("syslog profiles require a target <file> argument.")),
         "syslogserver" => new TcpSyslogInput(IPAddress.Parse(plan.Option("--address") ?? "0.0.0.0"), int.Parse(plan.Option("--port") ?? "514")),
-        "csv" => new CsvFileInput(plan.InputArgument ?? throw new ArgumentException("csv requires <file.csv>")),
-        "auditd" => new AuditdFileInput(plan.InputArgument ?? throw new ArgumentException("auditd requires <file>")),
+        "csv" => new CsvFileInput(plan.InputArgument ?? throw new ArgumentException("csv profiles require a target <file.csv> argument.")),
+        "auditd" => new AuditdFileInput(plan.InputArgument ?? throw new ArgumentException("auditd profiles require a target <file> argument.")),
 #if WINDOWS
-        "winlog" => new WindowsEventLogInput(plan.InputArgument ?? throw new ArgumentException("winlog requires <logname>")),
+        "winlog" => new WindowsEventLogInput(plan.InputArgument ?? profile?.Resource.Channel ?? throw new ArgumentException("winlog profiles require resource.channel or a target <logname> argument.")),
         "evtx" => new EvtxFileInput(plan.InputArgument ?? throw new ArgumentException("evtx requires <file.evtx>")),
         "etl" => new EtlFileInput(plan.InputArgument ?? throw new ArgumentException("etl requires <file.etl>")),
         "etw" => new EtwSessionInput(plan.InputArgument ?? throw new ArgumentException("etw requires <session>")),
 #else
-        "winlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{plan.InputCommand} is available from the net10.0-windows build."),
+        "winlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{inputCommand} is available from the net10.0-windows build."),
 #endif
-        _ => throw new ArgumentException($"unknown input command '{plan.InputCommand}'")
+        _ => throw new ArgumentException($"unknown input command '{inputCommand}'")
+        };
+    }
+
+    private static string? ProfileFamilyToInputCommand(ResourceProfile? profile) => profile?.Resource.Family.ToLowerInvariant() switch
+    {
+        "syslog" => "syslog",
+        "syslogserver" => "syslogserver",
+        "csv" => "csv",
+        "auditd" => "auditd",
+        "eventlog" => "winlog",
+        "windows.eventlog" => "winlog",
+        "evtx" => "evtx",
+        "etl" => "etl",
+        "etw" => "etw",
+        _ => null
     };
+
+    private static int RunProfiles(CliPlan plan, IResourceSink sink, CancellationToken cancellationToken)
+    {
+        var profiles = LoadProfiles(plan.Option("--profile")!);
+        if (profiles.Count == 0)
+        {
+            Console.Error.WriteLine("error: no enabled profiles were found.");
+            Console.Error.Flush();
+            return 1;
+        }
+
+        using var channelSink = new ChannelResourceSink(sink);
+        var tasks = profiles
+            .Select(profile => Task.Run(() => RunProfile(plan, profile, channelSink, cancellationToken), cancellationToken))
+            .ToArray();
+
+        try
+        {
+            Task.WaitAll(tasks, cancellationToken);
+        }
+        catch (AggregateException ex) when (ex.InnerExceptions.Count == 1)
+        {
+            throw ex.InnerExceptions[0];
+        }
+
+        channelSink.Complete();
+        if (channelSink.Error is not null)
+        {
+            LogPipelineError(channelSink.Error);
+            return 1;
+        }
+
+        return 0;
+    }
+
+    private static void RunProfile(CliPlan plan, ResourceProfile profile, IResourceSink sink, CancellationToken cancellationToken)
+    {
+        using var executor = new ResourceKqlProfileExecutor();
+        using var completed = new ManualResetEventSlim(false);
+        using var doneSink = new CompletionTrackingSink(sink, completed, completeInner: false);
+        var pipeline = new ResourcePipeline(
+            CreateInput(plan, profile),
+            source => executor.Execute(source, profile, cancellationToken),
+            doneSink);
+
+        using var subscription = pipeline.Start(cancellationToken);
+        completed.Wait(cancellationToken);
+        if (doneSink.Error is not null)
+        {
+            throw doneSink.Error;
+        }
+    }
+
+    private static IReadOnlyList<ResourceProfile> LoadProfiles(string path)
+    {
+        var loader = new YamlResourceProfileLoader();
+        if (Directory.Exists(path))
+        {
+            var result = loader.LoadDirectory(path);
+            if (result.Errors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join(Environment.NewLine, result.Errors));
+            }
+
+            return result.Profiles.Where(profile => profile.Enabled).ToList();
+        }
+
+        return [loader.LoadFile(path)];
+    }
 
     private static IResourceSink CreateSink(CliPlan plan) => plan.OutputCommand switch {
         "json" => string.IsNullOrWhiteSpace(plan.OutputArgument) ? new ConsoleNdjsonSink() : new NdjsonFileSink(plan.OutputArgument),
@@ -328,7 +424,7 @@ internal static partial class Program
     {
         Console.WriteLine("""
 Usage:
-  dzagent <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
+  dzagent [<input>] [<target>] [<output> [<arg>]] [--profile <profile.yaml|profiles-dir>]
   dzagent <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
   dzagent schemas [<profiles-dir>] [table|json]
 
@@ -347,7 +443,8 @@ Outputs:
   table                    Print a compact console table.
 
 Options:
-  --profile <profile.yaml>  Apply a DeltaZulu YAML resource profile containing KQL.
+  --profile <path>          Apply one profile, or every YAML profile under a directory.
+                           When used, <input> may be omitted and inferred from the profile resource family.
   --kql, -q, --query        Apply inline KQL to the real-time input stream.
   --table <name>            KQL table name for --kql (default Source).
   --schema <columns>        Resource schema text to associate with --kql.
@@ -356,8 +453,10 @@ Options:
   --port <port>             syslogserver TCP port.
 
 Examples:
-  dzagent syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
+  dzagent /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
+  dzagent /var/log/auth.log json out.ndjson --profile profiles/linux/syslog
   dzagent csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
+  dzagent winlog table --profile profiles/windows/eventlog
   dzagent winlog sysmon --kql "Source | where EventId == 1"
   dzagent winlog Security --kql "Source | where EventId == 4688"
   dzagent schemas profiles json
@@ -368,7 +467,32 @@ Examples:
     private static bool ValidateResources(CliPlan plan)
     {
 #if WINDOWS
-        if (plan.InputCommand.Equals("winlog", StringComparison.OrdinalIgnoreCase))
+        if (plan.IsProfileMode)
+        {
+            foreach (var profile in LoadProfiles(plan.Option("--profile")!))
+            {
+                if (!ShouldValidateWindowsEventLog(plan, profile))
+                {
+                    continue;
+                }
+
+                var logName = plan.InputArgument ?? profile.Resource.Channel;
+                if (string.IsNullOrWhiteSpace(logName))
+                {
+                    Console.Error.WriteLine($"error: profile '{profile.Id}' requires resource.channel or a winlog <logname> argument.");
+                    Console.Error.Flush();
+                    return false;
+                }
+
+                if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
+                {
+                    Console.Error.WriteLine($"error: {errorMessage}");
+                    Console.Error.Flush();
+                    return false;
+                }
+            }
+        }
+        else if (plan.InputCommand?.Equals("winlog", StringComparison.OrdinalIgnoreCase) == true)
         {
             var logName = plan.InputArgument ?? throw new ArgumentException("winlog requires <logname>");
             if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
@@ -382,4 +506,16 @@ Examples:
 
         return true;
     }
+
+#if WINDOWS
+    private static bool ShouldValidateWindowsEventLog(CliPlan plan, ResourceProfile profile)
+    {
+        if (plan.InputCommand is not null)
+        {
+            return plan.InputCommand.Equals("winlog", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return ProfileFamilyToInputCommand(profile)?.Equals("winlog", StringComparison.OrdinalIgnoreCase) == true;
+    }
+#endif
 }

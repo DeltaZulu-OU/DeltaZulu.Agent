@@ -12,11 +12,12 @@ internal static partial class Program
     {
         private readonly ManualResetEventSlim _completed;
         private readonly IResourceSink _inner;
+        private readonly bool _completeInner;
         private readonly Lock _lock = new();
 
-        public CompletionTrackingSink(IResourceSink inner, ManualResetEventSlim completed)
+        public CompletionTrackingSink(IResourceSink inner, ManualResetEventSlim completed, bool completeInner = true)
         {
-            (_inner, _completed) = (inner, completed);
+            (_inner, _completed, _completeInner) = (inner, completed, completeInner);
         }
 
         public string Name => _inner.Name;
@@ -31,10 +32,10 @@ internal static partial class Program
             private set;
         }
 
-        public void Dispose() => _inner.Dispose();
+        public void Dispose() { }
 
         public void OnCompleted()
-        { _inner.OnCompleted(); _completed.Set(); }
+        { if (_completeInner) { _inner.OnCompleted(); } _completed.Set(); }
 
         public void OnError(Exception error)
         {
