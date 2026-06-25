@@ -122,6 +122,32 @@ profiles/
   linux/
   windows/
 docs/
+external/
+  RELP.Net/  (git submodule)
+```
+
+## Git submodules
+
+This repository tracks RELP.Net as a Git submodule at `external/RELP.Net`.
+Because Git does not initialize newly added submodules during a normal `git fetch`
+or `git pull`, run the submodule initialization command after pulling this
+change if `external/RELP.Net` appears as an empty directory:
+
+```bash
+git submodule update --init --recursive external/RELP.Net
+```
+
+For a fresh clone, clone with submodules enabled:
+
+```bash
+git clone --recurse-submodules <repo-url>
+```
+
+To update the RELP.Net submodule to the latest commit from its tracked branch,
+use:
+
+```bash
+git submodule update --remote external/RELP.Net
 ```
 
 ## Important implementation note
