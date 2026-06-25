@@ -305,10 +305,43 @@ internal static partial class Program
                 throw new InvalidDataException(string.Join(Environment.NewLine, result.Errors));
             }
 
-            return result.Profiles.Where(profile => profile.Enabled).ToList();
+            return result.Profiles.Where(profile => profile.Enabled && IsProfileConditionSatisfied(profile)).ToList();
         }
 
-        return [loader.LoadFile(path)];
+        var profile = loader.LoadFile(path);
+        return profile.Enabled && IsProfileConditionSatisfied(profile) ? [profile] : [];
+    }
+
+    private static bool IsProfileConditionSatisfied(ResourceProfile profile)
+    {
+        if (profile.Condition is null)
+        {
+            return true;
+        }
+
+        if (!profile.Condition.Type.Equals("wmi", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+#if WINDOWS
+        var scopePath = string.IsNullOrWhiteSpace(profile.Condition.ScopePath)
+            ? @"\\.\root\cimv2"
+            : profile.Condition.ScopePath;
+
+        if (WmiCondition.TryExists(profile.Condition.Query, out var result, out var error, scopePath))
+        {
+            return result;
+        }
+
+        Console.Error.WriteLine($"warning: profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}");
+        Console.Error.Flush();
+        return false;
+#else
+        Console.Error.WriteLine($"warning: profile '{profile.Id}' WMI condition skipped because this build does not include Windows WMI support.");
+        Console.Error.Flush();
+        return false;
+#endif
     }
 
     private static IResourceSink CreateSink(CliPlan plan) => plan.OutputCommand switch {

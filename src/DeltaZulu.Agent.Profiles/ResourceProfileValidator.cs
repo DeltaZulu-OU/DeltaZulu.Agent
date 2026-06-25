@@ -61,6 +61,23 @@ public sealed class ResourceProfileValidator
             errors.Add("preserveOriginalFieldNames must remain true. Server-side normalization owns semantic field mapping.");
         }
 
+        if (profile.Condition is not null)
+        {
+            if (string.IsNullOrWhiteSpace(profile.Condition.Type))
+            {
+                errors.Add("condition.type is required when condition is specified.");
+            }
+            else if (!profile.Condition.Type.Equals("wmi", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("Only condition.type: wmi is supported in this implementation.");
+            }
+
+            if (string.IsNullOrWhiteSpace(profile.Condition.Query))
+            {
+                errors.Add("condition.query is required when condition is specified.");
+            }
+        }
+
         return errors;
     }
 

@@ -25,6 +25,33 @@ public sealed class ProfileTests
     }
 
     [TestMethod]
+    public void Validate_AcceptsWmiCondition()
+    {
+        var profile = CreateValidProfile();
+        profile.Condition = new ResourceCondition
+        {
+            Type = "wmi",
+            Query = "select * from Win32_OperatingSystem where ProductType=2"
+        };
+
+        var errors = new ResourceProfileValidator().Validate(profile);
+
+        Assert.AreEqual(0, errors.Count);
+    }
+
+    [TestMethod]
+    public void Validate_RejectsIncompleteCondition()
+    {
+        var profile = CreateValidProfile();
+        profile.Condition = new ResourceCondition { Type = "eventlog" };
+
+        var errors = new ResourceProfileValidator().Validate(profile);
+
+        CollectionAssert.Contains(errors.ToList(), "Only condition.type: wmi is supported in this implementation.");
+        CollectionAssert.Contains(errors.ToList(), "condition.query is required when condition is specified.");
+    }
+
+    [TestMethod]
     public void Validate_ReportsBusinessRuleViolationsTogether()
     {
         var profile = CreateValidProfile();

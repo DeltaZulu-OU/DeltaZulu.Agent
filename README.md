@@ -73,6 +73,14 @@ With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes i
 With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to another sink with the existing output parameters such as `json out.ndjson` or `table`.
 CLI options such as `--kql` can appear before or after the input command; for example, `dzagent --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
 
+Profiles may include an optional host condition. The first supported condition type is `wmi`, which runs a WQL query and enables the profile only when the query returns at least one row. This is useful for Windows resource profiles that should only run on a specific server role, such as domain controllers:
+
+```yaml
+condition:
+  type: wmi
+  query: select * from Win32_OperatingSystem where ProductType=2
+```
+
 The `schemas` command always lists built-in input resource schemas, so it works before any profile files exist. If the `profiles` directory (or another directory passed on the command line) exists, profile schemas are appended to the same output. Pass optional `table` or `json` format when you need to discover the resource ids, input tables, and schema strings available on the host while deciding which profile files still need to be created or tuned.
 
 ## Current implementation goals

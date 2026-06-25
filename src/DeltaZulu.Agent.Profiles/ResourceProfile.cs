@@ -11,6 +11,14 @@ public sealed class ResourceProfile
     public ResourceInputContract Input { get; set; } = new();
     public ResourceOutputContract Output { get; set; } = new();
     public ResourceFilter Filter { get; set; } = new();
+    public ResourceCondition? Condition { get; set; }
+}
+
+public sealed class ResourceCondition
+{
+    public string Type { get; set; } = string.Empty;
+    public string Query { get; set; } = string.Empty;
+    public string? ScopePath { get; set; }
 }
 
 public sealed class ResourceDescriptor
