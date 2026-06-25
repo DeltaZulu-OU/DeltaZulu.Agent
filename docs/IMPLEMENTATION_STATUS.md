@@ -15,13 +15,30 @@
 - Windows Event Log, EVTX, ETL, and ETW inputs using the original Tx.Windows approach.
 - Sample profiles for sshd, PAM, auditd execve, Windows Security, Sysmon, and ETW kernel process.
 
+## DeltaZulu.Buffer
+
+Local durable buffering library, implemented and tested:
+
+- Binary chunk format with SHA-256 checksums and length-prefixed records.
+- `ChunkBuilder` with streaming `IncrementalHash`, `MemoryStream`, and `BinaryPrimitives`.
+- `FileChunkStore` with atomic rename-based state transitions and symlink protection.
+- `DispatchWorker` with `PriorityQueue`-based retry scheduling.
+- `ExponentialBackoffRetryScheduler` with ±25% jitter.
+- `BackpressureController` with four states and three full policies (Block, RejectNewest, DropOldest).
+- `FileSystemRecoveryManager` for crash recovery on startup.
+- `BufferMetricsCounter` with lock-free `Interlocked` counters.
+- `BufferEventBroadcaster` with lock-free `ImmutableArray` observer list.
+- `DeltaZuluBufferHost<T>` as the public lifecycle owner with `IObservable<BufferEvent>`.
+- `JsonRecordSerializer<T>` as a default `IRecordSerializer<T>`.
+- Unit tests: ChunkBuilder, ChunkFormat, BackpressureController, BufferMetricsCounter, BufferEventBroadcaster, ExponentialBackoffRetryScheduler, FileChunkStore, JsonRecordSerializer.
+- Integration tests: end-to-end write-dispatch-ACK, flush on stop, permanent failure dead-lettering, record-too-large rejection.
+
 ## Not implemented yet
 
 - Daemon, service lifecycle, installer, rsyslog/syslog-ng snippets.
 - Enrichment and resource-local state providers.
 - Full LAUREL-level auditd decoding and process tracking.
 - Profile hot reload.
-- Backpressure and local spooling.
 - Golden fixture tests.
 - Build validation in this environment.
 

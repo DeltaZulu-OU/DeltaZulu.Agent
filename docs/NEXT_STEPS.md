@@ -12,3 +12,7 @@
 6. Add golden raw-input to NDJSON-output fixtures.
 7. Harden auditd assembler completion rules and malformed-record handling.
 8. Add daemon-facing examples after the library compiles.
+9. Build and validate `DeltaZulu.Buffer` with .NET 10 SDK.
+10. Wire `DeltaZuluBufferHost` into the Agent pipeline between inputs and output sinks.
+11. Implement two-buffer pattern: primary buffer for delivery, secondary buffer for dead-letter overflow with its own retry loop.
+12. Add buffer health metrics to the Agent's diagnostic output.

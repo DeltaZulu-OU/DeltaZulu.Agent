@@ -97,6 +97,12 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - Keep enrichment in the roadmap, implemented later through typed resource-local state providers.
 - Exclude DuckDB permanently.
 
+## DeltaZulu.Buffer
+
+A local durable buffering library that provides crash-safe, disk-backed buffering between the collector pipeline and network forwarder. Features include binary chunk format with SHA-256 checksums, exponential backoff retry with jitter, backpressure control, dead-lettering, and atomic file-based state transitions.
+
+See [docs/BUFFER_ARCHITECTURE.md](docs/BUFFER_ARCHITECTURE.md) for full design documentation.
+
 ## Project layout
 
 ```text
@@ -109,6 +115,9 @@ src/
   DeltaZulu.Agent.Inputs.Files/
   DeltaZulu.Agent.Inputs.Auditd/
   DeltaZulu.Agent.Inputs.Windows/
+  DeltaZulu.Buffer/
+tests/
+  DeltaZulu.Buffer.Tests/
 profiles/
   linux/
   windows/

@@ -22,3 +22,27 @@ This repository validates business logic with fast unit tests and avoids mocks f
 3. Prefer literal representative log/profile samples for parser and validator tests.
 4. Add fixture-based integration tests later under a separate naming convention or trait so CI can opt in explicitly.
 5. Prioritize tests around field preservation, normalization boundaries, and error messages because these define compatibility with downstream ResourceQL processing.
+
+## DeltaZulu.Buffer test coverage
+
+Tests are in `tests/DeltaZulu.Buffer.Tests/` using MSTest.
+
+| Test class | Focus |
+| --- | --- |
+| `ChunkBuilderTests` | Append, record count, rotation by count/age, seal validation, checksum roundtrip, reset, byte limit checks. |
+| `ChunkFormatTests` | Checksum validation, corruption detection, record reading, invalid magic, empty chunk. |
+| `BackpressureControllerTests` | All four states (Healthy/Degraded/Pressured/Full), boundary values, precedence rules. |
+| `BufferMetricsCounterTests` | Counter increments, gauge updates, snapshot completeness, `AddDiskBytes` with positive/negative values. |
+| `BufferEventBroadcasterTests` | Subscribe/unsubscribe, multiple observers, faulty observer isolation, completion notification. |
+| `ExponentialBackoffRetrySchedulerTests` | Delay increase, max delay cap, retry exhaustion. |
+| `FileChunkStoreTests` | Directory creation, seal/move/delete lifecycle, metadata JSON roundtrip, disk usage, quarantine, orphan handling. |
+| `JsonRecordSerializerTests` | UTF-8 output, naming policy, dictionary serialization. |
+| `BufferIntegrationTests` | End-to-end write-dispatch-ACK, flush on stop, event observation, rejected-stopping, permanent failure dead-lettering, record-too-large. |
+| `BufferWriteResultTests` | `IsAccepted` for each status. |
+| `BufferSnapshotTests` | Property preservation. |
+| `BufferEventTests` | Create with/without chunk, timestamp presence. |
+| `ChunkIdTests` | Uniqueness, equality, ToString. |
+| `ChunkMetadataTests` | JSON round-trip. |
+| `ChunkSendResultTests` | Status and error. |
+| `RecoverySummaryTests` | Property preservation. |
+| `DeltaZuluBufferOptionsTests` | Defaults and custom values. |

@@ -17,7 +17,7 @@
 - Windows LogonId/session state.
 - Sysmon ProcessGuid state.
 - Profile hot reload.
-- Local buffering and backpressure policies.
+- Local buffering and backpressure policies. *(DeltaZulu.Buffer core implemented; integration with Agent pipeline pending)*
 - Journald input.
 - Separate daemon host.
 

@@ -1,0 +1,40 @@
+using DeltaZulu.Buffer.Abstractions;
+
+namespace DeltaZulu.Buffer.Metrics;
+
+public interface IBufferMetrics
+{
+    void RecordAccepted();
+
+    void RecordRejected();
+
+    void RecordDropped();
+
+    void ChunkCreated();
+
+    void ChunkSealed();
+
+    void ChunkDelivered();
+
+    void ChunkRetried();
+
+    void ChunkDeadLettered();
+
+    void ChunkQuarantined();
+
+    void UpdateState(BufferState state);
+
+    void UpdateDiskUsage(long bytesUsed, long bytesLimit);
+
+    void UpdateMemoryUsage(long bytesUsed);
+
+    void UpdateOpenChunkBytes(long bytes);
+
+    void UpdateSealedChunkCount(int count);
+
+    void UpdateOldestChunkAge(TimeSpan? age);
+
+    void UpdateRetryQueueDepth(int depth);
+
+    BufferSnapshot ToSnapshot();
+}
