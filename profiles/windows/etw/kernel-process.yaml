@@ -8,7 +8,7 @@ resource:
   family: etw
   provider: Microsoft-Windows-Kernel-Process
 input:
-  table: Source
+  table: Etw
   schema: WindowsEtw.Native
 output:
   mode: FilterAndSelect
@@ -21,6 +21,6 @@ output:
 filter:
   language: kql
   query: |
-    Source
+    Etw
     | where ProviderName == "Microsoft-Windows-Kernel-Process"
     | project Timestamp, ProviderName, EventId, EventName, Opcode, Task, Keywords, ActivityId, Payload, RawEvent, _metadata

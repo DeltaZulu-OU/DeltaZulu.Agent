@@ -9,7 +9,7 @@ resource:
   channel: Microsoft-Windows-Sysmon/Operational
   provider: Microsoft-Windows-Sysmon
 input:
-  table: Source
+  table: EventLog
   schema: WindowsEventLog.Native
 output:
   mode: FilterAndSelect

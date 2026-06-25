@@ -21,7 +21,7 @@ Inputs:
   syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
   csv <file.csv>            Process a CSV file and then exit.
   auditd <file>             Process an auditd log file and then exit.
-  winlog <logname>          Listen for new Windows Event Log events (Windows build).
+  eventlog <logname>          Listen for new Windows Event Log events (Windows build).
   evtx <file.evtx>          Process an EVTX file (Windows build).
   etl <file.etl>            Process an ETL trace file (Windows build).
   etw <session>             Listen to a real-time ETW session (Windows build).
@@ -53,25 +53,25 @@ Windows process creation examples:
 
 ```bash
 # Sysmon process creation, Event ID 1, to console NDJSON.
-dzagent winlog sysmon --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagent eventlog sysmon --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
 # Sysmon process creation, Event ID 1, to a compact console table.
-dzagent winlog sysmon table --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagent eventlog sysmon table --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
 # Windows Security process creation, Event ID 4688, to console NDJSON.
-dzagent winlog Security --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagent eventlog Security --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
 # Windows Security process creation, Event ID 4688, to a file sink.
-dzagent winlog Security json security-4688.ndjson --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagent eventlog Security json security-4688.ndjson --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 ```
 
-`winlog sysmon` expands to `Microsoft-Windows-Sysmon/Operational`. If that log is not present, install Sysmon or choose another available Windows Event Log channel before querying Event ID 1.
+`eventlog sysmon` expands to `Microsoft-Windows-Sysmon/Operational`. If that log is not present, install Sysmon or choose another available Windows Event Log channel before querying Event ID 1.
 The CLI validates the requested Windows Event Log resource before starting KQL, so a missing optional source such as Sysmon reports a clear `error:` message instead of surfacing a Reactive/KQL exception stack.
 
 Without a profile, source events pass through unchanged into the standard DeltaZulu NDJSON envelope.
 With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Kql`.
 With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to another sink with the existing output parameters such as `json out.ndjson` or `table`.
-CLI options such as `--kql` can appear before or after the input command; for example, `dzagent --kql "Source | where EventId == 1" winlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `winlog` arguments.
+CLI options such as `--kql` can appear before or after the input command; for example, `dzagent --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
 
 The `schemas` command always lists built-in input resource schemas, so it works before any profile files exist. If the `profiles` directory (or another directory passed on the command line) exists, profile schemas are appended to the same output. Pass optional `table` or `json` format when you need to discover the resource ids, input tables, and schema strings available on the host while deciding which profile files still need to be created or tuned.
 

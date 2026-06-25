@@ -8,7 +8,7 @@ resource:
   family: syslog
   service: sshd
 input:
-  table: Source
+  table: EventLog
   schema: LinuxSyslog.Native
 output:
   mode: FilterAndSelect
@@ -21,7 +21,7 @@ output:
 filter:
   language: kql
   query: |
-    Source
+    EventLog
     | where ProcessName == "sshd" or AppName == "sshd"
     | where Message has_any ("Failed password", "Accepted password", "Accepted publickey", "Invalid user", "Disconnected from", "Connection closed by")
     | project Timestamp, Hostname, Facility, Severity, ProcessName, ProcessId, AppName, ProcId, Message, ExtractedData, RawMessage, _metadata

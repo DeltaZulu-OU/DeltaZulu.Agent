@@ -8,7 +8,7 @@ resource:
   family: eventlog
   channel: Microsoft-Windows-AppLocker/Packaged app-Deployment
 input:
-  table: Source
+  table: EventLog
   schema: WindowsEventLog.Native
 output:
   mode: FilterAndSelect
@@ -21,6 +21,6 @@ output:
 filter:
   language: kql
   query: |
-    Source
+    EventLog
     | where EventId in (8024, 8025)
     | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata

@@ -112,7 +112,7 @@ internal static partial class Program
             null,
             null,
             null,
-            "Source",
+            "Syslog",
             "RawMessage:string,ReceivedAt:datetime,SourceIpAddress:string,Priority:int,Facility:string,Severity:string,SyslogVersion:string,Timestamp:datetime,Hostname:string,AppName:string,ProcessName:string,ProcId:string,ProcessId:int,MsgId:string,StructuredData:string,Message:string,ExtractedData:dynamic,_metadata:dynamic"),
         new(
             "input.syslogserver",
@@ -125,7 +125,7 @@ internal static partial class Program
             null,
             null,
             null,
-            "Source",
+            "Syslog",
             "RawMessage:string,ReceivedAt:datetime,SourceIpAddress:string,Priority:int,Facility:string,Severity:string,SyslogVersion:string,Timestamp:datetime,Hostname:string,AppName:string,ProcessName:string,ProcId:string,ProcessId:int,MsgId:string,StructuredData:string,Message:string,ExtractedData:dynamic,_metadata:dynamic"),
         new(
             "input.csv",
@@ -138,7 +138,7 @@ internal static partial class Program
             "csv",
             null,
             null,
-            "Source",
+            "Csv",
             "<csv headers are discovered from the file at runtime>,_metadata:dynamic"),
         new(
             "input.auditd",
@@ -151,7 +151,7 @@ internal static partial class Program
             null,
             null,
             null,
-            "Source",
+            "Auditd",
             "ID:string,RawEvent:dynamic,SYSCALL:dynamic,EXECVE:dynamic,PATH:dynamic,SOCKADDR:dynamic,CWD:dynamic,PROCTITLE:dynamic,_metadata:dynamic"),
         new(
             "input.windows.eventlog",
@@ -164,7 +164,7 @@ internal static partial class Program
             null,
             null,
             null,
-            "Source",
+            "EventLog",
             "ProviderName:string,EventId:int,Channel:string,RecordId:long,Level:string,Keywords:string,MachineName:string,TimeCreated:datetime,EventData:dynamic,Message:string,RawEvent:dynamic,_metadata:dynamic"),
         new(
             "input.windows.etw",
@@ -177,7 +177,7 @@ internal static partial class Program
             null,
             null,
             null,
-            "Source",
+            "Etw",
             "ProviderName:string,EventName:string,EventId:int,OpcodeName:string,TaskName:string,Timestamp:datetime,ProcessId:int,ThreadId:int,Payload:dynamic,_metadata:dynamic")
     ];
 
@@ -217,12 +217,12 @@ internal static partial class Program
         "csv" => new CsvFileInput(plan.InputArgument ?? throw new ArgumentException("csv profiles require a target <file.csv> argument.")),
         "auditd" => new AuditdFileInput(plan.InputArgument ?? throw new ArgumentException("auditd profiles require a target <file> argument.")),
 #if WINDOWS
-        "winlog" => new WindowsEventLogInput(plan.InputArgument ?? profile?.Resource.Channel ?? throw new ArgumentException("winlog profiles require resource.channel or a target <logname> argument.")),
+        "eventlog" => new WindowsEventLogInput(plan.InputArgument ?? profile?.Resource.Channel ?? throw new ArgumentException("eventlog profiles require resource.channel or a target <logname> argument.")),
         "evtx" => new EvtxFileInput(plan.InputArgument ?? throw new ArgumentException("evtx requires <file.evtx>")),
         "etl" => new EtlFileInput(plan.InputArgument ?? throw new ArgumentException("etl requires <file.etl>")),
         "etw" => new EtwSessionInput(plan.InputArgument ?? throw new ArgumentException("etw requires <session>")),
 #else
-        "winlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{inputCommand} is available from the net10.0-windows build."),
+        "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{inputCommand} is available from the net10.0-windows build."),
 #endif
         _ => throw new ArgumentException($"unknown input command '{inputCommand}'")
         };
@@ -234,8 +234,8 @@ internal static partial class Program
         "syslogserver" => "syslogserver",
         "csv" => "csv",
         "auditd" => "auditd",
-        "eventlog" => "winlog",
-        "windows.eventlog" => "winlog",
+        "eventlog" => "eventlog",
+        "windows.eventlog" => "eventlog",
         "evtx" => "evtx",
         "etl" => "etl",
         "etw" => "etw",
@@ -399,7 +399,7 @@ internal static partial class Program
         }
 
         schemas = schemas
-            .OrderBy(schema => schema.Source, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(schema => schema.EventLog, StringComparer.OrdinalIgnoreCase)
             .ThenBy(schema => schema.Platform, StringComparer.OrdinalIgnoreCase)
             .ThenBy(schema => schema.Family, StringComparer.OrdinalIgnoreCase)
             .ThenBy(schema => schema.Id, StringComparer.OrdinalIgnoreCase)
@@ -433,7 +433,7 @@ Inputs:
   syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
   csv <file.csv>            Process a CSV file and then exit.
   auditd <file>             Process an auditd log file and then exit.
-  winlog <logname>          Listen for new Windows Event Log events (Windows build).
+  eventlog <logname>        Listen for new Windows Event Log events (Windows build).
   evtx <file.evtx>          Process an EVTX file (Windows build).
   etl <file.etl>            Process an ETL trace file (Windows build).
   etw <session>             Listen to a real-time ETW session (Windows build).
@@ -455,10 +455,10 @@ Options:
 Examples:
   dzagent /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
   dzagent /var/log/auth.log json out.ndjson --profile profiles/linux/syslog
-  dzagent csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
-  dzagent winlog table --profile profiles/windows/eventlog
-  dzagent winlog sysmon --kql "Source | where EventId == 1"
-  dzagent winlog Security --kql "Source | where EventId == 4688"
+  dzagent csv events.csv json out.ndjson --kql "EventLog | where RawMessage has 'sudo'"
+  dzagent eventlog table --profile profiles/windows/eventlog
+  dzagent eventlog sysmon --kql "EventLog | where EventId == 1"
+  dzagent eventlog Security --kql "EventLog | where EventId == 4688"
   dzagent schemas profiles json
 """);
         Console.Out.Flush();
@@ -479,7 +479,7 @@ Examples:
                 var logName = plan.InputArgument ?? profile.Resource.Channel;
                 if (string.IsNullOrWhiteSpace(logName))
                 {
-                    Console.Error.WriteLine($"error: profile '{profile.Id}' requires resource.channel or a winlog <logname> argument.");
+                    Console.Error.WriteLine($"error: profile '{profile.Id}' requires resource.channel or a eventlog <logname> argument.");
                     Console.Error.Flush();
                     return false;
                 }
@@ -492,9 +492,9 @@ Examples:
                 }
             }
         }
-        else if (plan.InputCommand?.Equals("winlog", StringComparison.OrdinalIgnoreCase) == true)
+        else if (plan.InputCommand?.Equals("eventlog", StringComparison.OrdinalIgnoreCase) == true)
         {
-            var logName = plan.InputArgument ?? throw new ArgumentException("winlog requires <logname>");
+            var logName = plan.InputArgument ?? throw new ArgumentException("eventlog requires <logname>");
             if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
             {
                 Console.Error.WriteLine($"error: {errorMessage}");
@@ -512,10 +512,10 @@ Examples:
     {
         if (plan.InputCommand is not null)
         {
-            return plan.InputCommand.Equals("winlog", StringComparison.OrdinalIgnoreCase);
+            return plan.InputCommand.Equals("eventlog", StringComparison.OrdinalIgnoreCase);
         }
 
-        return ProfileFamilyToInputCommand(profile)?.Equals("winlog", StringComparison.OrdinalIgnoreCase) == true;
+        return ProfileFamilyToInputCommand(profile)?.Equals("eventlog", StringComparison.OrdinalIgnoreCase) == true;
     }
 #endif
 }

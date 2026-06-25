@@ -69,7 +69,7 @@ internal static partial class Program
 
             if (string.IsNullOrWhiteSpace(input) && !options.ContainsKey("--profile"))
             {
-                throw new ArgumentException("input command is required unless --profile is used. Put an input such as 'winlog Security' before or after --kql.");
+                throw new ArgumentException("input command is required unless --profile is used. Put an input such as 'eventlog Security' before or after --kql.");
             }
 
             return new CliPlan(input, inputArg, output, outputArg, options);
@@ -81,7 +81,7 @@ internal static partial class Program
             || value.Equals("syslogserver", StringComparison.OrdinalIgnoreCase)
             || value.Equals("csv", StringComparison.OrdinalIgnoreCase)
             || value.Equals("auditd", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("winlog", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("eventlog", StringComparison.OrdinalIgnoreCase)
             || value.Equals("evtx", StringComparison.OrdinalIgnoreCase)
             || value.Equals("etl", StringComparison.OrdinalIgnoreCase)
             || value.Equals("etw", StringComparison.OrdinalIgnoreCase);

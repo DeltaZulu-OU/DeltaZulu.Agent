@@ -8,7 +8,7 @@ resource:
   family: eventlog
   channel: Microsoft-Windows-AppLocker/MSI and Script
 input:
-  table: Source
+  table: EventLog
   schema: WindowsEventLog.Native
 output:
   mode: FilterAndSelect
@@ -21,6 +21,6 @@ output:
 filter:
   language: kql
   query: |
-    Source
+    EventLog
     | where EventId in (8006, 8007)
     | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata

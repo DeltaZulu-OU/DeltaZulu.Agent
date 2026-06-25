@@ -2,7 +2,7 @@
   "profiles": {
     "DeltaZulu.Agent.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "winlog table --profile ..\\..\\..\\..\\..\\profiles\\windows\\eventlog\\"
+      "commandLineArgs": "eventlog table --profile ..\\..\\..\\..\\..\\profiles\\windows\\eventlog\\"
     }
   }
 }

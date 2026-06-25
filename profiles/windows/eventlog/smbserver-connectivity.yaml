@@ -8,7 +8,7 @@ resource:
   family: eventlog
   channel: Microsoft-Windows-SMBServer/Connectivity
 input:
-  table: Source
+  table: EventLog
   schema: WindowsEventLog.Native
 output:
   mode: FilterAndSelect

@@ -1,8 +1,7 @@
+using System.Reactive.Linq;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Profiles;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Reactive.Linq;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -34,17 +33,17 @@ public sealed class KqlTests
     [TestMethod]
     public void NormalizeQueryForRxKql_RewritesNotInAliasOutsideStrings()
     {
-        var query = "Source | where EventID notin (4656, 4658) | where Message has 'notin' | where Other NOTIN (1)";
+        var query = "EventLog | where EventID notin (4656, 4658) | where Message has 'notin' | where Other NOTIN (1)";
 
         var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
 
-        Assert.AreEqual("Source | where EventID !in (4656, 4658) | where Message has 'notin' | where Other !in (1)", result);
+        Assert.AreEqual("EventLog | where EventID !in (4656, 4658) | where Message has 'notin' | where Other !in (1)", result);
     }
 
     [TestMethod]
     public void NormalizeQueryForRxKql_DoesNotRewriteIdentifierSubstrings()
     {
-        var query = "Source | where Annotationnotin == 'x' | where notinValue == 'notin'";
+        var query = "EventLog | where Annotationnotin == 'x' | where notinValue == 'notin'";
 
         var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
 

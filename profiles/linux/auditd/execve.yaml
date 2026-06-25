@@ -14,7 +14,7 @@ resource:
     - PATH
     - PROCTITLE
 input:
-  table: Source
+  table: EventLog
   schema: LinuxAuditd.AssembledEvent
 output:
   mode: FilterAndSelect
@@ -27,6 +27,6 @@ output:
 filter:
   language: kql
   query: |
-    Source
+    EventLog
     | where SYSCALL.SYSCALL == "execve" or SYSCALL.syscall == 59
     | project ID, SYSCALL, EXECVE, CWD, PATH, PROCTITLE, RawEvent, _metadata
