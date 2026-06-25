@@ -80,6 +80,87 @@ public sealed class ProfileTests
         StringAssert.Contains(exception.Message, "id is required.");
     }
 
+    [TestMethod]
+    public void LoadDirectory_WarnsAndSkipsInvalidOptionalProfile()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(directory.FullName, "optional.yaml"), """
+schemaVersion: 1
+id: optional.invalid
+name: Optional Invalid
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: linux
+  family: syslog
+input:
+  table: Source
+  schema: RawMessage:string
+output:
+  format: json
+  preserveOriginalFieldNames: true
+filter:
+  language: kql
+  query: Source | take 1
+""");
+
+            var result = new YamlResourceProfileLoader().LoadDirectory(directory.FullName);
+
+            Assert.AreEqual(0, result.Errors.Count);
+            Assert.AreEqual(1, result.Warnings.Count);
+            Assert.AreEqual(0, result.Profiles.Count);
+            StringAssert.Contains(result.Warnings[0], "optional.invalid");
+            StringAssert.Contains(result.Warnings[0], "Only output.format: ndjson is supported");
+        }
+        finally
+        {
+            Directory.Delete(directory.FullName, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public void LoadDirectory_ErrorsOnInvalidMandatoryProfile()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(directory.FullName, "mandatory.yaml"), """
+schemaVersion: 1
+id: mandatory.invalid
+name: Mandatory Invalid
+version: 1.0.0
+enabled: true
+mandatory: true
+resource:
+  platform: linux
+  family: syslog
+input:
+  table: Source
+  schema: RawMessage:string
+output:
+  format: json
+  preserveOriginalFieldNames: true
+filter:
+  language: kql
+  query: Source | take 1
+""");
+
+            var result = new YamlResourceProfileLoader().LoadDirectory(directory.FullName);
+
+            Assert.AreEqual(1, result.Errors.Count);
+            Assert.AreEqual(0, result.Warnings.Count);
+            Assert.AreEqual(0, result.Profiles.Count);
+            StringAssert.Contains(result.Errors[0], "mandatory.invalid");
+        }
+        finally
+        {
+            Directory.Delete(directory.FullName, recursive: true);
+        }
+    }
+
     private static ResourceProfile CreateValidProfile() => new()
     {
         SchemaVersion = 1,

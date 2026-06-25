@@ -66,7 +66,7 @@ dzagent eventlog Security json security-4688.ndjson --kql "Source | where EventI
 ```
 
 `eventlog sysmon` expands to `Microsoft-Windows-Sysmon/Operational`. If that log is not present, install Sysmon or choose another available Windows Event Log channel before querying Event ID 1.
-The CLI validates the requested Windows Event Log resource before starting KQL, so a missing optional source such as Sysmon reports a clear `error:` message instead of surfacing a Reactive/KQL exception stack.
+The CLI validates requested Windows Event Log resources before starting KQL. Profiles default to `mandatory: true`, which keeps missing resources as `error:` conditions; set `mandatory: false` on optional profiles to log a `warning:` for that profile and continue with the remaining profiles instead of surfacing a Reactive/KQL exception stack.
 
 Without a profile, source events pass through unchanged into the standard DeltaZulu NDJSON envelope.
 With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Kql`.

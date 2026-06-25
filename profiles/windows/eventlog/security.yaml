@@ -3,6 +3,7 @@ id: windows.eventlog.security
 name: Windows Security Event Log noise suppression profile
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: windows
   family: eventlog

@@ -3,6 +3,7 @@ id: windows.eventlog.application-experience-program-inventory
 name: Application Experience Program Inventory Event Log
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: windows
   family: eventlog

@@ -3,6 +3,7 @@ id: windows.eventlog.taskscheduler-operational
 name: Task Scheduler Operational Event Log
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: windows
   family: eventlog

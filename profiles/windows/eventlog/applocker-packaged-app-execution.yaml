@@ -3,6 +3,7 @@ id: windows.eventlog.applocker-packaged-app-execution
 name: AppLocker Packaged app Execution Event Log
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: windows
   family: eventlog

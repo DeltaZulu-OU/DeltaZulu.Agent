@@ -18,10 +18,7 @@ public sealed class YamlResourceProfileLoader
 
     public ResourceProfile LoadFile(string path)
     {
-        using var reader = File.OpenText(path);
-        var profile = _deserializer.Deserialize<ResourceProfile>(reader)
-            ?? throw new InvalidDataException($"Profile file '{path}' did not contain a resource profile.");
-
+        var profile = DeserializeFile(path);
         _validator.ThrowIfInvalid(profile, path);
         return profile;
     }
@@ -30,12 +27,21 @@ public sealed class YamlResourceProfileLoader
     {
         var profiles = new List<ResourceProfile>();
         var errors = new List<string>();
+        var warnings = new List<string>();
 
         foreach (var file in Directory.EnumerateFiles(path, searchPattern, SearchOption.AllDirectories))
         {
             try
             {
-                profiles.Add(LoadFile(file));
+                var profile = DeserializeFile(file);
+                var validationErrors = _validator.Validate(profile);
+                if (validationErrors.Count > 0)
+                {
+                    AddProfileLoadIssue(profile, file, string.Join("; ", validationErrors), errors, warnings);
+                    continue;
+                }
+
+                profiles.Add(profile);
             }
             catch (Exception ex)
             {
@@ -54,6 +60,30 @@ public sealed class YamlResourceProfileLoader
             errors.Add($"Duplicate profile id: {duplicate}");
         }
 
-        return new ProfileLoadResult(profiles, errors);
+        return new ProfileLoadResult(profiles, errors, warnings);
+    }
+
+    private ResourceProfile DeserializeFile(string path)
+    {
+        using var reader = File.OpenText(path);
+        return _deserializer.Deserialize<ResourceProfile>(reader)
+            ?? throw new InvalidDataException($"Profile file '{path}' did not contain a resource profile.");
+    }
+
+    private static void AddProfileLoadIssue(
+        ResourceProfile profile,
+        string file,
+        string message,
+        List<string> errors,
+        List<string> warnings)
+    {
+        var issue = $"{file}: Invalid resource profile '{file}' ({profile.Id}): {message}";
+        if (profile.Mandatory)
+        {
+            errors.Add(issue);
+            return;
+        }
+
+        warnings.Add(issue);
     }
 }

@@ -3,6 +3,7 @@ id: linux.syslog.sshd
 name: OpenSSH daemon syslog resource filter
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: linux
   family: syslog

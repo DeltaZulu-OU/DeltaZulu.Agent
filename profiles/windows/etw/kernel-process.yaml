@@ -3,6 +3,7 @@ id: windows.etw.kernel-process
 name: Windows Kernel Process ETW resource filter
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: windows
   family: etw

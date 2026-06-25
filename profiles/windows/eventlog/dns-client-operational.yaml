@@ -3,6 +3,7 @@ id: windows.eventlog.dns-client-operational
 name: DNS Client Operational Event Log
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: windows
   family: eventlog

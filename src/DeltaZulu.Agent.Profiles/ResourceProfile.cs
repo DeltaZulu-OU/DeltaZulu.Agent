@@ -7,6 +7,7 @@ public sealed class ResourceProfile
     public string Name { get; set; } = string.Empty;
     public string Version { get; set; } = "1.0.0";
     public bool Enabled { get; set; } = true;
+    public bool Mandatory { get; set; } = true;
     public ResourceDescriptor Resource { get; set; } = new();
     public ResourceInputContract Input { get; set; } = new();
     public ResourceOutputContract Output { get; set; } = new();

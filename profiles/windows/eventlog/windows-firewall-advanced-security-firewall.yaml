@@ -3,6 +3,7 @@ id: windows.eventlog.windows-firewall-advanced-security-firewall
 name: Windows Firewall Advanced Security Firewall Event Log
 version: 1.0.0
 enabled: true
+mandatory: true
 resource:
   platform: windows
   family: eventlog

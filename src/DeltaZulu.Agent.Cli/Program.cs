@@ -254,7 +254,7 @@ internal static partial class Program
 
         using var channelSink = new ChannelResourceSink(sink);
         var tasks = profiles
-            .Select(profile => Task.Run(() => RunProfile(plan, profile, channelSink, cancellationToken), cancellationToken))
+            .Select(profile => Task.Run(() => RunProfileSafely(plan, profile, channelSink, cancellationToken), cancellationToken))
             .ToArray();
 
         try
@@ -274,6 +274,21 @@ internal static partial class Program
         }
 
         return 0;
+    }
+
+    private static bool RunProfileSafely(CliPlan plan, ResourceProfile profile, IResourceSink sink, CancellationToken cancellationToken)
+    {
+        try
+        {
+            RunProfile(plan, profile, sink, cancellationToken);
+            return true;
+        }
+        catch (Exception ex) when (!profile.Mandatory)
+        {
+            Console.Error.WriteLine($"warning: profile '{profile.Id}' failed and will be skipped because mandatory is false: {ex.Message}");
+            Console.Error.Flush();
+            return false;
+        }
     }
 
     private static void RunProfile(CliPlan plan, ResourceProfile profile, IResourceSink sink, CancellationToken cancellationToken)
@@ -300,6 +315,7 @@ internal static partial class Program
         if (Directory.Exists(path))
         {
             var result = loader.LoadDirectory(path);
+            LogProfileLoadWarnings(result.Warnings);
             if (result.Errors.Count > 0)
             {
                 throw new InvalidDataException(string.Join(Environment.NewLine, result.Errors));
@@ -310,6 +326,16 @@ internal static partial class Program
 
         var profile = loader.LoadFile(path);
         return profile.Enabled && IsProfileConditionSatisfied(profile) ? [profile] : [];
+    }
+
+    private static void LogProfileLoadWarnings(IEnumerable<string> warnings)
+    {
+        foreach (var warning in warnings)
+        {
+            Console.Error.WriteLine($"warning: {warning}");
+        }
+
+        Console.Error.Flush();
     }
 
     private static bool IsProfileConditionSatisfied(ResourceProfile profile)
@@ -416,6 +442,8 @@ internal static partial class Program
                 }
             }
 
+            LogProfileLoadWarnings(result.Warnings);
+
             schemas.AddRange(result.Profiles.Select(profile => new ResourceSchemaDescription(
                     profile.Id,
                     profile.Name,
@@ -519,6 +547,13 @@ Examples:
 
                 if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
                 {
+                    if (!profile.Mandatory)
+                    {
+                        Console.Error.WriteLine($"warning: profile '{profile.Id}' skipped because mandatory is false: {errorMessage}");
+                        Console.Error.Flush();
+                        continue;
+                    }
+
                     Console.Error.WriteLine($"error: {errorMessage}");
                     Console.Error.Flush();
                     return false;
