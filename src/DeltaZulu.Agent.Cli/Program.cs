@@ -244,7 +244,7 @@ internal static partial class Program
 
     private static int RunProfiles(CliPlan plan, IResourceSink sink, CancellationToken cancellationToken)
     {
-        var profiles = LoadProfiles(plan.Option("--profile")!);
+        var profiles = FilterUnavailableResources(plan, LoadProfiles(plan.Option("--profile")!));
         if (profiles.Count == 0)
         {
             Console.Error.WriteLine("error: no enabled profiles were found.");
@@ -274,6 +274,50 @@ internal static partial class Program
         }
 
         return 0;
+    }
+
+    private static IReadOnlyList<ResourceProfile> FilterUnavailableResources(CliPlan plan, IReadOnlyList<ResourceProfile> profiles)
+    {
+#if WINDOWS
+        var availableProfiles = new List<ResourceProfile>(profiles.Count);
+        foreach (var profile in profiles)
+        {
+            if (!ShouldValidateWindowsEventLog(plan, profile))
+            {
+                availableProfiles.Add(profile);
+                continue;
+            }
+
+            var logName = plan.InputArgument ?? profile.Resource.Channel;
+            if (string.IsNullOrWhiteSpace(logName))
+            {
+                if (profile.Mandatory)
+                {
+                    throw new ArgumentException($"profile '{profile.Id}' requires resource.channel or a eventlog <logname> argument.");
+                }
+
+                // ValidateResources already emitted the optional-profile warning; keep this execution filter silent.
+                continue;
+            }
+
+            if (WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
+            {
+                availableProfiles.Add(profile);
+                continue;
+            }
+
+            if (profile.Mandatory)
+            {
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            // ValidateResources already emitted the optional-profile warning; keep this execution filter silent.
+        }
+
+        return availableProfiles;
+#else
+        return profiles;
+#endif
     }
 
     private static bool RunProfileSafely(CliPlan plan, ResourceProfile profile, IResourceSink sink, CancellationToken cancellationToken)
