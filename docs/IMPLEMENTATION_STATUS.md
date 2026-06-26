@@ -40,6 +40,9 @@ Local durable buffering library, implemented and tested:
 - Metadata preservation: KQL projections that omit `_metadata` from `project` no longer lose delivery identity fields (collectorId, sourceType, sourceName, platform, hostname). The KQL executor captures source metadata and injects it into output records as a fallback.
 - Golden fixture tests: raw-input to NDJSON-output tests for syslog (RFC 5424, RFC 3164, unstructured), auditd (single record, multi-record EXECVE, EOE completion, PROCTITLE completion, hex PATH decoding, malformed line handling), CSV (type coercion, file roundtrip), and NDJSON envelope structure.
 - Forwarder failure scenario tests: transient failure with retry scheduling, permanent failure with dead-lettering, record-count mismatch detection, delivery record identity fallback chains, serializer roundtrip, and health observation completeness.
+- Stable `DeliveryId` on `DeliveryRecord`: each call to `FromResourceOutput` generates a unique UUID delivery envelope ID, separate from the event-sourced `RecordId`, enabling at-least-once deduplication fields on the receiving server. The field is serialized and deserialized by `DeliveryRecordSerializer`.
+- Forwarder health reporter: `ForwarderHealthReporter` emits `collector.forwarder.health` snapshots (buffer state, disk usage, record/chunk/batch counters, last activity) on a configurable timer into any `IResourceSink`.
+- CLI health wiring: `--diagnostic-interval <seconds>` enables periodic health snapshot emission when using `forwarder` output. Health records go to stdout (NDJSON) or a file specified by `--diagnostic-file`. A final snapshot is always emitted after the pipeline completes. `--agent-id` stamps the agent identifier on health metadata.
 
 ## Not implemented yet
 

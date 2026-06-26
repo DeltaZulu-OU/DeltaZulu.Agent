@@ -5,6 +5,9 @@ namespace DeltaZulu.Agent.Forwarder;
 
 public sealed record DeliveryRecord
 {
+    [JsonPropertyName("deliveryId")]
+    public string DeliveryId { get; init; } = Guid.NewGuid().ToString("N");
+
     [JsonPropertyName("agentId")]
     public required string AgentId { get; init; }
 

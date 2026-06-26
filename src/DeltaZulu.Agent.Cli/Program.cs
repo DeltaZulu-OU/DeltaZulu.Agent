@@ -1,5 +1,6 @@
 using DeltaZulu.Agent.Core.Abstractions;
 using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Core.Pipelines;
 using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.Buffer.Configuration;
@@ -69,9 +70,12 @@ internal static partial class Program
             };
 
             using var sink = CreateSink(plan);
+            using var healthReporter = CreateHealthReporter(plan, sink);
             if (plan.IsProfileMode)
             {
-                return RunProfiles(plan, sink, cts.Token);
+                var profileResult = RunProfiles(plan, sink, cts.Token);
+                healthReporter?.EmitHealthSnapshot();
+                return profileResult;
             }
 
             using var executor = new ResourceKqlProfileExecutor();
@@ -84,6 +88,7 @@ internal static partial class Program
 
             using var subscription = trackedPipeline.Start(cts.Token);
             completed.Wait(cts.Token);
+            healthReporter?.EmitHealthSnapshot();
             if (doneSink.Error is not null)
             {
                 LogPipelineError(doneSink.Error);
@@ -453,6 +458,38 @@ internal static partial class Program
         return new BufferedForwarderSink(options, new DemoTcpForwarderTransport(host, port));
     }
 
+    private static ForwarderHealthReporter? CreateHealthReporter(CliPlan plan, IResourceSink sink)
+    {
+        if (sink is not BufferedForwarderSink forwarderSink)
+        {
+            return null;
+        }
+
+        var intervalRaw = plan.Option("--diagnostic-interval");
+        if (intervalRaw is null)
+        {
+            return null;
+        }
+
+        var intervalSeconds = double.Parse(intervalRaw, System.Globalization.CultureInfo.InvariantCulture);
+        var diagnosticFile = plan.Option("--diagnostic-file");
+        IResourceSink diagnosticSink = string.IsNullOrWhiteSpace(diagnosticFile)
+            ? new ConsoleNdjsonSink()
+            : new NdjsonFileSink(diagnosticFile);
+
+        var metadata = new CollectorObservationMetadata
+        {
+            AgentId = plan.Option("--agent-id") ?? Environment.MachineName,
+            HostId = Environment.MachineName
+        };
+
+        return new ForwarderHealthReporter(
+            forwarderSink,
+            diagnosticSink,
+            metadata,
+            TimeSpan.FromSeconds(intervalSeconds));
+    }
+
     private static IObservable<ResourceOutputRecord> Execute(IObservable<SourceEvent> source, CliPlan plan, ResourceKqlProfileExecutor executor, CancellationToken cancellationToken)
     {
         var profilePath = plan.Option("--profile");
@@ -626,9 +663,12 @@ Options:
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
   --port <port>             syslogserver TCP port, or forwarder-server TCP port.
-  --forwarder-host <host>    Demo forwarder target host for forwarder output (default 127.0.0.1).
-  --forwarder-port <port>    Demo forwarder target port for forwarder output (default 6514).
-  --forwarder-buffer <dir>   Buffer directory for forwarder output.
+  --forwarder-host <host>         Demo forwarder target host for forwarder output (default 127.0.0.1).
+  --forwarder-port <port>         Demo forwarder target port for forwarder output (default 6514).
+  --forwarder-buffer <dir>        Buffer directory for forwarder output.
+  --diagnostic-interval <seconds> Emit forwarder health snapshots at this interval (forwarder output only).
+  --diagnostic-file <file>        Write health snapshots to this NDJSON file instead of stdout.
+  --agent-id <id>                 Agent identifier stamped on health snapshot metadata.
 
 Examples:
   dzagent /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml

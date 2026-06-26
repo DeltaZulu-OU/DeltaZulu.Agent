@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text.Json;
+using DeltaZulu.Agent.Core.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Forwarder;
@@ -117,6 +118,110 @@ public sealed class ForwarderTests
         Assert.IsGreaterThanOrEqualTo(2, Interlocked.Read(ref callCount), $"Expected at least 2 send attempts, got {callCount}");
         Assert.IsGreaterThanOrEqualTo(1, health.BatchesAcknowledgedTotal, "Expected at least one acknowledged batch");
         Assert.AreEqual(0, health.BatchesDeadLetteredTotal);
+    }
+
+    [TestMethod]
+    public void DeliveryRecord_FromResourceOutput_AssignsUniqueDeliveryId()
+    {
+        var output = new ResourceOutputRecord {
+            Metadata = new Dictionary<string, object?> {
+                ["collectorId"] = "agent-01",
+                ["sourceType"] = "Syslog",
+                ["sourceName"] = "auth.log"
+            },
+            Event = new Dictionary<string, object?> { ["Message"] = "test" }
+        };
+
+        var record1 = DeliveryRecord.FromResourceOutput(output);
+        var record2 = DeliveryRecord.FromResourceOutput(output);
+
+        Assert.IsFalse(string.IsNullOrWhiteSpace(record1.DeliveryId));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(record2.DeliveryId));
+        Assert.AreNotEqual(record1.DeliveryId, record2.DeliveryId,
+            "Each enqueue must get a distinct delivery ID for at-least-once deduplication.");
+    }
+
+    [TestMethod]
+    public void DeliveryRecordSerializer_RoundtripsDeliveryId()
+    {
+        var record = new DeliveryRecord {
+            DeliveryId = "test-delivery-id-abc123",
+            AgentId = "agent-01",
+            SourceId = "Syslog:auth.log",
+            RecordId = "42",
+            CreatedAt = DateTimeOffset.UtcNow,
+            Record = new ResourceOutputRecord {
+                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
+                Event = new Dictionary<string, object?> { ["Message"] = "hello" }
+            }
+        };
+        var serializer = new DeliveryRecordSerializer();
+
+        var bytes = serializer.Serialize(record);
+        var deserialized = JsonSerializer.Deserialize<DeliveryRecord>(bytes.Span, TestJson.Options);
+
+        Assert.IsNotNull(deserialized);
+        Assert.AreEqual("test-delivery-id-abc123", deserialized.DeliveryId);
+    }
+
+    [TestMethod]
+    public void ForwarderHealthReporter_EmitHealthSnapshot_WritesToDiagnosticSink()
+    {
+        using var directory = new TemporaryDirectory();
+        var transport = new CapturingTransport();
+        var options = new Buffer.Configuration.DeltaZuluBufferOptions {
+            StoragePath = directory.Path,
+            MaxChunkRecords = 10,
+            MaxChunkBytes = 4096,
+            MaxChunkAge = TimeSpan.FromMinutes(5)
+        };
+
+        using var forwarderSink = new BufferedForwarderSink(options, transport);
+        var capturingSink = new CapturingResourceSink();
+        var metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" };
+
+        using var reporter = new ForwarderHealthReporter(
+            forwarderSink,
+            capturingSink,
+            metadata,
+            interval: TimeSpan.FromHours(1));
+
+        reporter.EmitHealthSnapshot();
+
+        Assert.HasCount(1, capturingSink.Records);
+        var record = capturingSink.Records[0];
+        Assert.AreEqual(ForwarderHealthObservation.RecordKind, record.Metadata["recordKind"]);
+        Assert.AreEqual("agent-01", record.Metadata["agentId"]);
+        Assert.IsTrue(record.Event.ContainsKey("bufferState"));
+        Assert.IsTrue(record.Event.ContainsKey("batchesSentTotal"));
+    }
+
+    [TestMethod]
+    public void ForwarderHealthReporter_AfterDispose_EmitIsNoop()
+    {
+        using var directory = new TemporaryDirectory();
+        var transport = new CapturingTransport();
+        var options = new Buffer.Configuration.DeltaZuluBufferOptions {
+            StoragePath = directory.Path,
+            MaxChunkRecords = 10,
+            MaxChunkBytes = 4096,
+            MaxChunkAge = TimeSpan.FromMinutes(5)
+        };
+
+        using var forwarderSink = new BufferedForwarderSink(options, transport);
+        var capturingSink = new CapturingResourceSink();
+        var metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" };
+
+        var reporter = new ForwarderHealthReporter(
+            forwarderSink,
+            capturingSink,
+            metadata,
+            interval: TimeSpan.FromHours(1));
+
+        reporter.Dispose();
+        reporter.EmitHealthSnapshot();
+
+        Assert.HasCount(0, capturingSink.Records);
     }
 
     [TestMethod]
@@ -434,6 +539,16 @@ public sealed class ForwarderTests
             Accepted = _accepted,
             Reason = _reason
         });
+    }
+
+    private sealed class CapturingResourceSink : IResourceSink
+    {
+        public string Name => "capturing";
+        public List<ResourceOutputRecord> Records { get; } = [];
+        public void OnNext(ResourceOutputRecord value) => Records.Add(value);
+        public void OnError(Exception error) { }
+        public void OnCompleted() { }
+        public void Dispose() { }
     }
 
     private sealed class TemporaryDirectory : IDisposable
