@@ -2,16 +2,27 @@ using DeltaZulu.Agent.Core.Events;
 
 namespace DeltaZulu.Agent.Inputs.Auditd;
 
-/// <summary>
-/// LAUREL-inspired audit event assembler. It groups audit records by msg=audit(TIME:SEQUENCE).
-/// This agent keeps it intentionally conservative; process tracking/enrichment is roadmap-only.
-/// </summary>
 public sealed class AuditdEventAssembler
 {
+    private static readonly HashSet<string> CompletionRecordTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "EOE", "PROCTITLE"
+    };
+
+    private static readonly HashSet<string> MultiInstanceRecordTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "PATH", "SOCKADDR", "OBJ_PID", "FD_PAIR", "BPRM_FCAPS"
+    };
+
     private readonly Dictionary<string, List<AuditdRecord>> _pending = new(StringComparer.OrdinalIgnoreCase);
 
     public SourceEvent? Accept(AuditdRecord record, bool flushImmediately = false)
     {
+        if (record.Type.Equals("EOE", StringComparison.OrdinalIgnoreCase))
+        {
+            return Flush(record.Id);
+        }
+
         if (!_pending.TryGetValue(record.Id, out var records))
         {
             records = [];
@@ -19,7 +30,8 @@ public sealed class AuditdEventAssembler
         }
 
         records.Add(record);
-        if (flushImmediately)
+
+        if (flushImmediately || CompletionRecordTypes.Contains(record.Type))
         {
             return Flush(record.Id);
         }
@@ -29,7 +41,7 @@ public sealed class AuditdEventAssembler
 
     public SourceEvent? Flush(string id)
     {
-        if (!_pending.Remove(id, out var records))
+        if (!_pending.Remove(id, out var records) || records.Count == 0)
         {
             return null;
         }
@@ -49,6 +61,8 @@ public sealed class AuditdEventAssembler
         }
     }
 
+    public int PendingCount => _pending.Count;
+
     private static SourceEvent BuildEvent(string id, IReadOnlyList<AuditdRecord> records)
     {
         var eventFields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
@@ -59,8 +73,8 @@ public sealed class AuditdEventAssembler
 
         foreach (var group in records.GroupBy(r => r.Type, StringComparer.OrdinalIgnoreCase))
         {
-            var values = group.Select(r => NormalizeRecord(r)).ToList();
-            if (group.Key is "PATH" or "SOCKADDR")
+            var values = group.Select(NormalizeRecord).ToList();
+            if (MultiInstanceRecordTypes.Contains(group.Key))
             {
                 eventFields[group.Key] = values;
             }
@@ -106,6 +120,41 @@ public sealed class AuditdEventAssembler
             fields["ARGV"] = s.Split('\0', StringSplitOptions.RemoveEmptyEntries);
         }
 
+        if (record.Type.Equals("PATH", StringComparison.OrdinalIgnoreCase) && fields.TryGetValue("name", out var nameVal) && nameVal is string name)
+        {
+            var decoded = TryDecodeHexPath(name);
+            if (decoded is not null)
+            {
+                fields["name"] = decoded;
+            }
+        }
+
         return fields;
+    }
+
+    private static string? TryDecodeHexPath(string value)
+    {
+        if (value.Length == 0 || value.Length % 2 != 0)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (!Uri.IsHexDigit(value[i]))
+            {
+                return null;
+            }
+        }
+
+        try
+        {
+            var bytes = Convert.FromHexString(value);
+            return System.Text.Encoding.UTF8.GetString(bytes);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

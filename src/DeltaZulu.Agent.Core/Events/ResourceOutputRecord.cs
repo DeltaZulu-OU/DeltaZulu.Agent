@@ -43,6 +43,15 @@ public sealed record ResourceOutputRecord
         string profileId,
         string? profileVersion)
     {
+        return FromKqlProjection(projectedFields, profileId, profileVersion, sourceMetadata: null);
+    }
+
+    public static ResourceOutputRecord FromKqlProjection(
+        IReadOnlyDictionary<string, object?> projectedFields,
+        string profileId,
+        string? profileVersion,
+        ResourceMetadata? sourceMetadata)
+    {
         var eventFields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         var metadata = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
         {
@@ -52,23 +61,39 @@ public sealed record ResourceOutputRecord
             ["ingestedAt"] = DateTimeOffset.UtcNow
         };
 
+        if (sourceMetadata is not null)
+        {
+            metadata["collectorId"] = sourceMetadata.CollectorId;
+            metadata["sourceType"] = sourceMetadata.SourceType;
+            metadata["sourceName"] = sourceMetadata.SourceName;
+            metadata["platform"] = sourceMetadata.Platform;
+            metadata["hostname"] = sourceMetadata.Hostname;
+            metadata["parserName"] = sourceMetadata.ParserName;
+            metadata["parserVersion"] = sourceMetadata.ParserVersion;
+            metadata["rawPreserved"] = sourceMetadata.RawPreserved;
+        }
+
         IReadOnlyDictionary<string, object?>? enrichment = null;
 
         foreach (var field in projectedFields)
         {
             if (field.Key.Equals("_metadata", StringComparison.OrdinalIgnoreCase) && field.Value is IDictionary<string, object?> meta)
             {
-                metadata = new Dictionary<string, object?>(meta, StringComparer.OrdinalIgnoreCase);
-                metadata["profileId"] = profileId;
-                metadata["profileVersion"] = profileVersion;
+                var projected = new Dictionary<string, object?>(meta, StringComparer.OrdinalIgnoreCase);
+                projected["profileId"] = profileId;
+                projected["profileVersion"] = profileVersion;
+                PreserveDeliveryIdentity(metadata, projected);
+                metadata = projected;
                 continue;
             }
 
             if (field.Key.Equals("_metadata", StringComparison.OrdinalIgnoreCase) && field.Value is IDictionary<string, object> legacyMeta)
             {
-                metadata = legacyMeta.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
-                metadata["profileId"] = profileId;
-                metadata["profileVersion"] = profileVersion;
+                var projected = legacyMeta.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
+                projected["profileId"] = profileId;
+                projected["profileVersion"] = profileVersion;
+                PreserveDeliveryIdentity(metadata, projected);
+                metadata = projected;
                 continue;
             }
 
@@ -87,5 +112,23 @@ public sealed record ResourceOutputRecord
             Event = eventFields,
             Enrichment = enrichment
         };
+    }
+
+    private static readonly string[] DeliveryIdentityFields =
+    [
+        "collectorId", "sourceType", "sourceName", "platform", "hostname"
+    ];
+
+    private static void PreserveDeliveryIdentity(
+        IDictionary<string, object?> source,
+        IDictionary<string, object?> target)
+    {
+        foreach (var key in DeliveryIdentityFields)
+        {
+            if (!target.ContainsKey(key) && source.TryGetValue(key, out var value) && value is not null)
+            {
+                target[key] = value;
+            }
+        }
     }
 }

@@ -34,6 +34,13 @@ Local durable buffering library, implemented and tested:
 - Unit tests: ChunkBuilder, ChunkFormat, BackpressureController, BufferMetricsCounter, BufferEventBroadcaster, ExponentialBackoffRetryScheduler, FileChunkStore, JsonRecordSerializer.
 - Integration tests: end-to-end write-dispatch-ACK, flush on stop, permanent failure dead-lettering, record-too-large rejection.
 
+## Recently implemented
+
+- Auditd assembler hardening: EOE and PROCTITLE records trigger immediate event completion, malformed audit lines are skipped gracefully, hex-encoded PATH names are decoded, multi-instance record types (PATH, SOCKADDR, OBJ_PID, FD_PAIR, BPRM_FCAPS) always produce arrays.
+- Metadata preservation: KQL projections that omit `_metadata` from `project` no longer lose delivery identity fields (collectorId, sourceType, sourceName, platform, hostname). The KQL executor captures source metadata and injects it into output records as a fallback.
+- Golden fixture tests: raw-input to NDJSON-output tests for syslog (RFC 5424, RFC 3164, unstructured), auditd (single record, multi-record EXECVE, EOE completion, PROCTITLE completion, hex PATH decoding, malformed line handling), CSV (type coercion, file roundtrip), and NDJSON envelope structure.
+- Forwarder failure scenario tests: transient failure with retry scheduling, permanent failure with dead-lettering, record-count mismatch detection, delivery record identity fallback chains, serializer roundtrip, and health observation completeness.
+
 ## Not implemented yet
 
 - Daemon, service lifecycle, installer, rsyslog/syslog-ng snippets.
@@ -41,7 +48,6 @@ Local durable buffering library, implemented and tested:
 - Enrichment and resource-local state providers.
 - Full LAUREL-level auditd decoding and process tracking.
 - Profile hot reload.
-- Golden fixture tests.
 - Build validation in this environment.
 
 ## Explicitly out of scope

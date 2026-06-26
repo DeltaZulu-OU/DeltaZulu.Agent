@@ -17,7 +17,7 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 {
     private static readonly Lazy<bool> ScalarFunctionsRegistered = new(RegisterScalarFunctions, LazyThreadSafetyMode.ExecutionAndPublication);
 
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly List<IDisposable> _subscriptions = [];
     private readonly List<string> _temporaryQueryFiles = [];
     private bool _disposed;
@@ -42,6 +42,7 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
             var tableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
             var disposables = new CompositeDisposable();
             var errorSignaled = 0;
+            ResourceMetadata? capturedMetadata = null;
 
             var kqlRows = new Subject<IDictionary<string, object>>();
             disposables.Add(kqlRows);
@@ -49,7 +50,10 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
             try
             {
                 var sourceSubscription = source.Subscribe(
-                    sourceEvent => kqlRows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow())),
+                    sourceEvent => {
+                        Interlocked.CompareExchange(ref capturedMetadata, sourceEvent.Metadata, null);
+                        kqlRows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow()));
+                    },
                     error => {
                         kqlRows.OnError(error);
                         if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
@@ -62,7 +66,7 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
 
                 var hub = KqlNodeHub.FromFiles(
                     kqlRows,
-                    kqlOutput => OnKqlOutput(kqlOutput, profile, observer),
+                    kqlOutput => OnKqlOutput(kqlOutput, profile, observer, capturedMetadata),
                     tableName,
                     queryPath);
 
@@ -117,12 +121,12 @@ public sealed class ResourceKqlProfileExecutor : IDisposable
         return true;
     }
 
-    private void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output)
+    private static void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output, ResourceMetadata? sourceMetadata)
     {
         try
         {
             var projected = kqlOutput.Output.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
-            var record = ResourceOutputRecord.FromKqlProjection(projected, profile.Id, profile.Version);
+            var record = ResourceOutputRecord.FromKqlProjection(projected, profile.Id, profile.Version, sourceMetadata);
             output.OnNext(record);
         }
         catch (Exception ex)

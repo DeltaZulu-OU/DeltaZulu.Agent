@@ -32,7 +32,16 @@ public sealed class AuditdFileInput : IResourceInput
                         continue;
                     }
 
-                    var record = _parser.Parse(line);
+                    AuditdRecord record;
+                    try
+                    {
+                        record = _parser.Parse(line);
+                    }
+                    catch (FormatException)
+                    {
+                        continue;
+                    }
+
                     if (previousId is not null && !record.Id.Equals(previousId, StringComparison.OrdinalIgnoreCase))
                     {
                         var completed = _assembler.Flush(previousId);
@@ -42,7 +51,12 @@ public sealed class AuditdFileInput : IResourceInput
                         }
                     }
 
-                    _assembler.Accept(record);
+                    var result = _assembler.Accept(record);
+                    if (result is not null)
+                    {
+                        observer.OnNext(result);
+                    }
+
                     previousId = record.Id;
                 }
 
