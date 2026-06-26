@@ -6,27 +6,23 @@ namespace DeltaZulu.Buffer.Storage;
 
 internal sealed class FileChunkStore : IChunkStore
 {
-    private readonly string _sealedPath;
-    private readonly string _dispatchingPath;
-    private readonly string _deadLetterPath;
-    private readonly string _quarantinePath;
     private readonly ILogger? _logger;
 
     public FileChunkStore(string basePath, ILogger? logger = null)
     {
-        _sealedPath = Path.Combine(basePath, "sealed");
-        _dispatchingPath = Path.Combine(basePath, "dispatching");
-        _deadLetterPath = Path.Combine(basePath, "deadletter");
-        _quarantinePath = Path.Combine(basePath, "quarantine");
+        SealedPath = Path.Combine(basePath, "sealed");
+        DispatchingPath = Path.Combine(basePath, "dispatching");
+        DeadLetterPath = Path.Combine(basePath, "deadletter");
+        QuarantinePath = Path.Combine(basePath, "quarantine");
         _logger = logger;
 
         EnsureDirectories(basePath);
     }
 
-    public string SealedPath => _sealedPath;
-    public string DispatchingPath => _dispatchingPath;
-    public string DeadLetterPath => _deadLetterPath;
-    public string QuarantinePath => _quarantinePath;
+    public string SealedPath { get; }
+    public string DispatchingPath { get; }
+    public string DeadLetterPath { get; }
+    public string QuarantinePath { get; }
 
     private static void EnsureDirectories(string basePath)
     {
@@ -56,8 +52,8 @@ internal sealed class FileChunkStore : IChunkStore
         ChunkMetadata metadata,
         CancellationToken cancellationToken = default)
     {
-        var chunkFile = Path.Combine(_sealedPath, $"{chunkId.Value}.chunk");
-        var metaFile = Path.Combine(_sealedPath, $"{chunkId.Value}.meta.json");
+        var chunkFile = Path.Combine(SealedPath, $"{chunkId.Value}.chunk");
+        var metaFile = Path.Combine(SealedPath, $"{chunkId.Value}.meta.json");
         var chunkTmp = chunkFile + ".tmp";
         var metaTmp = metaFile + ".tmp";
 
@@ -85,7 +81,7 @@ internal sealed class FileChunkStore : IChunkStore
     public ValueTask<StoredChunk> MoveToDispatchingAsync(
         StoredChunk chunk,
         CancellationToken cancellationToken = default) =>
-        MoveChunkAsync(chunk, _dispatchingPath);
+        MoveChunkAsync(chunk, DispatchingPath);
 
     public async ValueTask<StoredChunk> MoveToSealedAsync(
         StoredChunk chunk,
@@ -94,7 +90,7 @@ internal sealed class FileChunkStore : IChunkStore
     {
         var metaJson = JsonSerializer.SerializeToUtf8Bytes(updatedMetadata);
         await File.WriteAllBytesAsync(chunk.MetadataFilePath, metaJson, cancellationToken);
-        return await MoveChunkAsync(chunk with { Metadata = updatedMetadata }, _sealedPath);
+        return await MoveChunkAsync(chunk with { Metadata = updatedMetadata }, SealedPath);
     }
 
     public ValueTask DeleteAsync(StoredChunk chunk, CancellationToken cancellationToken = default)
@@ -107,12 +103,12 @@ internal sealed class FileChunkStore : IChunkStore
     public ValueTask<StoredChunk> MoveToDeadLetterAsync(
         StoredChunk chunk,
         CancellationToken cancellationToken = default) =>
-        MoveChunkAsync(chunk, _deadLetterPath);
+        MoveChunkAsync(chunk, DeadLetterPath);
 
     public ValueTask QuarantineAsync(string filePath, CancellationToken cancellationToken = default)
     {
         EnsureNotSymlink(filePath);
-        var dest = Path.Combine(_quarantinePath,
+        var dest = Path.Combine(QuarantinePath,
             $"quarantined_{DateTimeOffset.UtcNow:yyyyMMddTHHmmssfffZ}_{Path.GetFileName(filePath)}");
         File.Move(filePath, dest);
         return ValueTask.CompletedTask;
@@ -120,16 +116,16 @@ internal sealed class FileChunkStore : IChunkStore
 
     public ValueTask<IReadOnlyList<StoredChunk>> GetSealedChunksAsync(
         CancellationToken cancellationToken = default) =>
-        ScanDirectoryAsync(_sealedPath, cancellationToken);
+        ScanDirectoryAsync(SealedPath, cancellationToken);
 
     public ValueTask<IReadOnlyList<StoredChunk>> GetDispatchingChunksAsync(
         CancellationToken cancellationToken = default) =>
-        ScanDirectoryAsync(_dispatchingPath, cancellationToken);
+        ScanDirectoryAsync(DispatchingPath, cancellationToken);
 
     public ValueTask<long> GetDiskBytesUsedAsync(CancellationToken cancellationToken = default)
     {
         long total = 0;
-        foreach (var dir in new[] { _sealedPath, _dispatchingPath, _deadLetterPath, _quarantinePath })
+        foreach (var dir in new[] { SealedPath, DispatchingPath, DeadLetterPath, QuarantinePath })
         {
             if (!Directory.Exists(dir))
             {

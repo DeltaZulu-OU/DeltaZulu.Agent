@@ -114,16 +114,16 @@ public sealed class DeltaZuluBufferHost<T> : IAsyncDisposable
 
         _dispatchChannel.Writer.TryComplete();
 
-        if (_cts is not null)
-        {
-            await _cts.CancelAsync();
-        }
-
         if (_dispatchTask is not null)
         {
             try { await _dispatchTask.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken); }
             catch (TimeoutException) { _logger?.LogWarning("Dispatch worker did not drain within timeout."); }
             catch (OperationCanceledException) { }
+        }
+
+        if (_cts is not null)
+        {
+            await _cts.CancelAsync();
         }
 
         if (_rotationTask is not null)

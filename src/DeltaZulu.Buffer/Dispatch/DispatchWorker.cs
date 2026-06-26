@@ -56,6 +56,11 @@ internal sealed class DispatchWorker
             }
 
             var waitTime = GetNextRetryWait();
+            if (waitTime == TimeSpan.MaxValue && _reader.Completion.IsCompleted)
+            {
+                break;
+            }
+
             try
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -64,14 +69,26 @@ internal sealed class DispatchWorker
                     cts.CancelAfter(waitTime);
                 }
 
-                await _reader.WaitToReadAsync(cts.Token);
+                var hasMoreChunks = await _reader.WaitToReadAsync(cts.Token);
+                if (!hasMoreChunks)
+                {
+                    if (waitTime == TimeSpan.MaxValue)
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(waitTime, cancellationToken);
+                }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
             }
         }
 
-        await DrainRemainingAsync(cancellationToken);
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            await DrainRemainingAsync(cancellationToken);
+        }
     }
 
     private async Task ProcessDueRetriesAsync(CancellationToken cancellationToken)

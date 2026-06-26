@@ -59,10 +59,7 @@ public sealed class BufferedForwarderSink : IResourceSink
         }
     }
 
-    public void OnCompleted()
-    {
-        _host.Buffer.FlushAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
-    }
+    public void OnCompleted() => _host.StopAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
 
     public void OnError(Exception error)
     {
@@ -110,8 +107,10 @@ public sealed class BufferedForwarderSink : IResourceSink
     {
         private readonly Action<DateTimeOffset> _onActivity;
 
-        public ActivityTimestampObserver(Action<DateTimeOffset> onActivity) =>
+        public ActivityTimestampObserver(Action<DateTimeOffset> onActivity)
+        {
             _onActivity = onActivity;
+        }
 
         public void OnNext(BufferEvent value)
         {
