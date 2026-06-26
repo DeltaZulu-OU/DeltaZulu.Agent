@@ -75,6 +75,72 @@ public sealed class KqlTests
         Assert.AreEqual(query, result);
     }
 
+    [TestMethod]
+    public void SourceEventToKqlRow_ExposesNestedWindowsEventDataAndMetadata()
+    {
+        var source = new SourceEvent(
+            new ResourceMetadata {
+                CollectorId = "agent-01",
+                ProfileId = "windows.security.4688",
+                SourceType = "WindowsEventLog",
+                SourceName = "Security",
+                Platform = "windows",
+                Hostname = "host01"
+            },
+            new Dictionary<string, object?> {
+                ["EventId"] = 4688,
+                ["EventData"] = new Dictionary<string, object?> {
+                    ["TargetUserSid"] = "S-1-5-21-test",
+                    ["NewProcessName"] = "C:\\Windows\\System32\\cmd.exe"
+                }
+            });
+
+        var row = DictionaryCoercion.ToKqlDictionary(source.ToKqlRow());
+
+        Assert.AreEqual(4688, row["EventId"]);
+
+        var eventData = AssertDictionary(row["EventData"]);
+        Assert.AreEqual("S-1-5-21-test", eventData["TargetUserSid"]);
+        Assert.AreEqual("C:\\Windows\\System32\\cmd.exe", eventData["NewProcessName"]);
+
+        var metadata = AssertDictionary(row["_metadata"]);
+        Assert.AreEqual("windows.security.4688", metadata["profileId"]);
+        Assert.AreEqual("WindowsEventLog", metadata["sourceType"]);
+        Assert.AreEqual("Security", metadata["sourceName"]);
+    }
+
+    [TestMethod]
+    public void SourceEventToKqlRow_ExposesNestedAuditdRecordsForKqlProbe()
+    {
+        var source = new SourceEvent(
+            new ResourceMetadata {
+                CollectorId = "agent-01",
+                SourceType = "LinuxAuditd",
+                SourceName = "audit.log",
+                Platform = "linux",
+                Hostname = "host01"
+            },
+            new Dictionary<string, object?> {
+                ["SYSCALL"] = new Dictionary<string, object?> {
+                    ["SYSCALL"] = "execve",
+                    ["success"] = "yes"
+                },
+                ["EXECVE"] = new Dictionary<string, object?> {
+                    ["ARGV"] = new[] { "/usr/bin/curl", "-s", "https://example.com" }
+                }
+            });
+
+        var row = DictionaryCoercion.ToKqlDictionary(source.ToKqlRow());
+
+        var syscall = AssertDictionary(row["SYSCALL"]);
+        Assert.AreEqual("execve", syscall["SYSCALL"]);
+
+        var execve = AssertDictionary(row["EXECVE"]);
+        var argv = execve["ARGV"] as string[];
+        Assert.IsNotNull(argv);
+        CollectionAssert.AreEqual(new[] { "/usr/bin/curl", "-s", "https://example.com" }, argv);
+    }
+
     private static ResourceProfile CreatePassThroughProfile() => new()
     {
         SchemaVersion = 1,
@@ -86,4 +152,15 @@ public sealed class KqlTests
         Filter = new ResourceFilter { Language = "kql", Query = "Source | take 1" },
         Output = new ResourceOutputContract { Format = "ndjson", PreserveOriginalFieldNames = true }
     };
+
+    private static IReadOnlyDictionary<string, object?> AssertDictionary(object value)
+    {
+        if (value is IReadOnlyDictionary<string, object?> dictionary)
+        {
+            return dictionary;
+        }
+
+        Assert.Fail($"Expected a nested dictionary but found {value.GetType().FullName}.");
+        return new Dictionary<string, object?>();
+    }
 }
