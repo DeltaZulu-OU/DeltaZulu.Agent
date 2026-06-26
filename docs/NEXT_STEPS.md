@@ -32,7 +32,7 @@ The repository already contains the buffer library, RELP-neutral forwarder contr
 13. Continue hardening the RELP.Net adapter behind `IForwarderTransport`.
 14. Continue production TLS hardening: certificate policy is now represented in YAML/options, but the RELP.Net adapter still needs validated server-certificate callback support and receiver-side TLS validation.
 15. Continue endpoint selection hardening: basic ordered endpoint failover is now wired through forwarder options and YAML CLI configuration, but jittered reconnect/backoff remains delegated to `DeltaZulu.Buffer` retry scheduling and production transports still need richer transient/permanent failure classification.
-16. Add operational receiver documentation, including rsyslog/syslog-ng snippets, after plain RELP/TLS behavior is validated.
+16. Keep operational receiver documentation current in `docs/RELP_RECEIVER_SETUP.md`, including rsyslog/syslog-ng plain RELP and TLS snippets as transport behavior is validated.
 17. Keep exercising the existing buffered RELP forwarder path against `dzdemo-collector` for success, transient failure, retry, permanent failure, dead-letter, and restart recovery scenarios.
 
 ## Delivery correctness and operations

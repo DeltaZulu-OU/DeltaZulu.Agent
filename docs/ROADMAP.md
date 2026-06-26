@@ -24,7 +24,7 @@ DeltaZulu.Agent has moved past the initial library-and-buffer spike. The current
 - Treat RELP acknowledgements as transport results while keeping durable commit/delete decisions in the buffer/application side.
 - Keep forwarder transport settings YAML-driven, then add reconnect, endpoint selection refinements, jittered backoff, and transient/permanent failure classification.
 - Finish RELP/TLS hardening by wiring the configured certificate policy into RELP.Net server-certificate validation callbacks, adding certificate-expiry diagnostics, and documenting receiver setup.
-- Document rsyslog/syslog-ng receiver snippets once the RELP/TLS path is validated.
+- Keep rsyslog/syslog-ng receiver snippets in `docs/RELP_RECEIVER_SETUP.md` aligned with validated plain RELP/TLS behavior.
 
 ## P1: Delivery correctness and operations
 
