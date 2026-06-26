@@ -24,7 +24,7 @@ The repository already contains the buffer library, RELP-neutral forwarder contr
 ## Input hardening
 
 10. Extend auditd decoding toward LAUREL-level behavior without adding server-side normalization to the edge.
-11. Improve Windows Event Log field extraction documentation with examples for common Security, Sysmon, PowerShell, SMB, and Defender profiles.
+11. Continue validating Windows Event Log named payload extraction against live Security, Sysmon, PowerShell, SMB, and Defender providers; documentation now includes profile examples and the adapter exposes named XML `EventData` fields.
 12. Add host-gated integration coverage for Windows Event Log, EVTX, ETL, ETW, auditd, and future journald behavior only after the host-neutral test set remains stable.
 
 ## Forwarder hardening

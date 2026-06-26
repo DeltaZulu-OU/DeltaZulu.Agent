@@ -1,6 +1,7 @@
 using DeltaZulu.Agent.Core.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Diagnostics.Eventing.Reader;
+using System.Xml.Linq;
 using System.Reactive.Disposables;
 
 namespace DeltaZulu.Agent.Inputs.Windows;
@@ -199,6 +200,19 @@ public sealed class WindowsEventLogInput : IResourceInput
             ["RawEvent"] = SafeFormat(record.ToXml)
         };
 
+        if (fields["RawEvent"] is string xml)
+        {
+            var namedEventData = ExtractNamedEventData(xml);
+            if (namedEventData.Count > 0)
+            {
+                fields["EventData"] = namedEventData;
+                foreach (var item in namedEventData)
+                {
+                    fields.TryAdd(item.Key, item.Value);
+                }
+            }
+        }
+
         var message = SafeFormat(record.FormatDescription);
         if (!string.IsNullOrWhiteSpace(message))
         {
@@ -206,6 +220,47 @@ public sealed class WindowsEventLogInput : IResourceInput
         }
 
         return fields;
+    }
+
+
+    internal static IReadOnlyDictionary<string, object?> ExtractNamedEventData(string eventXml)
+    {
+        if (string.IsNullOrWhiteSpace(eventXml))
+        {
+            return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            var document = XDocument.Parse(eventXml, LoadOptions.None);
+            XNamespace ns = document.Root?.Name.Namespace ?? XNamespace.None;
+            var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var data in document.Descendants(ns + "EventData").Elements(ns + "Data"))
+            {
+                var name = data.Attribute("Name")?.Value;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                result[name] = data.Value;
+            }
+
+            foreach (var data in document.Descendants(ns + "UserData").Descendants())
+            {
+                if (!data.HasElements && !string.IsNullOrWhiteSpace(data.Name.LocalName))
+                {
+                    result.TryAdd(data.Name.LocalName, data.Value);
+                }
+            }
+
+            return result;
+        }
+        catch (System.Xml.XmlException)
+        {
+            return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     private static string? SafeFormat(Func<string> formatter)

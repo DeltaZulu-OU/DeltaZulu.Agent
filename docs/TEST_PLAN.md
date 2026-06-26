@@ -115,3 +115,41 @@ rm -rf ./buffer/forwarder
 ```
 
 The demo collector is only a local validation receiver. It is not a production collector, daemon, SIEM, or syslog daemon replacement.
+
+## Windows Event Log field extraction notes
+
+Windows Event Log records expose two layers of fields to profiles:
+
+- Transport and envelope fields such as `ProviderName`, `EventId`, `Channel`, `RecordId`, `Level`, `Keywords`, `MachineName`, `ProcessId`, `ThreadId`, `TimeCreated`, `Message`, and `RawEvent`.
+- Named event payload fields parsed from the XML `<EventData><Data Name="...">...</Data></EventData>` block. When names are available, the adapter exposes them twice: as members of the dynamic `EventData` object and as top-level convenience fields so existing profiles can filter with either `EventData.TargetUserSid` or `TargetUserSid`.
+
+Common profile examples:
+
+```kql
+// Security 4688 process creation
+Source
+| where EventId == 4688
+| project TimeCreated, Computer=MachineName, NewProcessName, ParentProcessName, SubjectUserSid, SubjectLogonId, CommandLine, _metadata
+
+// Sysmon Event ID 1 process creation
+Source
+| where ProviderName == "Microsoft-Windows-Sysmon" and EventId == 1
+| project UtcTime, ProcessGuid, ProcessId, Image, CommandLine, ParentProcessGuid, ParentImage, User, Hashes, _metadata
+
+// PowerShell script block logging
+Source
+| where Channel has "PowerShell" and EventId in (4103, 4104)
+| project TimeCreated, ProviderName, EventId, ScriptBlockText, Path, UserId=ContextInfo, _metadata
+
+// SMB share access signal
+Source
+| where Channel == "Security" and EventId == 5140
+| project TimeCreated, SubjectUserName, SubjectUserSid, ShareName, ShareLocalPath, IpAddress, _metadata
+
+// Defender threat detection signal
+Source
+| where ProviderName has "Windows Defender" and EventId in (1116, 1117, 5007)
+| project TimeCreated, EventId, ThreatName, SeverityName, Path, User, Message, _metadata
+```
+
+Keep host-neutral tests focused on XML-to-dictionary mapping helpers. Validate live channel differences on Windows because providers can omit names, localize messages, or require optional components such as Sysmon, PowerShell Operational logging, SMB auditing, or Defender.

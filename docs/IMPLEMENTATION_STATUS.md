@@ -46,6 +46,7 @@ Local durable buffering library, implemented and tested:
 - RELP endpoint failover groundwork: forwarder options now accept an ordered endpoint list, the CLI loads endpoint lists from YAML forwarder configuration files, and the RELP transport advances to the next endpoint after transient send/open failures while keeping retry scheduling in `DeltaZulu.Buffer`.
 - RELP TLS policy groundwork: YAML forwarder configuration now carries certificate validation mode, optional server thumbprint allow-list, client certificate path/password, and expiry warning thresholds; the CLI passes these options into the RELP-neutral transport boundary for production TLS hardening.
 - Operational RELP receiver documentation: `docs/RELP_RECEIVER_SETUP.md` now captures rsyslog and syslog-ng plain RELP/TLS snippets, payload preservation expectations, and the agent-side TLS configuration checklist.
+- Windows Event Log named payload extraction: live Event Log records now parse XML `EventData` names into a dynamic `EventData` object and mirror named payload values as top-level fields for profile compatibility with Security, Sysmon, PowerShell, SMB, and Defender KQL examples.
 
 ## Not implemented yet
 
@@ -54,7 +55,7 @@ Local durable buffering library, implemented and tested:
 - Enrichment and resource-local state providers.
 - Full LAUREL-level auditd decoding and process tracking.
 - Profile hot reload.
-- Build validation in this environment.
+- Build validation in this environment; this container does not have the `dotnet` executable installed.
 
 ## Explicitly out of scope
 
