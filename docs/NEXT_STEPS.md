@@ -1,42 +1,48 @@
 # Next steps before merging
 
-The repository already contains the buffer library, RELP-neutral forwarder contracts, buffered forwarder sink, RELP.Net transport adapter, and a separate demo collector. The remaining merge blockers are validation, fixture coverage, and production transport hardening.
+The repository already contains the buffer library, RELP-neutral forwarder contracts, buffered forwarder sink, RELP.Net transport adapter, separate demo collector, golden host-neutral fixtures, auditd hardening, delivery identity preservation, and forwarder health diagnostics. The remaining merge blockers are now validation/documentation and production transport hardening.
 
 ## Immediate validation
 
 1. Restore and build locally with the .NET 10 SDK.
-2. Fix any `Microsoft.Rx.Kql` and `Tx.Windows` API compatibility issues exposed by the build.
+2. Fix any `Microsoft.Rx.Kql` and `Tx.Windows` API compatibility issues exposed by a clean build.
 3. Run the existing Agent and Buffer test projects on a .NET 10-capable host.
-4. Add CI or documented local commands that make the required SDK and Windows-only target expectations explicit.
+4. Keep the local validation commands in `docs/TEST_PLAN.md` current so required SDK, submodule, and Windows-only target expectations are explicit.
+5. Record any host-specific limitations discovered during validation, especially around Windows Event Log, EVTX, ETL, and ETW projects.
 
-## Profile and fixture coverage
+## Profile and fixture follow-up
 
-5. Add golden raw-input to NDJSON-output fixtures for syslog, CSV, auditd, Windows Event Log, and ETW/ETL where host-neutral fixtures are possible.
-6. Prove whether nested field access works in profile KQL:
+6. Extend golden raw-input to NDJSON-output fixtures only where coverage is still host-neutral or a new regression is found. Current fixture coverage already includes syslog, auditd, CSV, and NDJSON envelope scenarios.
+7. Prove whether nested field access works in profile KQL for:
    - `EventData.TargetUserSid`,
    - `SYSCALL.SYSCALL`,
    - `EXECVE.ARGV`,
    - `_metadata.profileId`.
-7. Decide whether KQL row exposure must be flattened for nested fields.
-8. Harden profile validation around metadata preservation and malformed profile diagnostics.
+8. Decide whether KQL row exposure must be flattened for nested fields.
+9. Continue hardening profile validation around malformed profile diagnostics while preserving metadata injection that protects delivery identity from user-controlled projections.
 
 ## Input hardening
 
-9. Harden auditd assembler completion rules and malformed-record handling.
 10. Extend auditd decoding toward LAUREL-level behavior without adding server-side normalization to the edge.
 11. Improve Windows Event Log field extraction documentation with examples for common Security, Sysmon, PowerShell, SMB, and Defender profiles.
+12. Add host-gated integration coverage for Windows Event Log, EVTX, ETL, ETW, auditd, and future journald behavior only after the host-neutral test set remains stable.
 
 ## Forwarder hardening
 
-12. Exercise the existing buffered RELP forwarder path against the separate demo collector for success, transient failure, retry, permanent failure, dead-letter, and restart recovery.
-13. Add daemon-facing examples for the `forwarder` sink and `dzdemo-collector` validation executable.
-14. Wire the buffered-forwarder health snapshot into the Agent diagnostic output surface.
-15. Preserve delivery identity and metadata outside user-controlled KQL projections.
-16. Continue hardening the RELP.Net adapter behind `IForwarderTransport`.
-17. Add TLS, certificate validation, reconnect/backoff, endpoint failover, and production receiver documentation after plain RELP works.
+13. Continue hardening the RELP.Net adapter behind `IForwarderTransport`.
+14. Add production TLS and certificate-validation policy over the existing RELP-neutral transport port.
+15. Add endpoint selection, reconnect/backoff behavior, endpoint failover, and transient/permanent failure classification for production transports.
+16. Add operational receiver documentation, including rsyslog/syslog-ng snippets, after plain RELP/TLS behavior is validated.
+17. Keep exercising the existing buffered RELP forwarder path against `dzdemo-collector` for success, transient failure, retry, permanent failure, dead-letter, and restart recovery scenarios.
+
+## Delivery correctness and operations
+
+18. Tie future source checkpoint advancement to durable enqueue rather than network ACK.
+19. Add profile hot reload once forwarding and checkpoint semantics are clear.
+20. Add typed resource-local enrichment providers where they can run without changing server-canonical normalization.
 
 ## Architecture discipline
 
-18. Keep `DeltaZulu.Buffer` as the authoritative durability and backpressure layer.
-19. Keep RELP.Net details behind the forwarder transport adapter.
-20. Defer broad Clean/Onion project restructuring until the RELP adapter and daemon host prove which boundaries need extraction.
+21. Keep `DeltaZulu.Buffer` as the authoritative durability and backpressure layer.
+22. Keep RELP.Net details behind the forwarder transport adapter.
+23. Defer broad Clean/Onion project restructuring until the RELP adapter and daemon host prove which boundaries need extraction.

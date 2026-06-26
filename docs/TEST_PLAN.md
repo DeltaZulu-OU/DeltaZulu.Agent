@@ -46,3 +46,72 @@ Tests are in `tests/DeltaZulu.Buffer.Tests/` using MSTest.
 | `ChunkSendResultTests` | Status and error. |
 | `RecoverySummaryTests` | Property preservation. |
 | `DeltaZuluBufferOptionsTests` | Defaults and custom values. |
+
+## Required local validation before merge
+
+Run validation from the repository root on a host with the .NET 10 SDK installed. The repository targets `net10.0` and includes Windows-only inputs that target `net10.0-windows`, so Linux/macOS validation should cover host-neutral projects while Windows validation should additionally cover Event Log, EVTX, ETL, and ETW behavior.
+
+### Prerequisites
+
+1. Confirm the SDK:
+
+   ```bash
+   dotnet --list-sdks
+   ```
+
+   The output must include a .NET 10 SDK.
+
+2. Initialize the RELP.Net submodule when `external/RELP.Net` is empty or missing package assets:
+
+   ```bash
+   git submodule update --init --recursive external/RELP.Net
+   ```
+
+### Host-neutral validation
+
+Run these commands on any .NET 10-capable host:
+
+```bash
+dotnet restore DeltaZulu.Agent.sln
+dotnet build DeltaZulu.Agent.sln --no-restore
+dotnet test tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj --no-build
+dotnet test tests/DeltaZulu.Buffer.Tests/DeltaZulu.Buffer.Tests.csproj --no-build
+```
+
+These commands validate the host-neutral parser, profile, NDJSON, KQL seam, forwarder contract, and buffer coverage. If a non-Windows host cannot build Windows-targeted projects, rerun the host-neutral test projects directly and record the Windows target limitation in the validation notes.
+
+### Windows-specific validation
+
+Run these checks on a Windows host with the .NET 10 SDK when changing Windows input adapters or profiles:
+
+```powershell
+dotnet restore DeltaZulu.Agent.sln
+dotnet build DeltaZulu.Agent.sln --no-restore
+dotnet test tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj --no-build
+dotnet run --project src/DeltaZulu.Agent.Cli -- schemas profiles table
+dotnet run --project src/DeltaZulu.Agent.Cli -- eventlog Security table --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+```
+
+Use optional or lab-only resources for Sysmon, PowerShell, SMB, and Defender examples unless those logs are guaranteed to exist on the validation host.
+
+### Forwarder and demo collector smoke test
+
+Use two terminals on a .NET 10-capable host:
+
+```bash
+# terminal 1
+dotnet run --project src/DeltaZulu.Demo.Collector -- --address 127.0.0.1 --port 6514
+
+# terminal 2
+printf '<34>1 2026-06-23T12:00:00Z host app 123 ID47 - test message\n' > /tmp/dzagent-smoke.log
+dotnet run --project src/DeltaZulu.Agent.Cli -- syslog /tmp/dzagent-smoke.log forwarder /tmp/dzagent-buffer --forwarder-host 127.0.0.1 --forwarder-port 6514 --diagnostic-interval 1
+```
+
+After the smoke test, remove the temporary log and buffer directory if the run completed successfully:
+
+```bash
+rm -f /tmp/dzagent-smoke.log
+rm -rf /tmp/dzagent-buffer
+```
+
+The demo collector is only a local validation receiver. It is not a production collector, daemon, SIEM, or syslog daemon replacement.
