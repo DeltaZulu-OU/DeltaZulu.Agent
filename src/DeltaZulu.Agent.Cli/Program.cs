@@ -3,7 +3,6 @@ using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Core.Pipelines;
 using DeltaZulu.Agent.Forwarder;
-using DeltaZulu.Buffer.Configuration;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
 using DeltaZulu.Agent.Inputs.Syslog;
@@ -442,14 +441,7 @@ internal static partial class Program
         var endpoints = configuration.Relp.Endpoints;
         var primaryEndpoint = endpoints[0];
 
-        var options = new DeltaZuluBufferOptions
-        {
-            StoragePath = configuration.Buffer.Path,
-            MaxChunkRecords = configuration.Buffer.MaxChunkRecords,
-            MaxChunkAge = TimeSpan.FromSeconds(configuration.Buffer.MaxChunkAgeSeconds)
-        };
-
-        return new BufferedForwarderSink(options, new RelpForwarderTransport(new RelpForwarderOptions
+        return new BufferedForwarderSink(configuration.Buffer.ToBufferOptions(), new RelpForwarderTransport(new RelpForwarderOptions
         {
             Host = primaryEndpoint.Host,
             Port = primaryEndpoint.Port,

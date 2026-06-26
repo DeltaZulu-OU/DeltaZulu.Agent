@@ -20,7 +20,6 @@ public sealed class DeltaZuluBufferOptionsTests
         Assert.AreEqual(10, options.MaxRetryAttempts);
         Assert.AreEqual(TimeSpan.FromSeconds(1), options.RetryBaseDelay);
         Assert.AreEqual(TimeSpan.FromMinutes(5), options.RetryMaxDelay);
-        Assert.IsTrue(options.RequireServerAcknowledgement);
     }
 
     [TestMethod]
@@ -33,8 +32,7 @@ public sealed class DeltaZuluBufferOptionsTests
             MaxChunkRecords = 500,
             FullPolicy = BufferFullPolicy.RejectNewest,
             RetryExhaustedPolicy = RetryExhaustedPolicy.Discard,
-            MaxRetryAttempts = 5,
-            RequireServerAcknowledgement = false
+            MaxRetryAttempts = 5
         };
 
         Assert.AreEqual("/data/buffer", options.StoragePath);
@@ -43,6 +41,5 @@ public sealed class DeltaZuluBufferOptionsTests
         Assert.AreEqual(BufferFullPolicy.RejectNewest, options.FullPolicy);
         Assert.AreEqual(RetryExhaustedPolicy.Discard, options.RetryExhaustedPolicy);
         Assert.AreEqual(5, options.MaxRetryAttempts);
-        Assert.IsFalse(options.RequireServerAcknowledgement);
     }
 }

@@ -35,11 +35,11 @@ public sealed record ForwarderHealthObservation
                 ["recordsDroppedTotal"] = Health.Buffer.RecordsDroppedTotal,
                 ["chunksDeliveredTotal"] = Health.Buffer.ChunksDeliveredTotal,
                 ["chunksDeadLetteredTotal"] = Health.Buffer.ChunksDeadLetteredTotal,
-                ["batchesSentTotal"] = Health.BatchesSentTotal,
-                ["batchesAcknowledgedTotal"] = Health.BatchesAcknowledgedTotal,
-                ["batchesFailedTotal"] = Health.BatchesFailedTotal,
-                ["batchesRetryScheduledTotal"] = Health.BatchesRetryScheduledTotal,
-                ["batchesDeadLetteredTotal"] = Health.BatchesDeadLetteredTotal,
+                ["batchesSentTotal"] = Health.Buffer.ChunksSentTotal,
+                ["batchesAcknowledgedTotal"] = Health.Buffer.ChunksDeliveredTotal,
+                ["batchesFailedTotal"] = Health.Buffer.ChunksFailedTotal,
+                ["batchesRetryScheduledTotal"] = Health.Buffer.ChunksRetryScheduledTotal,
+                ["batchesDeadLetteredTotal"] = Health.Buffer.ChunksDeadLetteredTotal,
                 ["lastForwarderActivityUtc"] = Health.LastForwarderActivityUtc
             }
         };

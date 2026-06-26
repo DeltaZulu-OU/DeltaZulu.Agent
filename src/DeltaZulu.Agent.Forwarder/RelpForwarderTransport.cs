@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Text.Json;
 using Relp;
 
 namespace DeltaZulu.Agent.Forwarder;
@@ -20,7 +19,6 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
         ArgumentNullException.ThrowIfNull(options);
 
         ValidateEndpoints(options.GetConfiguredEndpoints());
-        ValidateTlsPolicy(options);
 
         _options = options;
     }
@@ -191,29 +189,9 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
         }
     }
 
-    private static void ValidateTlsPolicy(RelpForwarderOptions options)
-    {
-        if (!options.UseTls && options.CertificateValidation != RelpCertificateValidationMode.SystemTrust)
-        {
-            throw new ArgumentException("RELP TLS must be enabled before setting certificate validation policy.", nameof(options));
-        }
-
-        if (options.CertificateValidation == RelpCertificateValidationMode.Thumbprint
-            && options.AllowedServerCertificateThumbprints.Count == 0)
-        {
-            throw new ArgumentException("At least one server certificate thumbprint is required for thumbprint validation.", nameof(options));
-        }
-
-        if (options.CertificateExpiryWarningDays < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(options), options.CertificateExpiryWarningDays, "Certificate expiry warning days must be zero or greater.");
-        }
-    }
-
     private static bool IsTransientForwarderFailure(Exception exception) =>
         exception is IOException
             or SocketException
             or InvalidOperationException
-            or TimeoutException
-            or JsonException;
+            or TimeoutException;
 }

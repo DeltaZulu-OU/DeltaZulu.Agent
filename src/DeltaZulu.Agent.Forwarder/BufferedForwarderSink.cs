@@ -11,14 +11,8 @@ public sealed class BufferedForwarderSink : IResourceSink
 {
     private readonly DeltaZuluBufferHost<DeliveryRecord> _host;
     private readonly IForwarderTransport _transport;
-    private readonly string _storagePath;
     private readonly CancellationToken _cancellationToken;
-    private readonly IDisposable _eventSubscription;
-    private long _batchesSent;
-    private long _batchesAcknowledged;
-    private long _batchesFailed;
-    private long _batchesRetryScheduled;
-    private long _batchesDeadLettered;
+    private readonly IDisposable _activitySubscription;
     private long _lastForwarderActivityTicks;
     private bool _disposed;
 
@@ -28,13 +22,12 @@ public sealed class BufferedForwarderSink : IResourceSink
         CancellationToken cancellationToken = default)
     {
         _cancellationToken = cancellationToken;
-        _storagePath = options.StoragePath;
         _transport = transport;
         _host = new DeltaZuluBufferHost<DeliveryRecord>(
             options,
             new DeliveryRecordSerializer(),
             new ForwarderChunkSender(_transport));
-        _eventSubscription = _host.Events.Subscribe(new ForwarderBufferEventObserver(RecordBufferEvent));
+        _activitySubscription = _host.Events.Subscribe(new ActivityTimestampObserver(RecordActivity));
         _host.StartAsync(cancellationToken).AsTask().GetAwaiter().GetResult();
     }
 
@@ -43,12 +36,7 @@ public sealed class BufferedForwarderSink : IResourceSink
     public ForwarderHealthSnapshot GetHealthSnapshot() => new()
     {
         Buffer = _host.Buffer.GetSnapshot(),
-        BatchesSentTotal = Interlocked.Read(ref _batchesSent),
-        BatchesAcknowledgedTotal = Interlocked.Read(ref _batchesAcknowledged),
-        BatchesFailedTotal = Interlocked.Read(ref _batchesFailed),
-        BatchesRetryScheduledTotal = Interlocked.Read(ref _batchesRetryScheduled),
-        BatchesDeadLetteredTotal = Interlocked.Read(ref _batchesDeadLettered),
-        LastForwarderActivityUtc = ReadLastForwarderActivity()
+        LastForwarderActivityUtc = ReadLastActivity()
     };
 
     public ResourceOutputRecord GetHealthOutputRecord(CollectorObservationMetadata metadata) =>
@@ -58,18 +46,6 @@ public sealed class BufferedForwarderSink : IResourceSink
             Health = GetHealthSnapshot()
         }.ToOutputRecord();
 
-    public void OnCompleted()
-    {
-        _host.Buffer.FlushAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
-        WaitForDispatchIdle(_cancellationToken);
-    }
-
-    public void OnError(Exception error)
-    {
-        Console.Error.WriteLine($"forwarder sink error: {error}");
-        Console.Error.Flush();
-    }
-
     public void OnNext(ResourceOutputRecord value)
     {
         var result = _host.Buffer.WriteAsync(
@@ -78,8 +54,20 @@ public sealed class BufferedForwarderSink : IResourceSink
 
         if (!result.IsAccepted)
         {
-            throw new InvalidOperationException($"Forwarder buffer rejected record: {result.Status}");
+            Console.Error.WriteLine($"forwarder buffer rejected record: {result.Status}");
+            Console.Error.Flush();
         }
+    }
+
+    public void OnCompleted()
+    {
+        _host.Buffer.FlushAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
+    }
+
+    public void OnError(Exception error)
+    {
+        Console.Error.WriteLine($"forwarder sink error: {error}");
+        Console.Error.Flush();
     }
 
     public void Dispose()
@@ -89,13 +77,20 @@ public sealed class BufferedForwarderSink : IResourceSink
             return;
         }
 
-        _host.Buffer.FlushAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
-        WaitForDispatchIdle(_cancellationToken);
         _host.StopAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
-        _eventSubscription.Dispose();
+        _activitySubscription.Dispose();
         _host.DisposeAsync().AsTask().GetAwaiter().GetResult();
         DisposeTransport();
         _disposed = true;
+    }
+
+    private void RecordActivity(DateTimeOffset timestamp) =>
+        Interlocked.Exchange(ref _lastForwarderActivityTicks, timestamp.UtcTicks);
+
+    private DateTimeOffset? ReadLastActivity()
+    {
+        var ticks = Interlocked.Read(ref _lastForwarderActivityTicks);
+        return ticks > 0 ? new DateTimeOffset(ticks, TimeSpan.Zero) : null;
     }
 
     private void DisposeTransport()
@@ -111,78 +106,28 @@ public sealed class BufferedForwarderSink : IResourceSink
         }
     }
 
-    private void RecordBufferEvent(BufferEvent bufferEvent)
+    private sealed class ActivityTimestampObserver : IObserver<BufferEvent>
     {
-        switch (bufferEvent.EventType)
+        private readonly Action<DateTimeOffset> _onActivity;
+
+        public ActivityTimestampObserver(Action<DateTimeOffset> onActivity) =>
+            _onActivity = onActivity;
+
+        public void OnNext(BufferEvent value)
         {
-            case BufferEventType.BufferChunkDispatchStarted:
-                Interlocked.Increment(ref _batchesSent);
-                RecordForwarderActivity(bufferEvent.TimestampUtc);
-                break;
-            case BufferEventType.BufferChunkDispatchSucceeded:
-                Interlocked.Increment(ref _batchesAcknowledged);
-                RecordForwarderActivity(bufferEvent.TimestampUtc);
-                break;
-            case BufferEventType.BufferChunkDispatchFailed:
-                Interlocked.Increment(ref _batchesFailed);
-                RecordForwarderActivity(bufferEvent.TimestampUtc);
-                break;
-            case BufferEventType.BufferChunkRetryScheduled:
-                Interlocked.Increment(ref _batchesRetryScheduled);
-                RecordForwarderActivity(bufferEvent.TimestampUtc);
-                break;
-            case BufferEventType.BufferChunkDeadLettered:
-                Interlocked.Increment(ref _batchesDeadLettered);
-                RecordForwarderActivity(bufferEvent.TimestampUtc);
-                break;
-        }
-    }
-
-    private void RecordForwarderActivity(DateTimeOffset timestamp) =>
-        Interlocked.Exchange(ref _lastForwarderActivityTicks, timestamp.UtcTicks);
-
-    private DateTimeOffset? ReadLastForwarderActivity()
-    {
-        var ticks = Interlocked.Read(ref _lastForwarderActivityTicks);
-        return ticks > 0 ? new DateTimeOffset(ticks, TimeSpan.Zero) : null;
-    }
-
-    private void WaitForDispatchIdle(CancellationToken cancellationToken)
-    {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!HasPendingChunks())
+            switch (value.EventType)
             {
-                return;
+                case BufferEventType.BufferChunkDispatchStarted:
+                case BufferEventType.BufferChunkDispatchSucceeded:
+                case BufferEventType.BufferChunkDispatchFailed:
+                case BufferEventType.BufferChunkRetryScheduled:
+                case BufferEventType.BufferChunkDeadLettered:
+                    _onActivity(value.TimestampUtc);
+                    break;
             }
-
-            Thread.Sleep(TimeSpan.FromMilliseconds(100));
-        }
-    }
-
-    private bool HasPendingChunks() => HasChunkFiles(Path.Combine(_storagePath, "sealed"))
-            || HasChunkFiles(Path.Combine(_storagePath, "dispatching"));
-
-    private static bool HasChunkFiles(string path) =>
-        Directory.Exists(path) && Directory.EnumerateFiles(path, "*.chunk").Any();
-
-    private sealed class ForwarderBufferEventObserver : IObserver<BufferEvent>
-    {
-        private readonly Action<BufferEvent> _onNext;
-
-        public ForwarderBufferEventObserver(Action<BufferEvent> onNext)
-        {
-            _onNext = onNext;
         }
 
-        public void OnCompleted()
-        { }
-
-        public void OnError(Exception error)
-        { }
-
-        public void OnNext(BufferEvent value) => _onNext(value);
+        public void OnCompleted() { }
+        public void OnError(Exception error) { }
     }
 }

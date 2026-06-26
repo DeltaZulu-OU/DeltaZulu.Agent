@@ -17,6 +17,4 @@ public sealed record DeltaZuluBufferOptions
     public int MaxRetryAttempts { get; init; } = 10;
     public TimeSpan RetryBaseDelay { get; init; } = TimeSpan.FromSeconds(1);
     public TimeSpan RetryMaxDelay { get; init; } = TimeSpan.FromMinutes(5);
-
-    public bool RequireServerAcknowledgement { get; init; } = true;
 }

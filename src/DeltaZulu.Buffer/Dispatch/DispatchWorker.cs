@@ -104,6 +104,7 @@ internal sealed class DispatchWorker
             return;
         }
 
+        _metrics.ChunkSent();
         _events.Publish(BufferEvent.Create(
             BufferEventType.BufferChunkDispatchStarted, dispatching.Id.Value, chunk: dispatching));
 
@@ -153,6 +154,7 @@ internal sealed class DispatchWorker
     {
         var newAttemptCount = chunk.Metadata.AttemptCount + 1;
 
+        _metrics.ChunkFailed();
         _events.Publish(BufferEvent.Create(
             BufferEventType.BufferChunkDispatchFailed, chunk.Id.Value, detail: error, chunk: chunk));
 

@@ -1,3 +1,4 @@
+using DeltaZulu.Buffer.Configuration;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -13,8 +14,35 @@ public sealed record ForwarderConfiguration
 public sealed record ForwarderBufferConfiguration
 {
     public string Path { get; init; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "deltazulu-agent-forwarder");
+
+    public long MaxDiskBytes { get; init; } = 512L * 1024 * 1024;
+    public long MaxMemoryBytes { get; init; } = 32L * 1024 * 1024;
+
     public int MaxChunkRecords { get; init; } = 100;
+    public long MaxChunkBytes { get; init; } = 4L * 1024 * 1024;
     public double MaxChunkAgeSeconds { get; init; } = 1;
+
+    public BufferFullPolicy FullPolicy { get; init; } = BufferFullPolicy.Block;
+    public RetryExhaustedPolicy RetryExhaustedPolicy { get; init; } = RetryExhaustedPolicy.DeadLetter;
+
+    public int MaxRetryAttempts { get; init; } = 10;
+    public double RetryBaseDelaySeconds { get; init; } = 1;
+    public double RetryMaxDelaySeconds { get; init; } = 300;
+
+    public DeltaZuluBufferOptions ToBufferOptions() => new()
+    {
+        StoragePath = Path,
+        MaxDiskBytes = MaxDiskBytes,
+        MaxMemoryBytes = MaxMemoryBytes,
+        MaxChunkRecords = MaxChunkRecords,
+        MaxChunkBytes = MaxChunkBytes,
+        MaxChunkAge = TimeSpan.FromSeconds(MaxChunkAgeSeconds),
+        FullPolicy = FullPolicy,
+        RetryExhaustedPolicy = RetryExhaustedPolicy,
+        MaxRetryAttempts = MaxRetryAttempts,
+        RetryBaseDelay = TimeSpan.FromSeconds(RetryBaseDelaySeconds),
+        RetryMaxDelay = TimeSpan.FromSeconds(RetryMaxDelaySeconds)
+    };
 }
 
 public sealed record ForwarderRelpConfiguration
@@ -64,9 +92,29 @@ public sealed class YamlForwarderConfigurationLoader
         ArgumentNullException.ThrowIfNull(configuration);
         var prefix = string.IsNullOrWhiteSpace(path) ? "Forwarder configuration" : $"Forwarder configuration '{path}'";
 
+        if (string.IsNullOrWhiteSpace(configuration.Buffer.Path))
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.path.");
+        }
+
+        if (configuration.Buffer.MaxDiskBytes < 1)
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.maxDiskBytes to at least 1.");
+        }
+
+        if (configuration.Buffer.MaxMemoryBytes < 1)
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.maxMemoryBytes to at least 1.");
+        }
+
         if (configuration.Buffer.MaxChunkRecords < 1)
         {
             throw new InvalidDataException($"{prefix} must set buffer.maxChunkRecords to at least 1.");
+        }
+
+        if (configuration.Buffer.MaxChunkBytes < 1)
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.maxChunkBytes to at least 1.");
         }
 
         if (configuration.Buffer.MaxChunkAgeSeconds <= 0)
@@ -74,9 +122,19 @@ public sealed class YamlForwarderConfigurationLoader
             throw new InvalidDataException($"{prefix} must set buffer.maxChunkAgeSeconds greater than 0.");
         }
 
-        if (string.IsNullOrWhiteSpace(configuration.Buffer.Path))
+        if (configuration.Buffer.MaxRetryAttempts < 1)
         {
-            throw new InvalidDataException($"{prefix} must set buffer.path.");
+            throw new InvalidDataException($"{prefix} must set buffer.maxRetryAttempts to at least 1.");
+        }
+
+        if (configuration.Buffer.RetryBaseDelaySeconds <= 0)
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.retryBaseDelaySeconds greater than 0.");
+        }
+
+        if (configuration.Buffer.RetryMaxDelaySeconds <= 0)
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.retryMaxDelaySeconds greater than 0.");
         }
 
         if (!configuration.Relp.UseTls && configuration.Relp.Tls.CertificateValidation != RelpCertificateValidationMode.SystemTrust)

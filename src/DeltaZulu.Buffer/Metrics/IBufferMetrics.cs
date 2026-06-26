@@ -14,7 +14,11 @@ public interface IBufferMetrics
 
     void ChunkSealed();
 
+    void ChunkSent();
+
     void ChunkDelivered();
+
+    void ChunkFailed();
 
     void ChunkRetried();
 

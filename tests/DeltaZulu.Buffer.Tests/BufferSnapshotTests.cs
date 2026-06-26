@@ -21,7 +21,10 @@ public sealed class BufferSnapshotTests
             RecordsAcceptedTotal = 1000,
             RecordsRejectedTotal = 5,
             RecordsDroppedTotal = 2,
+            ChunksSentTotal = 12,
             ChunksDeliveredTotal = 10,
+            ChunksFailedTotal = 2,
+            ChunksRetryScheduledTotal = 1,
             ChunksDeadLetteredTotal = 1
         };
 
@@ -33,7 +36,10 @@ public sealed class BufferSnapshotTests
         Assert.AreEqual(1000, snapshot.RecordsAcceptedTotal);
         Assert.AreEqual(5, snapshot.RecordsRejectedTotal);
         Assert.AreEqual(2, snapshot.RecordsDroppedTotal);
+        Assert.AreEqual(12, snapshot.ChunksSentTotal);
         Assert.AreEqual(10, snapshot.ChunksDeliveredTotal);
+        Assert.AreEqual(2, snapshot.ChunksFailedTotal);
+        Assert.AreEqual(1, snapshot.ChunksRetryScheduledTotal);
         Assert.AreEqual(1, snapshot.ChunksDeadLetteredTotal);
     }
 }

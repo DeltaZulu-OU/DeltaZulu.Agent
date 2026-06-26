@@ -13,6 +13,9 @@ public sealed record BufferSnapshot
     public required long RecordsAcceptedTotal { get; init; }
     public required long RecordsRejectedTotal { get; init; }
     public required long RecordsDroppedTotal { get; init; }
+    public required long ChunksSentTotal { get; init; }
     public required long ChunksDeliveredTotal { get; init; }
+    public required long ChunksFailedTotal { get; init; }
+    public required long ChunksRetryScheduledTotal { get; init; }
     public required long ChunksDeadLetteredTotal { get; init; }
 }

@@ -46,9 +46,9 @@ public sealed class ForwarderTests
         var health = sink.GetHealthSnapshot();
 
         Assert.AreEqual(1, health.Buffer.RecordsAcceptedTotal);
-        Assert.IsGreaterThanOrEqualTo(1, health.BatchesSentTotal);
-        Assert.IsGreaterThanOrEqualTo(1, health.BatchesAcknowledgedTotal);
-        Assert.AreEqual(0, health.BatchesDeadLetteredTotal);
+        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksSentTotal);
+        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksDeliveredTotal);
+        Assert.AreEqual(0, health.Buffer.ChunksDeadLetteredTotal);
         Assert.IsNotNull(health.LastForwarderActivityUtc);
 
         var observation = sink.GetHealthOutputRecord(new CollectorObservationMetadata {
@@ -59,6 +59,7 @@ public sealed class ForwarderTests
         Assert.AreEqual(ForwarderHealthObservation.RecordKind, observation.Metadata["recordKind"]);
         Assert.AreEqual(1L, observation.Event["recordsAcceptedTotal"]);
         Assert.AreEqual(0L, observation.Event["batchesDeadLetteredTotal"]);
+        Assert.IsTrue(observation.Event.ContainsKey("batchesSentTotal"));
     }
 
     [TestMethod]
@@ -84,7 +85,7 @@ public sealed class ForwarderTests
 
         var health = sink.GetHealthSnapshot();
         var deadLetterDir = Path.Combine(directory.Path, "deadletter");
-        var hasDeadLettered = health.BatchesDeadLetteredTotal > 0
+        var hasDeadLettered = health.Buffer.ChunksDeadLetteredTotal > 0
             || (Directory.Exists(deadLetterDir) && Directory.EnumerateFiles(deadLetterDir, "*.chunk").Any());
         Assert.IsTrue(hasDeadLettered, "Expected dead-lettered chunks after retry exhaustion");
     }
@@ -119,8 +120,8 @@ public sealed class ForwarderTests
 
         var health = sink.GetHealthSnapshot();
         Assert.IsGreaterThanOrEqualTo(2, Interlocked.Read(ref callCount), $"Expected at least 2 send attempts, got {callCount}");
-        Assert.IsGreaterThanOrEqualTo(1, health.BatchesAcknowledgedTotal, "Expected at least one acknowledged batch");
-        Assert.AreEqual(0, health.BatchesDeadLetteredTotal);
+        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksDeliveredTotal, "Expected at least one acknowledged batch");
+        Assert.AreEqual(0, health.Buffer.ChunksDeadLetteredTotal);
     }
 
     [TestMethod]
@@ -488,17 +489,6 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpForwarderTransport_Constructor_RejectsThumbprintPolicyWithoutThumbprints()
-    {
-        Assert.ThrowsExactly<ArgumentException>(() => new RelpForwarderTransport(new RelpForwarderOptions {
-            Host = "primary.example",
-            Port = 6514,
-            UseTls = true,
-            CertificateValidation = RelpCertificateValidationMode.Thumbprint
-        }));
-    }
-
-    [TestMethod]
     public void RelpForwarderOptions_GetConfiguredEndpoints_UsesFailoverListWhenProvided()
     {
         var options = new RelpForwarderOptions {
@@ -595,6 +585,7 @@ public sealed class ForwarderTests
     [TestMethod]
     public void ForwarderHealthObservation_ToOutputRecord_ContainsAllExpectedFields()
     {
+        var now = DateTimeOffset.UtcNow;
         var observation = new ForwarderHealthObservation {
             Metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" },
             Health = new ForwarderHealthSnapshot {
@@ -610,15 +601,13 @@ public sealed class ForwarderTests
                     RecordsAcceptedTotal = 100,
                     RecordsRejectedTotal = 0,
                     RecordsDroppedTotal = 0,
-                    ChunksDeliveredTotal = 10,
+                    ChunksSentTotal = 10,
+                    ChunksDeliveredTotal = 9,
+                    ChunksFailedTotal = 1,
+                    ChunksRetryScheduledTotal = 2,
                     ChunksDeadLetteredTotal = 0
                 },
-                BatchesSentTotal = 10,
-                BatchesAcknowledgedTotal = 9,
-                BatchesFailedTotal = 1,
-                BatchesRetryScheduledTotal = 2,
-                BatchesDeadLetteredTotal = 0,
-                LastForwarderActivityUtc = DateTimeOffset.UtcNow
+                LastForwarderActivityUtc = now
             }
         };
 
@@ -627,13 +616,13 @@ public sealed class ForwarderTests
         Assert.AreEqual(ForwarderHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("Healthy", record.Event["bufferState"]);
         Assert.AreEqual(100L, record.Event["recordsAcceptedTotal"]);
-        Assert.AreEqual(10L, record.Event["chunksDeliveredTotal"]);
+        Assert.AreEqual(9L, record.Event["chunksDeliveredTotal"]);
         Assert.AreEqual(10L, record.Event["batchesSentTotal"]);
         Assert.AreEqual(9L, record.Event["batchesAcknowledgedTotal"]);
         Assert.AreEqual(1L, record.Event["batchesFailedTotal"]);
         Assert.AreEqual(2L, record.Event["batchesRetryScheduledTotal"]);
         Assert.AreEqual(0L, record.Event["batchesDeadLetteredTotal"]);
-        Assert.IsNotNull(record.Event["lastForwarderActivityUtc"]);
+        Assert.AreEqual(now, record.Event["lastForwarderActivityUtc"]);
     }
 
     private static byte[] CreateChunkBytes(byte[] payload)

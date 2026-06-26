@@ -9,7 +9,9 @@ internal sealed class BufferMetricsCounter : IBufferMetrics
     private long _recordsDropped;
     private long _chunksCreated;
     private long _chunksSealed;
+    private long _chunksSent;
     private long _chunksDelivered;
+    private long _chunksFailed;
     private long _chunksRetried;
     private long _chunksDeadLettered;
     private long _chunksQuarantined;
@@ -32,7 +34,11 @@ internal sealed class BufferMetricsCounter : IBufferMetrics
 
     public void ChunkSealed() => Interlocked.Increment(ref _chunksSealed);
 
+    public void ChunkSent() => Interlocked.Increment(ref _chunksSent);
+
     public void ChunkDelivered() => Interlocked.Increment(ref _chunksDelivered);
+
+    public void ChunkFailed() => Interlocked.Increment(ref _chunksFailed);
 
     public void ChunkRetried() => Interlocked.Increment(ref _chunksRetried);
 
@@ -77,7 +83,10 @@ internal sealed class BufferMetricsCounter : IBufferMetrics
             RecordsAcceptedTotal = Interlocked.Read(ref _recordsAccepted),
             RecordsRejectedTotal = Interlocked.Read(ref _recordsRejected),
             RecordsDroppedTotal = Interlocked.Read(ref _recordsDropped),
+            ChunksSentTotal = Interlocked.Read(ref _chunksSent),
             ChunksDeliveredTotal = Interlocked.Read(ref _chunksDelivered),
+            ChunksFailedTotal = Interlocked.Read(ref _chunksFailed),
+            ChunksRetryScheduledTotal = Interlocked.Read(ref _chunksRetried),
             ChunksDeadLetteredTotal = Interlocked.Read(ref _chunksDeadLettered)
         };
     }
