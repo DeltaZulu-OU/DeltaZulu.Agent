@@ -4,6 +4,9 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="18.0.0" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Outputs.Ndjson\DeltaZulu.Agent.Outputs.Ndjson.csproj" />
     <ProjectReference Include="..\..\external\RELP.Net\src\Relp\Relp.csproj" />

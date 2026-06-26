@@ -8,6 +8,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="forwarder.yaml" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Forwarder\DeltaZulu.Agent.Forwarder.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Inputs.Auditd\DeltaZulu.Agent.Inputs.Auditd.csproj" />
@@ -19,5 +22,10 @@
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <ProjectReference Include="..\DeltaZulu.Agent.Inputs.Windows\DeltaZulu.Agent.Inputs.Windows.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="forwarder.yaml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

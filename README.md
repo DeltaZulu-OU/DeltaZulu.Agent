@@ -29,7 +29,7 @@ Inputs:
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
   table                     Print a compact console table.
-  forwarder [buffer-dir]    Buffer filtered records locally and send them to a RELP collector.
+  forwarder [config.yaml]   Buffer filtered records locally and send them to a RELP collector.
 
 
 Options:
@@ -40,10 +40,7 @@ Options:
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
   --port <port>             syslogserver TCP port.
-  --forwarder-host <host>    Forwarder target host for forwarder output (default 127.0.0.1).
-  --forwarder-port <port>    RELP collector target port for forwarder output (default 6514).
-  --forwarder-tls           Use TLS for RELP forwarder output.
-  --forwarder-buffer <dir>   Buffer directory for forwarder output.
+  --forwarder-config <file> YAML forwarder config path (default config/forwarder.yaml).
 ```
 
 Examples:
@@ -53,7 +50,24 @@ dzagent syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
 dzagent csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
 dzagent syslogserver --address 127.0.0.1 --port 5514
 dzdemo-collector --address 127.0.0.1 --port 6514
-dzagent syslog /var/log/auth.log forwarder ./buffer --forwarder-host 127.0.0.1 --forwarder-port 6514
+dzagent syslog /var/log/auth.log forwarder config/forwarder.yaml
+dzagent syslog /var/log/auth.log forwarder --forwarder-config config/forwarder.yaml
+```
+
+
+Forwarder output is configured from YAML rather than inline transport flags. If no path is supplied after `forwarder` and `--forwarder-config` is omitted, the CLI loads `config/forwarder.yaml`. The schema mirrors the profile style by keeping named sections for local buffering and the RELP transport:
+
+```yaml
+id: local-relp-forwarder
+buffer:
+  path: ./buffer/forwarder
+  maxChunkRecords: 100
+  maxChunkAgeSeconds: 1
+relp:
+  useTls: false
+  endpoints:
+    - host: 127.0.0.1
+      port: 6514
 ```
 
 ## Demo collector
@@ -65,7 +79,7 @@ acknowledges them with RELP `rsp 200` responses.
 
 ```bash
 dzdemo-collector --address 127.0.0.1 --port 6514
-dzagent syslog /var/log/auth.log forwarder ./buffer --forwarder-host 127.0.0.1 --forwarder-port 6514
+dzagent syslog /var/log/auth.log forwarder config/forwarder.yaml
 ```
 
 Windows process creation examples:

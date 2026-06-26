@@ -104,14 +104,14 @@ dotnet run --project src/DeltaZulu.Demo.Collector -- --address 127.0.0.1 --port 
 
 # terminal 2
 printf '<34>1 2026-06-23T12:00:00Z host app 123 ID47 - test message\n' > /tmp/dzagent-smoke.log
-dotnet run --project src/DeltaZulu.Agent.Cli -- syslog /tmp/dzagent-smoke.log forwarder /tmp/dzagent-buffer --forwarder-host 127.0.0.1 --forwarder-port 6514 --diagnostic-interval 1
+dotnet run --project src/DeltaZulu.Agent.Cli -- syslog /tmp/dzagent-smoke.log forwarder config/forwarder.yaml --diagnostic-interval 1
 ```
 
 After the smoke test, remove the temporary log and buffer directory if the run completed successfully:
 
 ```bash
 rm -f /tmp/dzagent-smoke.log
-rm -rf /tmp/dzagent-buffer
+rm -rf ./buffer/forwarder
 ```
 
 The demo collector is only a local validation receiver. It is not a production collector, daemon, SIEM, or syslog daemon replacement.

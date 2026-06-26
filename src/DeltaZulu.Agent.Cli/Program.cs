@@ -428,29 +428,55 @@ internal static partial class Program
         _ => throw new ArgumentException($"unknown output command '{plan.OutputCommand}'")
     };
 
+    private const string DefaultForwarderConfigPath = "forwarder.yaml";
+
     private static IResourceSink CreateForwarderSink(CliPlan plan)
     {
-        var storagePath = plan.OutputArgument
-            ?? plan.Option("--forwarder-buffer")
-            ?? Path.Combine(Path.GetTempPath(), "deltazulu-agent-forwarder");
-        var host = plan.Option("--forwarder-host") ?? plan.Option("--forwarder-address") ?? "127.0.0.1";
-        var port = int.Parse(plan.Option("--forwarder-port") ?? "6514");
+        RejectForwarderInlineOptions(plan);
+
+        var configPath = plan.OutputArgument
+            ?? plan.Option("--forwarder-config")
+            ?? DefaultForwarderConfigPath;
+        var configuration = new YamlForwarderConfigurationLoader().LoadFile(configPath);
+        var endpoints = configuration.Relp.Endpoints;
+        var primaryEndpoint = endpoints[0];
 
         var options = new DeltaZuluBufferOptions
         {
-            StoragePath = storagePath,
-            MaxChunkRecords = int.Parse(plan.Option("--forwarder-chunk-records") ?? "100"),
-            MaxChunkAge = TimeSpan.FromSeconds(double.Parse(
-                plan.Option("--forwarder-chunk-age-seconds") ?? "1",
-                System.Globalization.CultureInfo.InvariantCulture))
+            StoragePath = configuration.Buffer.Path,
+            MaxChunkRecords = configuration.Buffer.MaxChunkRecords,
+            MaxChunkAge = TimeSpan.FromSeconds(configuration.Buffer.MaxChunkAgeSeconds)
         };
 
         return new BufferedForwarderSink(options, new RelpForwarderTransport(new RelpForwarderOptions
         {
-            Host = host,
-            Port = port,
-            UseTls = plan.HasOption("--forwarder-tls")
+            Host = primaryEndpoint.Host,
+            Port = primaryEndpoint.Port,
+            Endpoints = endpoints,
+            UseTls = configuration.Relp.UseTls
         }));
+    }
+
+    private static void RejectForwarderInlineOptions(CliPlan plan)
+    {
+        string[] inlineOptions = [
+            "--forwarder-host",
+            "--forwarder-address",
+            "--forwarder-port",
+            "--forwarder-endpoints",
+            "--forwarder-tls",
+            "--forwarder-buffer",
+            "--forwarder-chunk-records",
+            "--forwarder-chunk-age-seconds"
+        ];
+
+        foreach (var option in inlineOptions)
+        {
+            if (plan.HasOption(option))
+            {
+                throw new ArgumentException($"{option} is no longer accepted for forwarder output. Use a YAML file with --forwarder-config <path> or pass the config path after 'forwarder'.");
+            }
+        }
     }
 
     private static ForwarderHealthReporter? CreateHealthReporter(CliPlan plan, IResourceSink sink)
@@ -611,7 +637,7 @@ Inputs:
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
   table                    Print a compact console table.
-  forwarder [buffer-dir]    Buffer filtered records locally and send them to a RELP collector.
+  forwarder [config.yaml]   Buffer filtered records locally and send them to a RELP collector.
 
 Options:
   --profile <path>          Apply one profile, or every YAML profile under a directory.
@@ -622,10 +648,7 @@ Options:
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
   --port <port>             syslogserver TCP port.
-  --forwarder-host <host>         Forwarder target host for forwarder output (default 127.0.0.1).
-  --forwarder-port <port>         RELP collector target port for forwarder output (default 6514).
-  --forwarder-tls                 Use TLS for RELP forwarder output.
-  --forwarder-buffer <dir>        Buffer directory for forwarder output.
+  --forwarder-config <file>      YAML forwarder config path (default config/forwarder.yaml).
   --diagnostic-interval <seconds> Emit forwarder health snapshots at this interval (forwarder output only).
   --diagnostic-file <file>        Write health snapshots to this NDJSON file instead of stdout.
   --agent-id <id>                 Agent identifier stamped on health snapshot metadata.
@@ -638,7 +661,7 @@ Examples:
   dzagent eventlog sysmon --kql "EventLog | where EventId == 1"
   dzagent eventlog Security --kql "EventLog | where EventId == 4688"
   dzagent schemas profiles json
-  dzagent syslog /var/log/auth.log forwarder ./buffer --forwarder-host 127.0.0.1 --forwarder-port 6514
+  dzagent syslog /var/log/auth.log forwarder config/forwarder.yaml
 """);
         Console.Out.Flush();
     }

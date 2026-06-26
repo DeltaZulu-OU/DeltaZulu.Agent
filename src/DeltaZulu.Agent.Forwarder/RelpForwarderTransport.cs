@@ -12,21 +12,14 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
     private RelpConnection? _connection;
     private RelpSession? _session;
+    private int _endpointIndex;
     private int _disposeStarted;
 
     public RelpForwarderTransport(RelpForwarderOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        if (string.IsNullOrWhiteSpace(options.Host))
-        {
-            throw new ArgumentException("RELP host is required.", nameof(options));
-        }
-
-        if (options.Port is < 1 or > 65535)
-        {
-            throw new ArgumentOutOfRangeException(nameof(options), options.Port, "RELP port must be between 1 and 65535.");
-        }
+        ValidateEndpoints(options.GetConfiguredEndpoints());
 
         _options = options;
     }
@@ -54,6 +47,7 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
             }
             catch (Exception ex) when (IsTransientForwarderFailure(ex))
             {
+                AdvanceEndpoint();
                 await ResetSessionAsync(CancellationToken.None).ConfigureAwait(false);
                 return new DeliveryAck {
                     BatchId = batch.BatchId,
@@ -113,9 +107,10 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
 
         await DisposeSessionAsync(cancellationToken).ConfigureAwait(false);
 
+        var endpoint = CurrentEndpoint;
         _connection = new RelpConnection(
-            _options.Host,
-            _options.Port,
+            endpoint.Host,
+            endpoint.Port,
             _options.UseTls,
             _options.ClientCertificates);
         await _connection.ConnectAsync(cancellationToken).ConfigureAwait(false);
@@ -123,6 +118,24 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
         _session = new RelpSession(_connection);
         await _session.OpenAsync(cancellationToken).ConfigureAwait(false);
         return _session;
+    }
+
+    private RelpEndpoint CurrentEndpoint
+    {
+        get
+        {
+            var endpoints = _options.GetConfiguredEndpoints();
+            return endpoints[Math.Abs(_endpointIndex % endpoints.Count)];
+        }
+    }
+
+    private void AdvanceEndpoint()
+    {
+        var endpoints = _options.GetConfiguredEndpoints();
+        if (endpoints.Count > 1)
+        {
+            _endpointIndex = (_endpointIndex + 1) % endpoints.Count;
+        }
     }
 
     private async ValueTask ResetSessionAsync(CancellationToken cancellationToken) =>
@@ -152,6 +165,28 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
         if (connection is not null)
         {
             await connection.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static void ValidateEndpoints(IReadOnlyList<RelpEndpoint> endpoints)
+    {
+        if (endpoints.Count == 0)
+        {
+            throw new ArgumentException("At least one RELP endpoint is required.");
+        }
+
+        for (var index = 0; index < endpoints.Count; index++)
+        {
+            var endpoint = endpoints[index];
+            if (string.IsNullOrWhiteSpace(endpoint.Host))
+            {
+                throw new ArgumentException($"RELP endpoint {index + 1} host is required.");
+            }
+
+            if (endpoint.Port is < 1 or > 65535)
+            {
+                throw new ArgumentOutOfRangeException(nameof(endpoints), endpoint.Port, $"RELP endpoint {index + 1} port must be between 1 and 65535.");
+            }
         }
     }
 

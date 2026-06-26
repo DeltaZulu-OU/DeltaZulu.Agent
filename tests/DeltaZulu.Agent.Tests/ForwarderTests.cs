@@ -409,6 +409,86 @@ public sealed class ForwarderTests
         Assert.Contains("server busy", result.Error!);
     }
 
+
+
+    [TestMethod]
+    public void YamlForwarderConfigurationLoader_LoadFile_LoadsBufferAndRelpSettings()
+    {
+        using var directory = new TemporaryDirectory();
+        var configPath = Path.Combine(directory.Path, "forwarder.yaml");
+        File.WriteAllText(configPath, """
+            id: test-forwarder
+            buffer:
+              path: /tmp/dz-buffer
+              maxChunkRecords: 25
+              maxChunkAgeSeconds: 3.5
+            relp:
+              useTls: true
+              endpoints:
+                - host: relp-a.example
+                  port: 6514
+                - host: relp-b.example
+                  port: 6515
+            """);
+
+        var configuration = new YamlForwarderConfigurationLoader().LoadFile(configPath);
+
+        Assert.AreEqual("test-forwarder", configuration.Id);
+        Assert.AreEqual("/tmp/dz-buffer", configuration.Buffer.Path);
+        Assert.AreEqual(25, configuration.Buffer.MaxChunkRecords);
+        Assert.AreEqual(3.5, configuration.Buffer.MaxChunkAgeSeconds);
+        Assert.IsTrue(configuration.Relp.UseTls);
+        Assert.HasCount(2, configuration.Relp.Endpoints);
+        Assert.AreEqual("relp-b.example", configuration.Relp.Endpoints[1].Host);
+        Assert.AreEqual(6515, configuration.Relp.Endpoints[1].Port);
+    }
+
+    [TestMethod]
+    public void YamlForwarderConfigurationLoader_LoadFile_RejectsInvalidEndpoint()
+    {
+        using var directory = new TemporaryDirectory();
+        var configPath = Path.Combine(directory.Path, "forwarder.yaml");
+        File.WriteAllText(configPath, """
+            buffer:
+              path: /tmp/dz-buffer
+            relp:
+              endpoints:
+                - host: ""
+                  port: 6514
+            """);
+
+        Assert.ThrowsExactly<InvalidDataException>(() => new YamlForwarderConfigurationLoader().LoadFile(configPath));
+    }
+
+    [TestMethod]
+    public void RelpForwarderOptions_GetConfiguredEndpoints_UsesFailoverListWhenProvided()
+    {
+        var options = new RelpForwarderOptions {
+            Host = "primary.example",
+            Port = 6514,
+            Endpoints = [
+                new RelpEndpoint { Host = "relp-a.example", Port = 6514 },
+                new RelpEndpoint { Host = "relp-b.example", Port = 6515 }
+            ]
+        };
+
+        var endpoints = options.GetConfiguredEndpoints();
+
+        Assert.HasCount(2, endpoints);
+        Assert.AreEqual("relp-a.example", endpoints[0].Host);
+        Assert.AreEqual(6515, endpoints[1].Port);
+    }
+
+    [TestMethod]
+    public void RelpForwarderTransport_Constructor_RejectsInvalidFailoverEndpoint()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => new RelpForwarderTransport(new RelpForwarderOptions {
+            Host = "primary.example",
+            Port = 6514,
+            Endpoints = [new RelpEndpoint { Host = " ", Port = 6514 }]
+        }));
+    }
+
     [TestMethod]
     public async Task RelpForwarderTransport_SendAsync_SendsBatchAndReturnsAcceptedAck()
     {
