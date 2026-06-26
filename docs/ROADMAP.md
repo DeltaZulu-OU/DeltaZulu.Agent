@@ -4,10 +4,10 @@ DeltaZulu.Agent has moved past the initial library-and-buffer spike. The current
 
 ## P0: Validate and stabilize the current implementation
 
-- Restore, build, and test the solution on a host with the .NET 10 SDK.
-- Fix any `Microsoft.Rx.Kql`, `Tx.Windows`, or target-framework compatibility issues exposed by the first clean build.
+- Restore, build, and test the solution on a host with the .NET 10 SDK. Completed in external validation with no compilation or runtime issues.
+- Keep monitoring `Microsoft.Rx.Kql`, `Tx.Windows`, and target-framework compatibility as dependencies or SDKs change.
 - Keep the existing fast unit-test posture and add missing golden fixture tests for raw input to NDJSON output.
-- Prove nested field access in profile KQL for Windows, auditd, and metadata fields before deciding whether KQL row exposure must be flattened.
+- Nested field access in profile KQL is validated for Windows Event Log payloads and metadata; defer auditd and other source-family probes until their profile work resumes.
 - Harden auditd assembler completion rules, malformed-record handling, and LAUREL-style decoding behavior.
 
 ## P0: Harden the buffered RELP forwarder
@@ -31,8 +31,8 @@ DeltaZulu.Agent has moved past the initial library-and-buffer spike. The current
 - Add stable delivery IDs and at-least-once deduplication fields for safe resend after crashes or network failures.
 - Tie future source checkpoint advancement to durable enqueue rather than network ACK.
 - Add profile hot reload once forwarding and checkpoint semantics are clear.
-- Add typed resource-local enrichment providers where they can run without changing server-canonical normalization.
-- Add SID/account resolution, auditd process relationship state, Windows LogonId/session state, and Sysmon ProcessGuid state as optional local enrichments.
+- Add typed resource-local enrichment providers after version 1.0 is stable, and only where they can run without changing server-canonical normalization.
+- Add SID/account resolution, auditd process relationship state, Windows LogonId/session state, and Sysmon ProcessGuid state as optional post-1.0 local enrichments.
 
 ## P2: Host and structure hardening
 

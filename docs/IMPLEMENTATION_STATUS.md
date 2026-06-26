@@ -47,15 +47,16 @@ Local durable buffering library, implemented and tested:
 - RELP TLS policy groundwork: YAML forwarder configuration now carries certificate validation mode, optional server thumbprint allow-list, client certificate path/password, and expiry warning thresholds; the CLI passes these options into the RELP-neutral transport boundary for production TLS hardening.
 - Operational RELP receiver documentation: `docs/RELP_RECEIVER_SETUP.md` now captures rsyslog and syslog-ng plain RELP/TLS snippets, payload preservation expectations, and the agent-side TLS configuration checklist.
 - Windows Event Log named payload extraction: live Event Log records now parse XML `EventData` names into a dynamic `EventData` object and mirror named payload values as top-level fields for profile compatibility with Security, Sysmon, PowerShell, SMB, and Defender KQL examples.
+- External .NET 10 validation completed successfully with no compilation or runtime issues, including the existing Agent and Buffer tests.
+- Windows Event Log nested KQL access is validated for named `EventData` payload fields and `_metadata` paths.
 
 ## Not implemented yet
 
 - Daemon, service lifecycle, and installer.
 - RELP/TLS wire-level validation callback support remains dependent on the underlying RELP.Net surface; receiver snippets are documented but still require environment-specific validation against production rsyslog/syslog-ng builds.
-- Enrichment and resource-local state providers.
-- Full LAUREL-level auditd decoding and process tracking.
+- Enrichment and resource-local state providers, including LAUREL-level auditd enrichment and process tracking; these remain post-1.0 work.
 - Profile hot reload.
-- Build validation in this environment; this container does not have the `dotnet` executable installed.
+- Auditd and other non-Windows nested KQL access probes.
 
 ## Explicitly out of scope
 
