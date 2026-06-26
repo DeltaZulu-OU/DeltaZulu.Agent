@@ -60,7 +60,10 @@ internal sealed class DispatchWorker
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 if (waitTime < TimeSpan.MaxValue)
+                {
                     cts.CancelAfter(waitTime);
+                }
+
                 await _reader.WaitToReadAsync(cts.Token);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -83,7 +86,9 @@ internal sealed class DispatchWorker
         _metrics.UpdateRetryQueueDepth(_retryQueue.Count);
 
         foreach (var chunk in due)
+        {
             await ProcessChunkAsync(chunk, cancellationToken);
+        }
     }
 
     private async Task ProcessChunkAsync(StoredChunk chunk, CancellationToken cancellationToken)

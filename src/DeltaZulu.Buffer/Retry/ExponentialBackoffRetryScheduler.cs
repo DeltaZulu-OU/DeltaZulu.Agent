@@ -18,7 +18,7 @@ public sealed class ExponentialBackoffRetryScheduler : IRetryScheduler
     public DateTimeOffset CalculateNextAttempt(int attemptCount)
     {
         var delayMs = Math.Min(_maxDelayMs, _baseDelayMs * (1L << Math.Min(attemptCount, 30)));
-        var jitter = delayMs * (Random.Shared.NextDouble() * 0.5 - 0.25);
+        var jitter = delayMs * ((Random.Shared.NextDouble() * 0.5) - 0.25);
         return DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(delayMs + jitter);
     }
 

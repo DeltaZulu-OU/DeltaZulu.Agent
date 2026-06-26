@@ -131,9 +131,15 @@ internal sealed class FileChunkStore : IChunkStore
         long total = 0;
         foreach (var dir in new[] { _sealedPath, _dispatchingPath, _deadLetterPath, _quarantinePath })
         {
-            if (!Directory.Exists(dir)) continue;
+            if (!Directory.Exists(dir))
+            {
+                continue;
+            }
+
             foreach (var file in Directory.EnumerateFiles(dir))
+            {
                 total += new FileInfo(file).Length;
+            }
         }
         return ValueTask.FromResult(total);
     }
@@ -160,7 +166,10 @@ internal sealed class FileChunkStore : IChunkStore
         CancellationToken cancellationToken)
     {
         var chunks = new List<StoredChunk>();
-        if (!Directory.Exists(directory)) return chunks;
+        if (!Directory.Exists(directory))
+        {
+            return chunks;
+        }
 
         foreach (var metaFile in Directory.EnumerateFiles(directory, "*.meta.json"))
         {
@@ -168,10 +177,16 @@ internal sealed class FileChunkStore : IChunkStore
             {
                 var json = await File.ReadAllBytesAsync(metaFile, cancellationToken);
                 var metadata = JsonSerializer.Deserialize<ChunkMetadata>(json);
-                if (metadata is null) continue;
+                if (metadata is null)
+                {
+                    continue;
+                }
 
                 var chunkFile = metaFile.Replace(".meta.json", ".chunk", StringComparison.Ordinal);
-                if (!File.Exists(chunkFile)) continue;
+                if (!File.Exists(chunkFile))
+                {
+                    continue;
+                }
 
                 chunks.Add(new StoredChunk {
                     Id = new ChunkId(metadata.ChunkId),
@@ -191,10 +206,16 @@ internal sealed class FileChunkStore : IChunkStore
 
     private static void EnsureNotSymlink(string path)
     {
-        if (!File.Exists(path)) return;
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
         var info = new FileInfo(path);
         if (info.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
             throw new InvalidOperationException($"Refusing to operate on symlink: {path}");
+        }
     }
 
     private static void SafeDelete(string path)

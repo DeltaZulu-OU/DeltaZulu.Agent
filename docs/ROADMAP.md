@@ -1,6 +1,6 @@
 # Roadmap
 
-DeltaZulu.Agent has moved past the initial library-and-buffer spike. The current priority is to harden the forwarder path that now connects filtered resource records to `DeltaZulu.Buffer` and the demo ACK transport, then replace the demo transport with production RELP/TLS.
+DeltaZulu.Agent has moved past the initial library-and-buffer spike. The current priority is to harden the forwarder path that connects filtered resource records to `DeltaZulu.Buffer` and RELP.Net transport, with a separate demo collector available only for local validation.
 
 ## P0: Validate and stabilize the current implementation
 
@@ -10,20 +10,20 @@ DeltaZulu.Agent has moved past the initial library-and-buffer spike. The current
 - Prove nested field access in profile KQL for Windows, auditd, and metadata fields before deciding whether KQL row exposure must be flattened.
 - Harden auditd assembler completion rules, malformed-record handling, and LAUREL-style decoding behavior.
 
-## P0: Harden the buffered forwarder demo
+## P0: Harden the buffered RELP forwarder
 
 - Keep `DeltaZulu.Buffer` wired after KQL filtering and before network delivery.
-- Exercise the demo forwarder server/client with successful send, retry, permanent failure, dead-letter, and restart-recovery scenarios.
-- Add operator-facing examples for forwarding to the demo ACK server, including recommended buffer directories and cleanup expectations.
+- Exercise the RELP forwarder against the separate demo collector with successful send, retry, permanent failure, dead-letter, and restart-recovery scenarios.
+- Add operator-facing examples for forwarding to the demo collector, including recommended buffer directories and cleanup expectations.
 - Add buffer and forwarder health metrics to the Agent diagnostic output: written, sent, acknowledged, retried, dead-lettered, rejected, and oldest buffered age.
 - Preserve agent/source/profile delivery metadata outside user-controlled KQL projections so forwarding identity cannot be accidentally dropped.
 
 ## P1: Production RELP transport
 
-- Implement a RELP.Net-backed transport adapter behind the existing RELP-neutral `IForwarderTransport` port.
+- Continue hardening the RELP.Net-backed transport adapter behind the existing RELP-neutral `IForwarderTransport` port.
 - Treat RELP acknowledgements as transport results while keeping durable commit/delete decisions in the buffer/application side.
 - Add reconnect, endpoint selection, jittered backoff, and transient/permanent failure classification.
-- Add TLS configuration, client certificate validation, and certificate-expiry diagnostics after plain local RELP works.
+- Add client certificate validation, certificate-expiry diagnostics, endpoint failover, and receiver documentation after plain RELP/TLS wiring is validated.
 - Document rsyslog/syslog-ng receiver snippets once the RELP/TLS path is validated.
 
 ## P1: Delivery correctness and operations

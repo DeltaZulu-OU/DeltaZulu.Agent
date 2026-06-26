@@ -6,6 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Outputs.Ndjson\DeltaZulu.Agent.Outputs.Ndjson.csproj" />
+    <ProjectReference Include="..\..\external\RELP.Net\src\Relp\Relp.csproj" />
     <ProjectReference Include="..\DeltaZulu.Buffer\DeltaZulu.Buffer.csproj" />
   </ItemGroup>
 </Project>

@@ -83,13 +83,17 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
 
         var pressureResult = await HandleBackpressureAsync(cancellationToken);
         if (pressureResult.HasValue)
+        {
             return pressureResult.Value;
+        }
 
         await _writeLock.WaitAsync(cancellationToken);
         try
         {
             if (_chunkBuilder.WouldExceedLimit(serialized.Length) && !_chunkBuilder.IsEmpty)
+            {
                 await RotateChunkAsync(cancellationToken);
+            }
 
             _chunkBuilder.Append(serialized);
             _metrics.RecordAccepted();
@@ -97,7 +101,9 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
             _metrics.UpdateMemoryUsage(_chunkBuilder.CurrentBytes);
 
             if (_chunkBuilder.ShouldRotate)
+            {
                 await RotateChunkAsync(cancellationToken);
+            }
 
             return new BufferWriteResult(BufferWriteStatus.Accepted);
         }
@@ -113,7 +119,9 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
         try
         {
             if (!_chunkBuilder.IsEmpty)
+            {
                 await RotateChunkAsync(cancellationToken);
+            }
         }
         finally
         {
@@ -126,12 +134,16 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
     internal async ValueTask RotateIfStaleAsync(CancellationToken cancellationToken)
     {
         if (!await _writeLock.WaitAsync(0, cancellationToken))
+        {
             return;
+        }
 
         try
         {
             if (_chunkBuilder.ShouldRotate && !_chunkBuilder.IsEmpty)
+            {
                 await RotateChunkAsync(cancellationToken);
+            }
         }
         finally
         {
@@ -166,7 +178,7 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
     {
         var diskUsed = _metrics.DiskBytesUsed;
         var memUsed = _chunkBuilder.CurrentBytes;
-        var retryDepth = 0;
+        const int retryDepth = 0;
 
         var (state, shouldAccept) = _backpressure.Evaluate(diskUsed, memUsed, retryDepth);
         var previousState = (BufferState)Volatile.Read(ref _lastState);
@@ -177,13 +189,19 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
             _metrics.UpdateState(state);
 
             if (state >= BufferState.Pressured && previousState < BufferState.Pressured)
+            {
                 _events.Publish(BufferEvent.Create(BufferEventType.BufferPressureEntered, detail: state.ToString()));
+            }
             else if (state < BufferState.Pressured && previousState >= BufferState.Pressured)
+            {
                 _events.Publish(BufferEvent.Create(BufferEventType.BufferPressureExited, detail: state.ToString()));
+            }
         }
 
         if (shouldAccept)
+        {
             return null;
+        }
 
         switch (_options.FullPolicy)
         {
@@ -222,7 +240,10 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
     private async ValueTask<bool> DropOldestChunkAsync(CancellationToken cancellationToken)
     {
         var chunks = await _store.GetSealedChunksAsync(cancellationToken);
-        if (chunks.Count == 0) return false;
+        if (chunks.Count == 0)
+        {
+            return false;
+        }
 
         var oldest = chunks.OrderBy(c => c.Metadata.CreatedUtc).First();
         await _store.DeleteAsync(oldest, cancellationToken);

@@ -27,22 +27,28 @@ public static class ChunkFormat
     {
         var span = chunkData.Span;
         if (span.Length < HeaderSize + FooterSize)
+        {
             throw new InvalidDataException("Chunk data is too small to contain header and footer.");
+        }
 
         if (!span[..4].SequenceEqual(Magic))
+        {
             throw new InvalidDataException("Invalid chunk magic bytes.");
+        }
 
         var records = new List<ReadOnlyMemory<byte>>();
-        int offset = HeaderSize;
-        int footerStart = span.Length - FooterSize;
+        var offset = HeaderSize;
+        var footerStart = span.Length - FooterSize;
 
         while (offset + RecordLengthSize <= footerStart)
         {
-            int length = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(offset, RecordLengthSize));
+            var length = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(offset, RecordLengthSize));
             offset += RecordLengthSize;
 
             if (offset + length > footerStart)
+            {
                 throw new InvalidDataException("Record extends past footer boundary.");
+            }
 
             records.Add(chunkData.Slice(offset, length));
             offset += length;
@@ -54,12 +60,16 @@ public static class ChunkFormat
     public static bool ValidateChecksum(ReadOnlySpan<byte> chunkData)
     {
         if (chunkData.Length < HeaderSize + FooterSize)
+        {
             return false;
+        }
 
         if (!chunkData[^4..].SequenceEqual(FooterMagic))
+        {
             return false;
+        }
 
-        int footerStart = chunkData.Length - FooterSize;
+        var footerStart = chunkData.Length - FooterSize;
         var recordRegion = chunkData[HeaderSize..footerStart];
 
         Span<byte> computed = stackalloc byte[32];

@@ -79,7 +79,10 @@ public sealed class DeltaZuluBufferHost<T> : IAsyncDisposable
     public async ValueTask StartAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_started) throw new InvalidOperationException("Buffer host is already started.");
+        if (_started)
+        {
+            throw new InvalidOperationException("Buffer host is already started.");
+        }
 
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
@@ -99,7 +102,10 @@ public sealed class DeltaZuluBufferHost<T> : IAsyncDisposable
 
     public async ValueTask StopAsync(CancellationToken cancellationToken = default)
     {
-        if (!_started || _disposed) return;
+        if (!_started || _disposed)
+        {
+            return;
+        }
 
         _buffer.MarkStopping();
         _logger?.LogInformation("Buffer host stopping...");
@@ -109,7 +115,9 @@ public sealed class DeltaZuluBufferHost<T> : IAsyncDisposable
         _dispatchChannel.Writer.TryComplete();
 
         if (_cts is not null)
+        {
             await _cts.CancelAsync();
+        }
 
         if (_dispatchTask is not null)
         {
@@ -134,10 +142,15 @@ public sealed class DeltaZuluBufferHost<T> : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         if (_started)
+        {
             await StopAsync();
+        }
 
         _buffer.Dispose();
         _cts?.Dispose();

@@ -8,12 +8,12 @@ namespace DeltaZulu.Buffer.Recovery;
 
 internal sealed class FileSystemRecoveryManager : IRecoveryManager
 {
-    private readonly IChunkStore _store;
-    private readonly ChannelWriter<StoredChunk> _dispatchWriter;
-    private readonly BufferMetricsCounter _metrics;
-    private readonly BufferEventBroadcaster _events;
     private readonly string _basePath;
+    private readonly ChannelWriter<StoredChunk> _dispatchWriter;
+    private readonly BufferEventBroadcaster _events;
     private readonly ILogger? _logger;
+    private readonly BufferMetricsCounter _metrics;
+    private readonly IChunkStore _store;
 
     public FileSystemRecoveryManager(
         IChunkStore store,
@@ -35,9 +35,9 @@ internal sealed class FileSystemRecoveryManager : IRecoveryManager
     {
         _events.Publish(BufferEvent.Create(BufferEventType.BufferRecoveryStarted));
 
-        int recovered = 0;
-        int quarantined = 0;
-        int deadLettered = 0;
+        var recovered = 0;
+        var quarantined = 0;
+        const int deadLettered = 0;
         long estimatedLost = 0;
 
         quarantined += await QuarantineActiveChunksAsync(cancellationToken);
@@ -120,12 +120,27 @@ internal sealed class FileSystemRecoveryManager : IRecoveryManager
         return summary;
     }
 
+    private static void SafeDelete(string path)
+    {
+        try { File.Delete(path); }
+        catch { }
+    }
+
+    private static async Task<bool> ValidateChunkAsync(StoredChunk chunk, CancellationToken cancellationToken)
+    {
+        var data = await File.ReadAllBytesAsync(chunk.ChunkFilePath, cancellationToken);
+        return ChunkFormat.ValidateChecksum(data);
+    }
+
     private async Task<int> QuarantineActiveChunksAsync(CancellationToken cancellationToken)
     {
         var activePath = Path.Combine(_basePath, "active");
-        if (!Directory.Exists(activePath)) return 0;
+        if (!Directory.Exists(activePath))
+        {
+            return 0;
+        }
 
-        int count = 0;
+        var count = 0;
         foreach (var file in Directory.EnumerateFiles(activePath, "*.tmp"))
         {
             try
@@ -148,15 +163,21 @@ internal sealed class FileSystemRecoveryManager : IRecoveryManager
 
     private async Task<int> QuarantineOrphanFilesAsync(CancellationToken cancellationToken)
     {
-        int count = 0;
+        var count = 0;
         foreach (var dir in new[] { Path.Combine(_basePath, "sealed"), Path.Combine(_basePath, "dispatching") })
         {
-            if (!Directory.Exists(dir)) continue;
+            if (!Directory.Exists(dir))
+            {
+                continue;
+            }
 
             foreach (var chunkFile in Directory.EnumerateFiles(dir, "*.chunk"))
             {
                 var metaFile = chunkFile.Replace(".chunk", ".meta.json", StringComparison.Ordinal);
-                if (File.Exists(metaFile)) continue;
+                if (File.Exists(metaFile))
+                {
+                    continue;
+                }
 
                 try
                 {
@@ -176,7 +197,10 @@ internal sealed class FileSystemRecoveryManager : IRecoveryManager
             foreach (var metaFile in Directory.EnumerateFiles(dir, "*.meta.json"))
             {
                 var chunkFile = metaFile.Replace(".meta.json", ".chunk", StringComparison.Ordinal);
-                if (File.Exists(chunkFile)) continue;
+                if (File.Exists(chunkFile))
+                {
+                    continue;
+                }
 
                 try
                 {
@@ -191,17 +215,5 @@ internal sealed class FileSystemRecoveryManager : IRecoveryManager
         }
 
         return count;
-    }
-
-    private static async Task<bool> ValidateChunkAsync(StoredChunk chunk, CancellationToken cancellationToken)
-    {
-        var data = await File.ReadAllBytesAsync(chunk.ChunkFilePath, cancellationToken);
-        return ChunkFormat.ValidateChecksum(data);
-    }
-
-    private static void SafeDelete(string path)
-    {
-        try { File.Delete(path); }
-        catch { }
     }
 }

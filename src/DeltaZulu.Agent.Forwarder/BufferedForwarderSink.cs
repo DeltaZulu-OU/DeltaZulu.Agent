@@ -10,6 +10,7 @@ namespace DeltaZulu.Agent.Forwarder;
 public sealed class BufferedForwarderSink : IResourceSink
 {
     private readonly DeltaZuluBufferHost<DeliveryRecord> _host;
+    private readonly IForwarderTransport _transport;
     private readonly string _storagePath;
     private readonly CancellationToken _cancellationToken;
     private readonly IDisposable _eventSubscription;
@@ -28,10 +29,11 @@ public sealed class BufferedForwarderSink : IResourceSink
     {
         _cancellationToken = cancellationToken;
         _storagePath = options.StoragePath;
+        _transport = transport;
         _host = new DeltaZuluBufferHost<DeliveryRecord>(
             options,
             new DeliveryRecordSerializer(),
-            new ForwarderChunkSender(transport));
+            new ForwarderChunkSender(_transport));
         _eventSubscription = _host.Events.Subscribe(new ForwarderBufferEventObserver(RecordBufferEvent));
         _host.StartAsync(cancellationToken).AsTask().GetAwaiter().GetResult();
     }
@@ -92,7 +94,21 @@ public sealed class BufferedForwarderSink : IResourceSink
         _host.StopAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
         _eventSubscription.Dispose();
         _host.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        DisposeTransport();
         _disposed = true;
+    }
+
+    private void DisposeTransport()
+    {
+        switch (_transport)
+        {
+            case IAsyncDisposable asyncDisposable:
+                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                break;
+            case IDisposable disposable:
+                disposable.Dispose();
+                break;
+        }
     }
 
     private void RecordBufferEvent(BufferEvent bufferEvent)
@@ -146,11 +162,8 @@ public sealed class BufferedForwarderSink : IResourceSink
         }
     }
 
-    private bool HasPendingChunks()
-    {
-        return HasChunkFiles(Path.Combine(_storagePath, "sealed"))
+    private bool HasPendingChunks() => HasChunkFiles(Path.Combine(_storagePath, "sealed"))
             || HasChunkFiles(Path.Combine(_storagePath, "dispatching"));
-    }
 
     private static bool HasChunkFiles(string path) =>
         Directory.Exists(path) && Directory.EnumerateFiles(path, "*.chunk").Any();
@@ -159,7 +172,10 @@ public sealed class BufferedForwarderSink : IResourceSink
     {
         private readonly Action<BufferEvent> _onNext;
 
-        public ForwarderBufferEventObserver(Action<BufferEvent> onNext) => _onNext = onNext;
+        public ForwarderBufferEventObserver(Action<BufferEvent> onNext)
+        {
+            _onNext = onNext;
+        }
 
         public void OnCompleted()
         { }

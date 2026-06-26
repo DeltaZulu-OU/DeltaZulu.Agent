@@ -1,6 +1,6 @@
 # Next steps before merging
 
-The repository already contains the buffer library, RELP-neutral forwarder contracts, buffered forwarder sink, and demo ACK server. The remaining merge blockers are validation, fixture coverage, and production transport hardening.
+The repository already contains the buffer library, RELP-neutral forwarder contracts, buffered forwarder sink, RELP.Net transport adapter, and a separate demo collector. The remaining merge blockers are validation, fixture coverage, and production transport hardening.
 
 ## Immediate validation
 
@@ -28,11 +28,11 @@ The repository already contains the buffer library, RELP-neutral forwarder contr
 
 ## Forwarder hardening
 
-12. Exercise the existing buffered forwarder path against the demo ACK server for success, transient failure, retry, permanent failure, dead-letter, and restart recovery.
-13. Add daemon-facing examples for the `forwarder` sink and `forwarder-server` command.
+12. Exercise the existing buffered RELP forwarder path against the separate demo collector for success, transient failure, retry, permanent failure, dead-letter, and restart recovery.
+13. Add daemon-facing examples for the `forwarder` sink and `dzdemo-collector` validation executable.
 14. Wire the buffered-forwarder health snapshot into the Agent diagnostic output surface.
 15. Preserve delivery identity and metadata outside user-controlled KQL projections.
-16. Implement the RELP.Net adapter behind `IForwarderTransport` after the demo path is validated.
+16. Continue hardening the RELP.Net adapter behind `IForwarderTransport`.
 17. Add TLS, certificate validation, reconnect/backoff, endpoint failover, and production receiver documentation after plain RELP works.
 
 ## Architecture discipline

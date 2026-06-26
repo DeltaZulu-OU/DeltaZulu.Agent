@@ -11,6 +11,8 @@ internal static partial class Program
 
         public string? Option(string name) => Options.TryGetValue(name, out var value) ? value : null;
 
+        public bool HasOption(string name) => Options.ContainsKey(name);
+
         public static CliPlan Parse(string[] args)
         {
             string? input = null;
@@ -88,6 +90,8 @@ internal static partial class Program
             || value.Equals("etl", StringComparison.OrdinalIgnoreCase)
             || value.Equals("etw", StringComparison.OrdinalIgnoreCase);
 
+        private static bool IsFlagOption(string key) => key.Equals("--forwarder-tls", StringComparison.OrdinalIgnoreCase);
+
         private static (string Key, string? Value, bool ConsumedNext) ParseOption(string[] args, int index)
         {
             var key = args[index];
@@ -95,6 +99,11 @@ internal static partial class Program
             if (equals >= 0)
             {
                 return (key[..equals], key[(equals + 1)..], false);
+            }
+
+            if (IsFlagOption(key))
+            {
+                return (key, null, false);
             }
 
             if (index + 1 >= args.Length || args[index + 1].StartsWith('-'))

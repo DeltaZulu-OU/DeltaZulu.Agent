@@ -14,7 +14,7 @@
 - Auditd parser and basic event assembler.
 - Windows Event Log, EVTX, ETL, and ETW inputs using the original Tx.Windows approach.
 - Sample profiles for sshd, PAM, auditd execve, Windows Security, Sysmon, and ETW kernel process.
-- Forwarder project with RELP-neutral delivery records, buffered chunk sending, demo TCP transport, a console-printing demo ACK server, and buffered-forwarder health snapshots.
+- Forwarder project with RELP-neutral delivery records, buffered chunk sending, a RELP.Net-backed transport adapter, and buffered-forwarder health snapshots. A separate demo collector executable receives RELP frames for local validation.
 
 ## DeltaZulu.Buffer
 
@@ -47,7 +47,7 @@ Local durable buffering library, implemented and tested:
 ## Not implemented yet
 
 - Daemon, service lifecycle, installer, rsyslog/syslog-ng snippets.
-- Production RELP/TLS adapter over the forwarder transport port.
+- Additional production RELP/TLS hardening over the forwarder transport port, including certificate policy, endpoint failover, and operational receiver documentation.
 - Enrichment and resource-local state providers.
 - Full LAUREL-level auditd decoding and process tracking.
 - Profile hot reload.

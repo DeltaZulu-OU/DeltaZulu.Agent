@@ -10,9 +10,9 @@ using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
 using DeltaZulu.Agent.Profiles;
-using System.Net;
 using System.Reactive.Linq;
 using System.Text.Json;
+using System.Net;
 
 #if WINDOWS
 using DeltaZulu.Agent.Inputs.Windows;
@@ -45,16 +45,6 @@ internal static partial class Program
             {
                 ListSchemas(args);
                 return 0;
-            }
-
-            if (IsForwarderServerCommand(args[0]))
-            {
-                using var serverCts = new CancellationTokenSource();
-                Console.CancelKeyPress += (_, eventArgs) => {
-                    eventArgs.Cancel = true;
-                    serverCts.Cancel();
-                };
-                return RunForwarderServer(args, serverCts.Token);
             }
 
             var plan = CliPlan.Parse(args);
@@ -455,7 +445,12 @@ internal static partial class Program
                 System.Globalization.CultureInfo.InvariantCulture))
         };
 
-        return new BufferedForwarderSink(options, new DemoTcpForwarderTransport(host, port));
+        return new BufferedForwarderSink(options, new RelpForwarderTransport(new RelpForwarderOptions
+        {
+            Host = host,
+            Port = port,
+            UseTls = plan.HasOption("--forwarder-tls")
+        }));
     }
 
     private static ForwarderHealthReporter? CreateHealthReporter(CliPlan plan, IResourceSink sink)
@@ -513,41 +508,6 @@ internal static partial class Program
     private static bool IsHelp(string value) => value is "-h" or "--help" or "help";
 
     private static bool IsSchemaCommand(string value) => value is "schema" or "schemas" or "resources" or "list-schemas" or "list-resources";
-
-    private static bool IsForwarderServerCommand(string value) => value is "forwarder-server" or "demo-forwarder-server";
-
-    private static int RunForwarderServer(string[] args, CancellationToken cancellationToken)
-    {
-        var address = IPAddress.Parse(GetCommandOption(args, "--address") ?? "127.0.0.1");
-        var port = int.Parse(GetCommandOption(args, "--port") ?? "6514");
-        var server = new DemoForwarderServer(address, port);
-        server.RunAsync(cancellationToken).GetAwaiter().GetResult();
-        return 0;
-    }
-
-    private static string? GetCommandOption(string[] args, string option)
-    {
-        for (var index = 1; index < args.Length; index++)
-        {
-            var token = args[index];
-            if (token.StartsWith(option + "=", StringComparison.OrdinalIgnoreCase))
-            {
-                return token[(option.Length + 1)..];
-            }
-
-            if (token.Equals(option, StringComparison.OrdinalIgnoreCase))
-            {
-                if (index + 1 >= args.Length)
-                {
-                    throw new ArgumentException($"{option} requires a value.");
-                }
-
-                return args[index + 1];
-            }
-        }
-
-        return null;
-    }
 
     private static void ListSchemas(string[] args)
     {
@@ -637,7 +597,6 @@ Usage:
   dzagent [<input>] [<target>] [<output> [<arg>]] [--profile <profile.yaml|profiles-dir>]
   dzagent <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
   dzagent schemas [<profiles-dir>] [table|json]
-  dzagent forwarder-server [--address <ip>] [--port <port>]
 
 Inputs:
   syslog <file>             Tail a local syslog-style file for new events.
@@ -652,7 +611,7 @@ Inputs:
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
   table                    Print a compact console table.
-  forwarder [buffer-dir]    Buffer filtered records locally and send them to the demo forwarder server.
+  forwarder [buffer-dir]    Buffer filtered records locally and send them to a RELP collector.
 
 Options:
   --profile <path>          Apply one profile, or every YAML profile under a directory.
@@ -662,9 +621,10 @@ Options:
   --schema <columns>        Resource schema text to associate with --kql.
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
-  --port <port>             syslogserver TCP port, or forwarder-server TCP port.
-  --forwarder-host <host>         Demo forwarder target host for forwarder output (default 127.0.0.1).
-  --forwarder-port <port>         Demo forwarder target port for forwarder output (default 6514).
+  --port <port>             syslogserver TCP port.
+  --forwarder-host <host>         Forwarder target host for forwarder output (default 127.0.0.1).
+  --forwarder-port <port>         RELP collector target port for forwarder output (default 6514).
+  --forwarder-tls                 Use TLS for RELP forwarder output.
   --forwarder-buffer <dir>        Buffer directory for forwarder output.
   --diagnostic-interval <seconds> Emit forwarder health snapshots at this interval (forwarder output only).
   --diagnostic-file <file>        Write health snapshots to this NDJSON file instead of stdout.
@@ -678,7 +638,6 @@ Examples:
   dzagent eventlog sysmon --kql "EventLog | where EventId == 1"
   dzagent eventlog Security --kql "EventLog | where EventId == 4688"
   dzagent schemas profiles json
-  dzagent forwarder-server --address 127.0.0.1 --port 6514
   dzagent syslog /var/log/auth.log forwarder ./buffer --forwarder-host 127.0.0.1 --forwarder-port 6514
 """);
         Console.Out.Flush();

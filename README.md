@@ -15,7 +15,6 @@ Usage:
   dzagent <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
   dzagent <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
   dzagent schemas [<profiles-dir>] [table|json]
-  dzagent forwarder-server [--address <ip>] [--port <port>]
 
 Inputs:
   syslog <file>             Tail a local syslog-style file for new events.
@@ -30,7 +29,7 @@ Inputs:
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
   table                     Print a compact console table.
-  forwarder [buffer-dir]    Buffer filtered records locally and send them to the demo forwarder server.
+  forwarder [buffer-dir]    Buffer filtered records locally and send them to a RELP collector.
 
 
 Options:
@@ -40,9 +39,10 @@ Options:
   --schema <columns>        Resource schema text to associate with --kql.
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
-  --port <port>             syslogserver TCP port, or forwarder-server TCP port.
-  --forwarder-host <host>    Demo forwarder target host for forwarder output (default 127.0.0.1).
-  --forwarder-port <port>    Demo forwarder target port for forwarder output (default 6514).
+  --port <port>             syslogserver TCP port.
+  --forwarder-host <host>    Forwarder target host for forwarder output (default 127.0.0.1).
+  --forwarder-port <port>    RELP collector target port for forwarder output (default 6514).
+  --forwarder-tls           Use TLS for RELP forwarder output.
   --forwarder-buffer <dir>   Buffer directory for forwarder output.
 ```
 
@@ -52,7 +52,19 @@ Examples:
 dzagent syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
 dzagent csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
 dzagent syslogserver --address 127.0.0.1 --port 5514
-dzagent forwarder-server --address 127.0.0.1 --port 6514
+dzdemo-collector --address 127.0.0.1 --port 6514
+dzagent syslog /var/log/auth.log forwarder ./buffer --forwarder-host 127.0.0.1 --forwarder-port 6514
+```
+
+## Demo collector
+
+The agent CLI does not run as a collector/server. For local forwarder validation,
+use the separate `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`.
+It accepts RELP `syslog` frames, prints decoded DeltaZulu delivery batches, and
+acknowledges them with RELP `rsp 200` responses.
+
+```bash
+dzdemo-collector --address 127.0.0.1 --port 6514
 dzagent syslog /var/log/auth.log forwarder ./buffer --forwarder-host 127.0.0.1 --forwarder-port 6514
 ```
 
@@ -106,7 +118,7 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ## DeltaZulu.Buffer
 
-A local durable buffering library that provides crash-safe, disk-backed buffering between the collector pipeline and network forwarder. Features include binary chunk format with SHA-256 checksums, exponential backoff retry with jitter, backpressure control, dead-lettering, and atomic file-based state transitions.
+A local durable buffering library that provides crash-safe, disk-backed buffering between the collector pipeline and network forwarder. The forwarder uses this buffer as the authoritative durability/backpressure layer before dispatching batches through the RELP.Net transport adapter by default. Features include binary chunk format with SHA-256 checksums, exponential backoff retry with jitter, backpressure control, dead-lettering, and atomic file-based state transitions.
 
 See [docs/BUFFER_ARCHITECTURE.md](docs/BUFFER_ARCHITECTURE.md) for full design documentation.
 
@@ -119,6 +131,7 @@ src/
   DeltaZulu.Agent.Kql/
   DeltaZulu.Agent.Outputs.Ndjson/
   DeltaZulu.Agent.Forwarder/
+  DeltaZulu.Demo.Collector/
   DeltaZulu.Agent.Inputs.Syslog/
   DeltaZulu.Agent.Inputs.Files/
   DeltaZulu.Agent.Inputs.Auditd/
