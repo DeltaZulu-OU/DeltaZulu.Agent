@@ -44,11 +44,12 @@ Local durable buffering library, implemented and tested:
 - Forwarder health reporter: `ForwarderHealthReporter` emits `collector.forwarder.health` snapshots (buffer state, disk usage, record/chunk/batch counters, last activity) on a configurable timer into any `IResourceSink`.
 - CLI health wiring: `--diagnostic-interval <seconds>` enables periodic health snapshot emission when using `forwarder` output. Health records go to stdout (NDJSON) or a file specified by `--diagnostic-file`. A final snapshot is always emitted after the pipeline completes. `--agent-id` stamps the agent identifier on health metadata.
 - RELP endpoint failover groundwork: forwarder options now accept an ordered endpoint list, the CLI loads endpoint lists from YAML forwarder configuration files, and the RELP transport advances to the next endpoint after transient send/open failures while keeping retry scheduling in `DeltaZulu.Buffer`.
+- RELP TLS policy groundwork: YAML forwarder configuration now carries certificate validation mode, optional server thumbprint allow-list, client certificate path/password, and expiry warning thresholds; the CLI passes these options into the RELP-neutral transport boundary for production TLS hardening.
 
 ## Not implemented yet
 
 - Daemon, service lifecycle, installer, rsyslog/syslog-ng snippets.
-- Additional production RELP/TLS hardening over the forwarder transport port, including certificate policy and operational receiver documentation.
+- RELP/TLS wire-level validation callback support remains dependent on the underlying RELP.Net surface; operational receiver documentation is still pending.
 - Enrichment and resource-local state providers.
 - Full LAUREL-level auditd decoding and process tracking.
 - Profile hot reload.

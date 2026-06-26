@@ -20,7 +20,17 @@ public sealed record ForwarderBufferConfiguration
 public sealed record ForwarderRelpConfiguration
 {
     public bool UseTls { get; init; }
+    public ForwarderTlsConfiguration Tls { get; init; } = new();
     public List<RelpEndpoint> Endpoints { get; init; } = [new RelpEndpoint { Host = "127.0.0.1", Port = 6514 }];
+}
+
+public sealed record ForwarderTlsConfiguration
+{
+    public RelpCertificateValidationMode CertificateValidation { get; init; } = RelpCertificateValidationMode.SystemTrust;
+    public List<string> AllowedServerCertificateThumbprints { get; init; } = [];
+    public int CertificateExpiryWarningDays { get; init; } = 30;
+    public string? ClientCertificatePath { get; init; }
+    public string? ClientCertificatePassword { get; init; }
 }
 
 public sealed class YamlForwarderConfigurationLoader
@@ -67,6 +77,28 @@ public sealed class YamlForwarderConfigurationLoader
         if (string.IsNullOrWhiteSpace(configuration.Buffer.Path))
         {
             throw new InvalidDataException($"{prefix} must set buffer.path.");
+        }
+
+        if (!configuration.Relp.UseTls && configuration.Relp.Tls.CertificateValidation != RelpCertificateValidationMode.SystemTrust)
+        {
+            throw new InvalidDataException($"{prefix} must enable relp.useTls before setting relp.tls.certificateValidation.");
+        }
+
+        if (configuration.Relp.Tls.CertificateValidation == RelpCertificateValidationMode.Thumbprint
+            && configuration.Relp.Tls.AllowedServerCertificateThumbprints.Count == 0)
+        {
+            throw new InvalidDataException($"{prefix} must set relp.tls.allowedServerCertificateThumbprints when relp.tls.certificateValidation is Thumbprint.");
+        }
+
+        if (configuration.Relp.Tls.CertificateExpiryWarningDays < 0)
+        {
+            throw new InvalidDataException($"{prefix} must set relp.tls.certificateExpiryWarningDays to zero or greater.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(configuration.Relp.Tls.ClientCertificatePath)
+            && !File.Exists(configuration.Relp.Tls.ClientCertificatePath))
+        {
+            throw new InvalidDataException($"{prefix} relp.tls.clientCertificatePath does not exist: {configuration.Relp.Tls.ClientCertificatePath}");
         }
 
         if (configuration.Relp.Endpoints.Count == 0)

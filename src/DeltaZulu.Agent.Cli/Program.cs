@@ -13,6 +13,7 @@ using DeltaZulu.Agent.Profiles;
 using System.Reactive.Linq;
 using System.Text.Json;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 
 #if WINDOWS
 using DeltaZulu.Agent.Inputs.Windows;
@@ -453,8 +454,29 @@ internal static partial class Program
             Host = primaryEndpoint.Host,
             Port = primaryEndpoint.Port,
             Endpoints = endpoints,
-            UseTls = configuration.Relp.UseTls
+            UseTls = configuration.Relp.UseTls,
+            ClientCertificates = LoadClientCertificates(configuration.Relp.Tls),
+            CertificateValidation = configuration.Relp.Tls.CertificateValidation,
+            AllowedServerCertificateThumbprints = configuration.Relp.Tls.AllowedServerCertificateThumbprints,
+            CertificateExpiryWarningDays = configuration.Relp.Tls.CertificateExpiryWarningDays
         }));
+    }
+
+    private static X509CertificateCollection? LoadClientCertificates(ForwarderTlsConfiguration tls)
+    {
+        if (string.IsNullOrWhiteSpace(tls.ClientCertificatePath))
+        {
+            return null;
+        }
+
+        var certificates = new X509CertificateCollection
+        {
+            string.IsNullOrEmpty(tls.ClientCertificatePassword)
+                ? X509CertificateLoader.LoadCertificateFromFile(tls.ClientCertificatePath)
+                : X509CertificateLoader.LoadPkcs12FromFile(tls.ClientCertificatePath, tls.ClientCertificatePassword)
+        };
+
+        return certificates;
     }
 
     private static void RejectForwarderInlineOptions(CliPlan plan)

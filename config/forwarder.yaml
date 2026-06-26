@@ -5,6 +5,15 @@ buffer:
   maxChunkAgeSeconds: 1
 relp:
   useTls: false
+  tls:
+    # systemTrust uses the platform trust store when useTls is true.
+    # thumbprint requires allowedServerCertificateThumbprints.
+    # disabled is for isolated lab validation only.
+    certificateValidation: SystemTrust
+    allowedServerCertificateThumbprints: []
+    certificateExpiryWarningDays: 30
+    # clientCertificatePath: /path/to/client.pfx
+    # clientCertificatePassword: changeit
   endpoints:
     - host: 127.0.0.1
       port: 6514

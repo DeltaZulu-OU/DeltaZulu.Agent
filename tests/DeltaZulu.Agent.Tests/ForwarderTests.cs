@@ -424,6 +424,11 @@ public sealed class ForwarderTests
               maxChunkAgeSeconds: 3.5
             relp:
               useTls: true
+              tls:
+                certificateValidation: Thumbprint
+                allowedServerCertificateThumbprints:
+                  - 00112233445566778899AABBCCDDEEFF00112233
+                certificateExpiryWarningDays: 14
               endpoints:
                 - host: relp-a.example
                   port: 6514
@@ -438,6 +443,9 @@ public sealed class ForwarderTests
         Assert.AreEqual(25, configuration.Buffer.MaxChunkRecords);
         Assert.AreEqual(3.5, configuration.Buffer.MaxChunkAgeSeconds);
         Assert.IsTrue(configuration.Relp.UseTls);
+        Assert.AreEqual(RelpCertificateValidationMode.Thumbprint, configuration.Relp.Tls.CertificateValidation);
+        Assert.HasCount(1, configuration.Relp.Tls.AllowedServerCertificateThumbprints);
+        Assert.AreEqual(14, configuration.Relp.Tls.CertificateExpiryWarningDays);
         Assert.HasCount(2, configuration.Relp.Endpoints);
         Assert.AreEqual("relp-b.example", configuration.Relp.Endpoints[1].Host);
         Assert.AreEqual(6515, configuration.Relp.Endpoints[1].Port);
@@ -458,6 +466,36 @@ public sealed class ForwarderTests
             """);
 
         Assert.ThrowsExactly<InvalidDataException>(() => new YamlForwarderConfigurationLoader().LoadFile(configPath));
+    }
+
+
+    [TestMethod]
+    public void YamlForwarderConfigurationLoader_LoadFile_RejectsThumbprintValidationWithoutThumbprints()
+    {
+        using var directory = new TemporaryDirectory();
+        var configPath = Path.Combine(directory.Path, "forwarder.yaml");
+        File.WriteAllText(configPath, """
+            relp:
+              useTls: true
+              tls:
+                certificateValidation: Thumbprint
+              endpoints:
+                - host: relp.example
+                  port: 6514
+            """);
+
+        Assert.ThrowsExactly<InvalidDataException>(() => new YamlForwarderConfigurationLoader().LoadFile(configPath));
+    }
+
+    [TestMethod]
+    public void RelpForwarderTransport_Constructor_RejectsThumbprintPolicyWithoutThumbprints()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => new RelpForwarderTransport(new RelpForwarderOptions {
+            Host = "primary.example",
+            Port = 6514,
+            UseTls = true,
+            CertificateValidation = RelpCertificateValidationMode.Thumbprint
+        }));
     }
 
     [TestMethod]

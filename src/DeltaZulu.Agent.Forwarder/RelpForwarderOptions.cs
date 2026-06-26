@@ -10,6 +10,13 @@ public sealed record RelpEndpoint
     public override string ToString() => $"{Host}:{Port}";
 }
 
+public enum RelpCertificateValidationMode
+{
+    SystemTrust,
+    Thumbprint,
+    Disabled
+}
+
 public sealed record RelpForwarderOptions
 {
     public required string Host { get; init; }
@@ -17,6 +24,9 @@ public sealed record RelpForwarderOptions
     public IReadOnlyList<RelpEndpoint>? Endpoints { get; init; }
     public bool UseTls { get; init; }
     public X509CertificateCollection? ClientCertificates { get; init; }
+    public RelpCertificateValidationMode CertificateValidation { get; init; } = RelpCertificateValidationMode.SystemTrust;
+    public IReadOnlyList<string> AllowedServerCertificateThumbprints { get; init; } = [];
+    public int CertificateExpiryWarningDays { get; init; } = 30;
 
     public IReadOnlyList<RelpEndpoint> GetConfiguredEndpoints()
     {

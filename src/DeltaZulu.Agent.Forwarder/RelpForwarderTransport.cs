@@ -20,6 +20,7 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
         ArgumentNullException.ThrowIfNull(options);
 
         ValidateEndpoints(options.GetConfiguredEndpoints());
+        ValidateTlsPolicy(options);
 
         _options = options;
     }
@@ -187,6 +188,25 @@ public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposab
             {
                 throw new ArgumentOutOfRangeException(nameof(endpoints), endpoint.Port, $"RELP endpoint {index + 1} port must be between 1 and 65535.");
             }
+        }
+    }
+
+    private static void ValidateTlsPolicy(RelpForwarderOptions options)
+    {
+        if (!options.UseTls && options.CertificateValidation != RelpCertificateValidationMode.SystemTrust)
+        {
+            throw new ArgumentException("RELP TLS must be enabled before setting certificate validation policy.", nameof(options));
+        }
+
+        if (options.CertificateValidation == RelpCertificateValidationMode.Thumbprint
+            && options.AllowedServerCertificateThumbprints.Count == 0)
+        {
+            throw new ArgumentException("At least one server certificate thumbprint is required for thumbprint validation.", nameof(options));
+        }
+
+        if (options.CertificateExpiryWarningDays < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.CertificateExpiryWarningDays, "Certificate expiry warning days must be zero or greater.");
         }
     }
 
