@@ -326,6 +326,17 @@ DeltaZulu will not use Fluent Forward as the native agent protocol, but its ecos
 - Design endpoint failover and load-balancing behavior deliberately, including health checks, backoff, endpoint quarantine, and clear operator diagnostics.
 - Preserve collector interoperability as a platform-ingress concern, not an agent transport requirement, so future adapters can be added without expanding the native agent protocol surface.
 
+## P3: Deferred reactive runtime evaluation
+
+Treat migration from `System.Reactive` to R3 as a lowest-priority performance improvement candidate, not a committed migration. Revisit only after higher-priority agent, pipeline, management, and operational work is stable, and only if profiling shows the current reactive runtime is a measurable bottleneck.
+
+- Start with a limited pilot on one low-risk input handler, such as CSV file input or FIFO/syslog input, before any broad pipeline changes.
+- Benchmark memory pressure, per-event latency, subscription overhead, and long-running stability against the existing `System.Reactive` implementation using production-like event volumes.
+- Require a clear go/no-go threshold, such as at least a 10% improvement in memory or latency, before planning a full migration.
+- Account for R3 breaking changes around `IObservable<T>`/`IObserver<T>` replacement, `Observable.Create` signatures, completion/error semantics, and custom observer implementations.
+- Validate common operator behavior, error paths, and high-volume input scenarios with the full test suite and targeted integration/load tests.
+- Keep `System.Reactive` if the pilot shows no meaningful bottleneck, if behavior differs in risky ways, or if migration would distract from higher-priority reliability and management work.
+
 ## Architecture discipline
 
 - Keep `DeltaZulu.Pipeline` self-contained: it must build, test, and run independently of the agent orchestrator.
