@@ -8,6 +8,7 @@ namespace DeltaZulu.Agent.Inputs.Windows;
 
 public sealed class WindowsEventLogInput : ISourceInput
 {
+    public const string DisabledChannelErrorFragment = "exists on this host but its channel is disabled";
     private readonly string _requestedLogName;
     private readonly TimeSpan _pollInterval;
     private string? _resolvedLogName;
@@ -124,6 +125,12 @@ public sealed class WindowsEventLogInput : ISourceInput
             var match = logNames.FirstOrDefault(name => name.Equals(requested, StringComparison.OrdinalIgnoreCase));
             if (match is not null)
             {
+                if (!IsLogEnabled(match, out errorMessage))
+                {
+                    logName = match;
+                    return false;
+                }
+
                 logName = match;
                 errorMessage = null;
                 return true;
@@ -154,6 +161,36 @@ public sealed class WindowsEventLogInput : ISourceInput
             return false;
         }
     }
+
+    private static bool IsLogEnabled(string logName, out string? errorMessage)
+    {
+        try
+        {
+            using var configuration = new EventLogConfiguration(logName);
+            if (configuration.IsEnabled)
+            {
+                errorMessage = null;
+                return true;
+            }
+
+            errorMessage = $"Windows Event Log '{logName}' {DisabledChannelErrorFragment}.";
+            return false;
+        }
+        catch (EventLogNotFoundException ex)
+        {
+            errorMessage = CreateLogNotFoundMessage(logName, []) + $" {ex.Message}";
+            return false;
+        }
+        catch (EventLogException ex)
+        {
+            errorMessage = $"Unable to inspect Windows Event Log '{logName}' while checking whether the channel is enabled: {ex.Message}";
+            return false;
+        }
+    }
+
+    public static bool IsDisabledChannelError(string? errorMessage)
+        => !string.IsNullOrWhiteSpace(errorMessage)
+            && errorMessage.Contains(DisabledChannelErrorFragment, StringComparison.OrdinalIgnoreCase);
 
     private static string ExpandLogAlias(string logName) => logName.ToLowerInvariant() switch
     {

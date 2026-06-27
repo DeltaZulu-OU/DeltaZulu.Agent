@@ -154,15 +154,67 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         base.Dispose();
     }
 
-    private IReadOnlyList<ProfileBinding> CreateBindings(ForwarderDaemonConfiguration configuration) => configuration.Sources
-            .Select(source => {
-                var profile = LoadProfile(source);
-                var executor = new ResourceKqlProfileExecutor();
-                _disposables.Add(executor);
-                logger.LogInformation("Configured forwarder source {SourceId} ({Input}) for daemon {AgentId}.", source.Id, source.Input, configuration.Id);
-                return new ProfileBinding(CreateInput(source, profile), profile, executor);
-            })
-            .ToArray();
+    private IReadOnlyList<ProfileBinding> CreateBindings(ForwarderDaemonConfiguration configuration)
+    {
+        var bindings = new List<ProfileBinding>(configuration.Sources.Count);
+        foreach (var source in configuration.Sources)
+        {
+            var profile = LoadProfile(source);
+            if (ShouldSkipDisabledWindowsEventLog(source, profile, out var warning))
+            {
+                logger.LogWarning("{Warning}", warning);
+                continue;
+            }
+
+            var executor = new ResourceKqlProfileExecutor();
+            _disposables.Add(executor);
+            logger.LogInformation("Configured forwarder source {SourceId} ({Input}) for daemon {AgentId}.", source.Id, source.Input, configuration.Id);
+            bindings.Add(new ProfileBinding(CreateInput(source, profile), profile, executor));
+        }
+
+        if (bindings.Count == 0)
+        {
+            logger.LogWarning("Agent daemon {AgentId} has no runnable sources after filtering unavailable resources.", configuration.Id);
+        }
+
+        return bindings;
+    }
+
+#if WINDOWS
+    private static bool ShouldSkipDisabledWindowsEventLog(ForwarderDaemonSourceConfiguration source, ResourceProfile? profile, out string warning)
+    {
+        warning = string.Empty;
+        if (!source.Input.Equals("eventlog", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var target = source.Target ?? profile?.Resource.Channel;
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            return false;
+        }
+
+        if (WindowsEventLogInput.TryResolveLogName(target, out _, out var errorMessage))
+        {
+            return false;
+        }
+
+        if (!WindowsEventLogInput.IsDisabledChannelError(errorMessage))
+        {
+            return false;
+        }
+
+        warning = $"Skipping daemon source '{source.Id}' because {errorMessage}";
+        return true;
+    }
+#else
+    private static bool ShouldSkipDisabledWindowsEventLog(ForwarderDaemonSourceConfiguration source, ResourceProfile? profile, out string warning)
+    {
+        warning = string.Empty;
+        return false;
+    }
+#endif
 
     private static ResourceProfile LoadProfile(ForwarderDaemonSourceConfiguration source)
     {

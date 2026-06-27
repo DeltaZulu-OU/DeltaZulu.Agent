@@ -323,6 +323,12 @@ internal static partial class Program
                 continue;
             }
 
+            if (WindowsEventLogInput.IsDisabledChannelError(errorMessage))
+            {
+                // ValidateResources already emitted the disabled-channel warning; keep this execution filter silent.
+                continue;
+            }
+
             if (profile.Mandatory)
             {
                 throw new InvalidOperationException(errorMessage);
@@ -578,6 +584,13 @@ Examples:
 
                 if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
                 {
+                    if (WindowsEventLogInput.IsDisabledChannelError(errorMessage))
+                    {
+                        Console.Error.WriteLine($"warning: profile '{profile.Id}' skipped because {errorMessage}");
+                        Console.Error.Flush();
+                        continue;
+                    }
+
                     if (!profile.Mandatory)
                     {
                         Console.Error.WriteLine($"warning: profile '{profile.Id}' skipped because mandatory is false: {errorMessage}");
