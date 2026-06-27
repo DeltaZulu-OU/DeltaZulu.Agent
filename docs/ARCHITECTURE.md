@@ -167,6 +167,17 @@ diagnostics:
 
 Profiles remain resource-local. They should filter and select fields, not normalize source semantics into server-canonical fields.
 
+## Agent evolution
+The agent is transitioning from a monolithic streaming ETL binary into a modular orchestrator. The streaming ETL engine (inputs, parsers, profiles, KQL, outputs, durable buffering, and RELP delivery) will be extracted into a standalone `DeltaZulu.Pipeline` submodule. The agent becomes a lightweight watchdog service that supervises the pipeline alongside new platform services:
+
+- **Policy download service**: Synchronizes resource profiles, certificates, and configuration from the management server.
+- **Metrics service**: Sends periodic heartbeat and operational telemetry (pipeline health, agent metrics) to the server.
+- **CMDB-lite inventory service**: Runs scheduled local inventory scans (users, software, browser extensions, hardware, ARP table, network interfaces) and sends structured snapshot reports through the delivery path.
+
+Inventory collectors follow a scan-and-report pattern with their own scheduling, separate from the reactive streaming pipeline. They produce discrete state snapshots, not continuous event streams. The server populates inventory tables from these reports, and the data is also exposed locally as KQL-queryable tables for IOC enrichment.
+
+The `dzagentctl` CLI and `dzdemo-collector` remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration. See [`ROADMAP.md`](ROADMAP.md) for the extraction plan, migration sequence, and service roadmaps.
+
 ## Enrichment
 
 Local enrichment is not implemented in this agent. Future enrichment must be optional, typed, resource-local, and compatible with server-side semantic normalization. Candidate providers include SID/account resolution, Windows logon session state, Sysmon process GUID state, auditd process relationship state, and Linux session state.

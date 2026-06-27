@@ -37,6 +37,17 @@ Not implemented yet:
 - Optional typed resource-local enrichment providers.
 - Host-gated integration coverage for live auditd, Windows Event Log, EVTX, ETL, ETW, and future journald behavior.
 
+## Agent architecture evolution
+
+DeltaZulu.Agent is transitioning from a monolithic streaming ETL agent into a modular orchestrator. The streaming ETL pipeline (inputs, parsers, KQL profiles, outputs, durable buffering, and RELP delivery) will be extracted into a self-contained submodule called `DeltaZulu.Pipeline`. The agent itself becomes a lightweight watchdog/supervisor service that hosts the pipeline alongside new platform services:
+
+- **DeltaZulu.Pipeline** (submodule): The streaming ETL engine. All resource-native collection, KQL filtering, NDJSON/RELP output, and durable delivery live here. The pipeline owns its own submodule references to `DeltaZulu.DurableBuffer` and `DeltaZulu.Relp`. It is independently buildable and testable.
+- **Policy download service**: Downloads resource profiles, certificates, and agent configuration from the management server. Detects configuration drift between intended and applied state.
+- **Metrics service**: Sends periodic heartbeat and operational telemetry to the server. Forwards pipeline health metrics (buffer state, source status, delivery counters) alongside agent-level metrics (version, platform, uptime).
+- **CMDB-lite inventory service**: Runs scheduled local inventory scans (users, software, browser extensions, hardware, ARP table, network interfaces) and sends snapshot reports as structured log events. The server populates inventory tables from these reports. Inventory data is also available locally as KQL-queryable tables for IOC enrichment.
+
+The `dzagentctl` exploration CLI and `dzdemo-collector` validation receiver remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration.
+
 ## Completed forwarder-first outcomes
 
 The old forwarder-first plan is complete and no longer maintained as a separate document. Its implemented outcomes are:
@@ -143,6 +154,76 @@ rm -rf ./buffer/agentd-smoke
 
 The demo collector is only a local validation receiver. It is not a production collector, daemon, SIEM, or syslog daemon replacement.
 
+## P0: Pipeline extraction
+
+Extract the streaming ETL engine into a standalone `DeltaZulu.Pipeline` repository and wire it as a git submodule under `external/DeltaZulu.Pipeline`.
+
+### Projects to extract
+
+The following projects move into the pipeline repository under their new namespace (`DeltaZulu.Pipeline.*`):
+
+| Current project | Pipeline project | Content |
+| --- | --- | --- |
+| `DeltaZulu.Agent.Domain` | `DeltaZulu.Pipeline.Domain` | SourceEvent, ResourceOutputRecord, DeliveryRecord, ResourceProfile, observations. |
+| `DeltaZulu.Agent.Application` | `DeltaZulu.Pipeline.Application` | AgentRuntime, ResourcePipeline, ProfileBinding, output multiplexer. |
+| `DeltaZulu.Agent.Inputs` | `DeltaZulu.Pipeline.Inputs` | All input adapters: syslog, CSV, auditd, Windows Event Log, EVTX, ETL, ETW, RELP. |
+| `DeltaZulu.Agent.Kql` | `DeltaZulu.Pipeline.Kql` | ResourceKqlProfileExecutor and custom scalar functions. |
+| `DeltaZulu.Agent.Outputs` | `DeltaZulu.Pipeline.Outputs` | NDJSON console/file sinks, buffered RELP sink, transport adapter, health reporting. |
+| `DeltaZulu.Agent.Profiles` | `DeltaZulu.Pipeline.Profiles` | YAML profile loading and validation. |
+| `DeltaZulu.Agent.Shared` | `DeltaZulu.Pipeline.Shared` | Cross-boundary NDJSON serialization helpers. |
+| `DeltaZulu.Agent.Core` | `DeltaZulu.Pipeline.Core` | Compatibility type-forwarding shim (if still needed). |
+
+### Submodule wiring
+
+The pipeline repository owns its own submodule references to `DeltaZulu.DurableBuffer` and `DeltaZulu.Relp`. The agent repository references the pipeline as `external/DeltaZulu.Pipeline` and transitively gets buffer and RELP through it. The agent's direct submodule references to DurableBuffer and Relp are removed.
+
+### What stays in the agent
+
+- `DeltaZulu.Agent.Daemon`: Refactored from a forwarder-only daemon into the orchestrator/watchdog. Supervises the pipeline, policy service, metrics service, and inventory service as managed hosted services.
+- `DeltaZulu.Agent.Cli`: Exploration CLI. References the pipeline submodule for input/profile/KQL operations.
+- `DeltaZulu.Demo.Collector`: Local RELP validation receiver.
+- New agent-level projects for policy, metrics, and inventory services.
+
+### Test split
+
+Pipeline-specific unit tests (domain, inputs, KQL, outputs, profiles, NDJSON serialization) move into the pipeline repository. Integration tests that exercise the full agent (daemon startup, end-to-end forwarding, CLI smoke tests) stay in the agent repository. Buffer tests remain with `DeltaZulu.DurableBuffer`.
+
+### Migration sequence
+
+1. Create the `DeltaZulu.Pipeline` repository with the extracted projects, solution file, build props, and test projects.
+2. Verify the pipeline builds and tests pass independently.
+3. Add `DeltaZulu.Pipeline` as a submodule under `external/DeltaZulu.Pipeline` in this repository.
+4. Update the agent solution to reference pipeline projects from the submodule path.
+5. Remove the original pipeline project directories from `src/`.
+6. Remove direct DurableBuffer and Relp submodule references from the agent (they come through Pipeline).
+7. Update `DeltaZulu.Agent.Daemon` to use pipeline types from the submodule.
+8. Update `DeltaZulu.Agent.Cli` to use pipeline types from the submodule.
+9. Verify the agent builds, tests pass, and the daemon/CLI/collector smoke tests work.
+
+## P1: Policy download service
+
+Add a hosted service that synchronizes agent configuration with the management server:
+
+- Download resource profiles from the server and place them in the local profile directory.
+- Download and rotate agent certificates as part of the automated enrollment lifecycle.
+- Sync buffer, RELP, and diagnostics configuration from the server-assigned policy.
+- Report the applied policy version and configuration hash so the server can detect drift.
+- Respect local overrides where the operator has pinned specific settings.
+- Retry with backoff on transient failures; continue with last-known-good configuration when the server is unreachable.
+
+This service implements the agent side of the declarative policy model, policy assignment, and effective configuration reporting described in the Agent Management Roadmap.
+
+## P1: Metrics service
+
+Add a hosted service that sends periodic heartbeat and operational telemetry to the management server:
+
+- Send heartbeat at a configured interval with agent version, platform, OS metadata, policy hash, and agent status.
+- Forward pipeline health metrics: per-source status (enabled channels, read errors, lag, last event timestamp), buffer state (memory queue, disk queue, dropped, retried, backpressure), and delivery counters (written, sent, acknowledged, dead-lettered).
+- Report agent-level metrics: CPU and memory usage, uptime, service restart count.
+- Report last successful send timestamp so the server can distinguish healthy, degraded, stale, and offline agents.
+
+This service implements the agent side of the heartbeat endpoint, source health reporting, and buffer health reporting described in the Agent Management Roadmap.
+
 ## P1: Production RELP and TLS hardening
 
 - Continue hardening the RELP.Net adapter behind the RELP-neutral transport boundary.
@@ -159,6 +240,34 @@ The demo collector is only a local validation receiver. It is not a production c
 - Add profile/config validation commands or startup diagnostics suitable for operators.
 - Add profile hot reload after source checkpoint and forwarding semantics are clear.
 - Expand health output into the eventual operational telemetry contract: written, sent, acknowledged, retried, dead-lettered, rejected, disk usage, and oldest buffered age.
+
+## P2: CMDB-lite inventory service
+
+Add a scheduled inventory collection service that captures discrete endpoint state and sends it to the server for inventory table population. Inventory data is not a stream; it is a periodic snapshot. Each collector runs on a configurable schedule and produces a structured report.
+
+### Inventory collectors
+
+| Collector | Platform | Description |
+| --- | --- | --- |
+| Local users and groups | Windows, Linux | Enumerate local accounts, group memberships, and account status. |
+| Installed software | Windows, Linux | Installed programs (Windows registry, dpkg/rpm/snap). |
+| Browser extensions | Windows, Linux | Extensions for Chrome, Edge, Firefox from known profile paths. |
+| Hardware inventory | Windows, Linux | CPU, memory, disk, BIOS/firmware, serial numbers via WMI/sysfs/dmidecode. |
+| ARP table | Windows, Linux | Current ARP cache for neighbor discovery context. |
+| Network interfaces | Windows, Linux | Interface names, addresses, MAC addresses, link state, DNS configuration. |
+
+### Design principles
+
+- Inventory collectors are discrete-state, not streaming. They use a scan-and-report pattern with their own scheduling, separate from the reactive pipeline.
+- Each scan produces a structured snapshot report serialized as a structured log event and sent through the agent's delivery path (durable buffer and RELP).
+- The server populates inventory tables from these reports, maintaining current and historical state.
+- Inventory data is also exposed locally as KQL-queryable tables, enabling local enrichment and IOC joining without server round-trips.
+- Collectors must be safe and read-only. They enumerate existing state; they never modify the endpoint.
+- Platform-specific collectors are conditionally compiled or runtime-gated so the agent builds and runs on both Windows and Linux.
+
+### Relationship to Agent Management Roadmap
+
+The CMDB-lite inventory service implements the local context capabilities described in the Agent Management Roadmap: diagnostic providers (P2) and local enrichment providers (P2). Installed software, browser extensions, local users, and selected system facts become available for both server-side inventory and agent-side enrichment.
 
 ## Agent Management Roadmap
 
@@ -219,10 +328,13 @@ DeltaZulu will not use Fluent Forward as the native agent protocol, but its ecos
 
 ## Architecture discipline
 
+- Keep `DeltaZulu.Pipeline` self-contained: it must build, test, and run independently of the agent orchestrator.
+- Keep the agent as an orchestrator/watchdog only: it supervises pipeline, policy, metrics, and inventory services but does not contain streaming ETL logic.
 - Keep `DeltaZulu.DurableBuffer` as the authoritative durability and backpressure layer.
 - Keep RELP.Net details behind the forwarder transport adapter.
 - Keep `dzagentctl` and `dzagentd` responsibilities separate.
 - Keep input adapters source-native and avoid broad architecture-only reshuffles.
+- Keep inventory collectors discrete-state with scan-and-report scheduling, separate from the reactive streaming pipeline.
 - Preserve original resource field names and defer semantic normalization to the server.
 
 ## Permanently out of scope
