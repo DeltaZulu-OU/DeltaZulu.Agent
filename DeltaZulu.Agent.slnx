@@ -14,11 +14,7 @@
   <Project Path="src/DeltaZulu.Agent.Kql/DeltaZulu.Agent.Kql.csproj" />
   <Project Path="src/DeltaZulu.Agent.Outputs.Ndjson/DeltaZulu.Agent.Outputs.Ndjson.csproj" />
   <Project Path="src/DeltaZulu.Agent.Profiles/DeltaZulu.Agent.Profiles.csproj" />
-  <Project Path="src/DeltaZulu.DurableBuffer/DeltaZulu.DurableBuffer.csproj">
-    <Build Solution="Debug|*" Project="false" />
-  </Project>
+  <Project Path="src/DeltaZulu.DurableBuffer/DeltaZulu.DurableBuffer.csproj" />
   <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
-  <Project Path="tests/DeltaZulu.DurableBuffer.Tests/DeltaZulu.DurableBuffer.Tests.csproj">
-    <Build Solution="Debug|*" Project="false" />
-  </Project>
+  <Project Path="tests/DeltaZulu.DurableBuffer.Tests/DeltaZulu.DurableBuffer.Tests.csproj" />
 </Solution>
