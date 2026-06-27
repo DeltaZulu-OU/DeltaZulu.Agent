@@ -167,6 +167,17 @@ The demo collector is only a local validation receiver. It is not a production c
 - Validate nested KQL access for auditd and other non-Windows source families when those profiles resume.
 - Add typed resource-local enrichment providers after version 1.0 is stable and only where they do not perform server-canonical normalization.
 
+## P2: Future ideas borrowed from Fluent Forward
+
+DeltaZulu will not use Fluent Forward as the native agent protocol, but its ecosystem suggests useful design ideas to revisit after the RELP path is stable:
+
+- Add explicit chunk or batch identifiers and acknowledgement correlation so retries are easy to reason about and server-side deduplication has stable keys.
+- Keep a first-class event envelope with routing metadata separate from user-controlled event payload fields; tags are useful for routing, but tenant and agent identity must come from certificates and validated delivery metadata.
+- Support efficient packed batches once single-record and chunk retry behavior is proven, with documented limits for batch size, age, and compression.
+- Consider payload compression as a negotiated or configured delivery-envelope feature after interoperability and observability are mature.
+- Design endpoint failover and load-balancing behavior deliberately, including health checks, backoff, endpoint quarantine, and clear operator diagnostics.
+- Preserve collector interoperability as a platform-ingress concern, not an agent transport requirement, so future adapters can be added without expanding the native agent protocol surface.
+
 ## Architecture discipline
 
 - Keep `DeltaZulu.Buffer` as the authoritative durability and backpressure layer.
