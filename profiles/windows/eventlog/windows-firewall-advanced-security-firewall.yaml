@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-Windows Firewall With Advanced Security/Firewall"
-    | project *

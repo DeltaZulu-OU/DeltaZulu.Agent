@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "PowerShellCore/Operational"
-    | project *
