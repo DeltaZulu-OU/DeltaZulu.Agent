@@ -11,6 +11,7 @@ public sealed record ForwarderDaemonConfiguration
     public ForwarderBufferConfiguration Buffer { get; init; } = new();
     public ForwarderRelpConfiguration Relp { get; init; } = new();
     public ForwarderDaemonDiagnosticsConfiguration Diagnostics { get; init; } = new();
+    public ForwarderDaemonOutputConfiguration Output { get; init; } = new();
 }
 
 public sealed record ForwarderDaemonSourceConfiguration
@@ -21,11 +22,20 @@ public sealed record ForwarderDaemonSourceConfiguration
     public string? Profile { get; init; }
     public string? Address { get; init; }
     public int? Port { get; init; }
+    public bool? UseTls { get; init; }
+    public string? ServerCertificatePath { get; init; }
+    public string? ServerCertificatePassword { get; init; }
 }
 
 public sealed record ForwarderDaemonDiagnosticsConfiguration
 {
     public double? IntervalSeconds { get; init; }
+    public string? File { get; init; }
+}
+
+public sealed record ForwarderDaemonOutputConfiguration
+{
+    public string Mode { get; init; } = "relp";
     public string? File { get; init; }
 }
 
@@ -64,6 +74,17 @@ public sealed class YamlForwarderDaemonConfigurationLoader
         if (configuration.Sources.Count == 0)
         {
             throw new InvalidDataException($"{prefix} must define at least one sources entry.");
+        }
+
+        var outputMode = configuration.Output.Mode.ToLowerInvariant();
+        if (outputMode is not ("relp" or "console" or "file"))
+        {
+            throw new InvalidDataException($"{prefix} output.mode must be one of: relp, console, file.");
+        }
+
+        if (outputMode == "file" && string.IsNullOrWhiteSpace(configuration.Output.File))
+        {
+            throw new InvalidDataException($"{prefix} output.file is required when output.mode is file.");
         }
 
         var sourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

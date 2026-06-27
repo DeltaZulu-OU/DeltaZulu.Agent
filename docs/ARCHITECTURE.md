@@ -38,7 +38,7 @@ src/
   DeltaZulu.Agent.Forwarder/     Buffered forwarder sink, RELP-neutral transport port, RELP.Net adapter, health reporting.
   DeltaZulu.Agent.Daemon/        YAML-driven forwarder daemon composition root.
   DeltaZulu.Agent.Cli/           Development/exploration CLI composition root.
-  DeltaZulu.Agent.Inputs.*       Resource-specific input adapters.
+  DeltaZulu.Agent.Inputs.*       Resource-specific input adapters, including RELP server input.
   DeltaZulu.DurableBuffer/              Durable disk buffer, retry, backpressure, dead-lettering, recovery.
 ```
 
@@ -119,6 +119,12 @@ Implemented input families are:
 - ETW real-time session input.
 
 Windows Event Log records expose named XML `EventData` values both under the dynamic `EventData` object and as top-level convenience fields. This supports profile styles such as `EventData.TargetUserSid` and `TargetUserSid`.
+
+## Daemon roles and coordination
+
+`dzagentd` is the service boundary for both endpoint forwarding and collector-style validation. With local sources and `output.mode: relp`, it runs the normal input/filter/RELP path. With a `relp` source from `DeltaZulu.Agent.Inputs.Relp` and `output.mode: console` or `file`, a second instance accepts RELP or RELP-over-TLS and prints or stores decoded records, replacing the separate demo collector path while keeping one daemon binary and two configurations. `DeltaZulu.Agent.Forwarder` remains the RELP output library for now and is isolated so it can later be renamed to `DeltaZulu.Agent.Outputs.Relp`.
+
+Coordination remains configuration-file based for the current split. The forwarder output path already owns durable queue state in `DeltaZulu.DurableBuffer`, while daemon configuration owns source/profile/output selection; no synchronous request/response decisions are required on the hot path. Named pipes or another IPC channel should only be introduced later for live reconfiguration, administrative health queries, or explicit control-plane commands that cannot be expressed safely by replacing configuration and restarting the supervised daemon process.
 
 ## Buffer and forwarder ownership
 

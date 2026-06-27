@@ -34,6 +34,7 @@ public sealed class ArchitectureTests
         {
             "DeltaZulu.Agent.Inputs.Syslog",
             "DeltaZulu.Agent.Inputs.Files",
+            "DeltaZulu.Agent.Inputs.Relp",
             "DeltaZulu.Agent.Inputs.Auditd",
             "DeltaZulu.Agent.Inputs.Windows",
             "DeltaZulu.Agent.Kql",

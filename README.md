@@ -56,6 +56,20 @@ dzdemo-collector --address 127.0.0.1 --port 6514
 
 ## Agent daemon
 
+## Daemon as forwarder or collector
+
+`dzagentd` can run as either side of the local RELP smoke test by changing configuration. A forwarding instance reads local inputs, applies profiles, and writes to RELP. A collector-style instance enables an `input: relp` source backed by `DeltaZulu.Agent.Inputs.Relp` and sets `output.mode: console` or `output.mode: file`, so the same daemon binary can replace the separate demo collector for validation.
+
+The current coordination contract is configuration files plus process supervision. The buffer is the durable handoff and retry state for RELP output, so named pipes, a local database, or other IPC are not required for the initial split. Add IPC only when live reload or command/control operations require runtime mutation without restarting the daemon.
+
+```bash
+# Forwarding instance
+dzagentd --config config/dzagentd.yaml
+
+# Collector-style instance; use a config with sources[].input: relp and output.mode: console
+dzagentd --config config/dzagentd-collector.yaml
+```
+
 `src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally forwarder-only: it has no inline query, schema listing, table output, JSON export, or other exploration commands. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
 
 ```bash
@@ -170,6 +184,7 @@ src/
   DeltaZulu.Agent.Forwarder/
   DeltaZulu.Agent.Daemon/
   DeltaZulu.Demo.Collector/
+  DeltaZulu.Agent.Inputs.Relp/
   DeltaZulu.Agent.Inputs.Syslog/
   DeltaZulu.Agent.Inputs.Files/
   DeltaZulu.Agent.Inputs.Auditd/

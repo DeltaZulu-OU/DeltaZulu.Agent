@@ -8,6 +8,7 @@
   <Project Path="src/DeltaZulu.Agent.Forwarder/DeltaZulu.Agent.Forwarder.csproj" />
   <Project Path="src/DeltaZulu.Agent.Inputs.Auditd/DeltaZulu.Agent.Inputs.Auditd.csproj" />
   <Project Path="src/DeltaZulu.Agent.Inputs.Files/DeltaZulu.Agent.Inputs.Files.csproj" />
+  <Project Path="src/DeltaZulu.Agent.Inputs.Relp/DeltaZulu.Agent.Inputs.Relp.csproj" />
   <Project Path="src/DeltaZulu.Agent.Inputs.Syslog/DeltaZulu.Agent.Inputs.Syslog.csproj" />
   <Project Path="src/DeltaZulu.Agent.Inputs.Windows/DeltaZulu.Agent.Inputs.Windows.csproj" />
   <Project Path="src/DeltaZulu.Agent.Kql/DeltaZulu.Agent.Kql.csproj" />

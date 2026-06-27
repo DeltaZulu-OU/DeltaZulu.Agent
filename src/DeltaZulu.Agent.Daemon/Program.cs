@@ -4,6 +4,7 @@ using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
+using DeltaZulu.Agent.Inputs.Relp;
 using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
@@ -126,12 +127,15 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         var configuration = new YamlForwarderDaemonConfigurationLoader().LoadFile(configPath);
         logger.LogInformation("Starting DeltaZulu agent daemon {AgentId} from {ConfigPath}.", configuration.Id, configPath);
 
-        var forwarderSink = CreateForwarderSink(configuration);
-        _disposables.Add(forwarderSink);
-        StartHealthReporter(configuration, forwarderSink);
+        var outputSink = CreateOutputSink(configuration);
+        _disposables.Add(outputSink);
+        if (outputSink is BufferedForwarderSink forwarderSink)
+        {
+            StartHealthReporter(configuration, forwarderSink);
+        }
 
         var bindings = CreateBindings(configuration);
-        var runtime = new AgentRuntime(bindings, forwarderSink, warn: msg =>
+        var runtime = new AgentRuntime(bindings, outputSink, warn: msg =>
             logger.LogWarning("{Warning}", msg));
 
         return Task.Run(() => runtime.Run(stoppingToken), stoppingToken)
@@ -244,6 +248,14 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         {
             "syslog" => new SyslogFileTailInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for syslog.")),
             "syslogserver" => new TcpSyslogInput(IPAddress.Parse(source.Address ?? "0.0.0.0"), source.Port ?? 514),
+            "relp" or "relpserver" => new RelpInput(new RelpInputConfiguration
+            {
+                Address = source.Address ?? "0.0.0.0",
+                Port = source.Port ?? 2514,
+                UseTls = source.UseTls ?? false,
+                ServerCertificatePath = source.ServerCertificatePath,
+                ServerCertificatePassword = source.ServerCertificatePassword
+            }, source.Id),
             "fifo" => new FifoSyslogInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for fifo.")),
             "csv" => new CsvFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for csv.")),
             "auditd" => new AuditdFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for auditd.")),
@@ -258,6 +270,14 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             _ => throw new ArgumentException($"source '{source.Id}' has unknown input '{source.Input}'.")
         };
     }
+
+    private static IOutputWriter CreateOutputSink(ForwarderDaemonConfiguration configuration) =>
+        configuration.Output.Mode.ToLowerInvariant() switch
+        {
+            "console" => new ConsoleNdjsonSink(),
+            "file" => new NdjsonFileSink(configuration.Output.File!),
+            _ => CreateForwarderSink(configuration)
+        };
 
     private static BufferedForwarderSink CreateForwarderSink(ForwarderDaemonConfiguration configuration)
     {

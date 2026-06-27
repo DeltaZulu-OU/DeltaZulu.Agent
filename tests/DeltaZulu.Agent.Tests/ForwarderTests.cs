@@ -7,6 +7,7 @@ using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Inputs.Relp;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
@@ -450,6 +451,17 @@ public sealed class ForwarderTests
         Assert.HasCount(2, configuration.Relp.Endpoints);
         Assert.AreEqual("relp-b.example", configuration.Relp.Endpoints[1].Host);
         Assert.AreEqual(6515, configuration.Relp.Endpoints[1].Port);
+    }
+
+    [TestMethod]
+    public void RelpInput_Constructor_RejectsTlsInputWithoutCertificate()
+    {
+        Assert.ThrowsExactly<InvalidDataException>(() => new RelpInput(new RelpInputConfiguration
+        {
+            Address = "127.0.0.1",
+            Port = 6514,
+            UseTls = true
+        }));
     }
 
     [TestMethod]

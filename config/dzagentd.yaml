@@ -40,6 +40,17 @@ sources:
   #   target: /var/log/audit/audit.log
   #   profile: profiles/linux/auditd/execve.yaml
 
+  # RELP collector input example. Use this in a second dzagentd instance with
+  # output.mode: console to replace dzdemo-collector for local validation.
+  # - id: local-relp-collector
+  #   input: relp
+  #   address: 0.0.0.0
+  #   port: 6514
+  #   useTls: false
+  #   # For RELP-over-TLS, set useTls: true and provide a server certificate.
+  #   # serverCertificatePath: /etc/deltazulu/collector.pfx
+  #   # serverCertificatePassword: change-me
+
 buffer:
   # Durable local queue used when the RELP endpoint is unavailable.
   path: ./buffer/agentd
@@ -58,6 +69,12 @@ relp:
     # Local demo collector default. Replace with your production collector host.
     - host: 127.0.0.1
       port: 6514
+
+output:
+  # relp forwards to relp.endpoints. Use console or file for collector-style
+  # validation instances that receive RELP and print decoded records.
+  mode: relp
+  # file: ./collector.ndjson
 
 diagnostics:
   # Emit daemon/buffer health observations every N seconds. Set to null or remove

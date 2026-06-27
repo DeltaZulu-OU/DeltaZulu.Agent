@@ -1,0 +1,259 @@
+using DeltaZulu.Agent.Application.Abstractions;
+using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Outputs.Ndjson;
+using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using System.Text.Json;
+
+namespace DeltaZulu.Agent.Inputs.Relp;
+
+public sealed record RelpInputConfiguration
+{
+    public bool Enabled { get; init; } = true;
+    public string Address { get; init; } = "0.0.0.0";
+    public int Port { get; init; } = 2514;
+    public bool UseTls { get; init; }
+    public string? ServerCertificatePath { get; init; }
+    public string? ServerCertificatePassword { get; init; }
+}
+
+public sealed class RelpInput : ISourceInput
+{
+    private static readonly JsonSerializerOptions JsonOptions = NdjsonSerializerOptions.CreateDefault();
+
+    private readonly RelpInputConfiguration _configuration;
+    private readonly X509Certificate2? _serverCertificate;
+
+    public string Name { get; }
+
+    public RelpInput(RelpInputConfiguration configuration, string name = "relp-input")
+    {
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        Name = name;
+        Validate(configuration);
+        _serverCertificate = LoadServerCertificate(configuration);
+    }
+
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer =>
+    {
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var listener = new TcpListener(IPAddress.Parse(_configuration.Address), _configuration.Port);
+        listener.Start();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!linkedCts.IsCancellationRequested)
+                {
+                    var client = await listener.AcceptTcpClientAsync(linkedCts.Token).ConfigureAwait(false);
+                    _ = Task.Run(() => HandleClientAsync(client, observer, linkedCts.Token), linkedCts.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                observer.OnCompleted();
+            }
+            catch (Exception ex)
+            {
+                observer.OnError(ex);
+            }
+        }, linkedCts.Token);
+
+        return Disposable.Create(() =>
+        {
+            linkedCts.Cancel();
+            listener.Stop();
+            linkedCts.Dispose();
+        });
+    });
+
+    private async Task HandleClientAsync(TcpClient client, IObserver<SourceEvent> observer, CancellationToken cancellationToken)
+    {
+        using var clientRegistration = client;
+        await using var stream = await OpenStreamAsync(client, cancellationToken).ConfigureAwait(false);
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            RelpFrame frame;
+            try
+            {
+                frame = await ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
+            }
+            catch (EndOfStreamException)
+            {
+                return;
+            }
+
+            if (frame.Command.Equals("open", StringComparison.OrdinalIgnoreCase))
+            {
+                await WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (frame.Command.Equals("close", StringComparison.OrdinalIgnoreCase))
+            {
+                await WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (!frame.Command.Equals("syslog", StringComparison.OrdinalIgnoreCase))
+            {
+                await WriteResponseAsync(stream, frame.TransactionId, "500 unsupported command", cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            var accepted = PublishPayload(frame.Payload, observer);
+            await WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : "500 invalid payload", cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask<Stream> OpenStreamAsync(TcpClient client, CancellationToken cancellationToken)
+    {
+        var network = client.GetStream();
+        if (!_configuration.UseTls)
+        {
+            return network;
+        }
+
+        var ssl = new SslStream(network, leaveInnerStreamOpen: false);
+        await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+        {
+            ServerCertificate = _serverCertificate,
+            EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
+        }, cancellationToken).ConfigureAwait(false);
+        return ssl;
+    }
+
+    private bool PublishPayload(ReadOnlyMemory<byte> payload, IObserver<SourceEvent> observer)
+    {
+        try
+        {
+            var batch = JsonSerializer.Deserialize<DeliveryBatch>(payload.Span, JsonOptions);
+            if (batch is null)
+            {
+                return false;
+            }
+
+            foreach (var record in batch.Records)
+            {
+                observer.OnNext(ToSourceEvent(record));
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private SourceEvent ToSourceEvent(DeliveryRecord deliveryRecord)
+    {
+        var record = deliveryRecord.Record;
+        var metadata = new ResourceMetadata
+        {
+            CollectorId = GetString(record.Metadata, "collectorId") ?? deliveryRecord.AgentId,
+            ProfileId = GetString(record.Metadata, "profileId") ?? deliveryRecord.ProfileId,
+            ProfileVersion = GetString(record.Metadata, "profileVersion"),
+            SourceType = GetString(record.Metadata, "sourceType") ?? "Relp",
+            SourceName = GetString(record.Metadata, "sourceName") ?? deliveryRecord.SourceId,
+            Platform = GetString(record.Metadata, "platform") ?? "portable",
+            Hostname = GetString(record.Metadata, "hostname") ?? deliveryRecord.AgentId,
+            IngestedAt = DateTimeOffset.UtcNow,
+            ParserName = nameof(RelpInput),
+            RawPreserved = true,
+            Properties = new Dictionary<string, object?>
+            {
+                ["relp.deliveryId"] = deliveryRecord.DeliveryId,
+                ["relp.recordId"] = deliveryRecord.RecordId,
+                ["relp.createdAt"] = deliveryRecord.CreatedAt
+            }
+        };
+
+        return new SourceEvent(metadata, new Dictionary<string, object?>(record.Event, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static async Task<RelpFrame> ReadFrameAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var transactionId = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false);
+        var command = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false);
+        var lengthToken = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false);
+        var length = int.Parse(lengthToken, System.Globalization.CultureInfo.InvariantCulture);
+        var payload = new byte[length];
+        await stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
+        var terminator = new byte[1];
+        await stream.ReadExactlyAsync(terminator, cancellationToken).ConfigureAwait(false);
+        return terminator[0] != (byte)'\n'
+            ? throw new InvalidDataException("Missing RELP frame terminator.")
+            : new RelpFrame(int.Parse(transactionId, System.Globalization.CultureInfo.InvariantCulture), command, payload);
+    }
+
+    private static async Task<string> ReadTokenAsync(Stream stream, byte delimiter, CancellationToken cancellationToken)
+    {
+        var bytes = new List<byte>(16);
+        var buffer = new byte[1];
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                throw new EndOfStreamException();
+            }
+
+            if (buffer[0] == delimiter)
+            {
+                return Encoding.ASCII.GetString(bytes.ToArray());
+            }
+
+            bytes.Add(buffer[0]);
+        }
+    }
+
+    private static async Task WriteResponseAsync(Stream stream, int transactionId, string payload, CancellationToken cancellationToken)
+    {
+        var body = Encoding.UTF8.GetBytes(payload);
+        var header = Encoding.ASCII.GetBytes($"{transactionId} rsp {body.Length} ");
+        await stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync(body, cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync("\n"u8.ToArray(), cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static X509Certificate2? LoadServerCertificate(RelpInputConfiguration configuration) => !configuration.UseTls
+            ? null
+            : string.IsNullOrEmpty(configuration.ServerCertificatePassword)
+            ? X509CertificateLoader.LoadCertificateFromFile(configuration.ServerCertificatePath!)
+            : X509CertificateLoader.LoadPkcs12FromFile(configuration.ServerCertificatePath!, configuration.ServerCertificatePassword);
+
+    private static void Validate(RelpInputConfiguration configuration)
+    {
+        if (configuration.Port is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(configuration.Port));
+        }
+
+        if (configuration.UseTls && string.IsNullOrWhiteSpace(configuration.ServerCertificatePath))
+        {
+            throw new InvalidDataException("RELP/TLS input requires serverCertificatePath.");
+        }
+    }
+
+    private static string? GetString(IReadOnlyDictionary<string, object?> fields, string key) => !fields.TryGetValue(key, out var value) || value is null
+            ? null
+            : value switch {
+                string text when !string.IsNullOrWhiteSpace(text) => text,
+                JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString(),
+                DateTimeOffset timestamp => timestamp.ToString("O"),
+                DateTime timestamp => timestamp.ToString("O"),
+                _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
+            };
+
+    private readonly record struct RelpFrame(int TransactionId, string Command, ReadOnlyMemory<byte> Payload);
+}
