@@ -118,9 +118,19 @@ public sealed class DurableBufferHost<T> : IAsyncDisposable
 
         if (_dispatchTask is not null)
         {
+            var dispatchCompleted = true;
             try { await _dispatchTask.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken); }
-            catch (TimeoutException) { _logger?.LogWarning("Dispatch worker did not drain within timeout."); }
-            catch (OperationCanceledException) { }
+            catch (TimeoutException)
+            {
+                dispatchCompleted = false;
+                _logger?.LogWarning("Dispatch worker did not drain within timeout.");
+            }
+            catch (OperationCanceledException) { dispatchCompleted = false; }
+
+            if (dispatchCompleted)
+            {
+                await _dispatchWorker.DrainStoredChunksAsync(cancellationToken);
+            }
         }
 
         if (_cts is not null)

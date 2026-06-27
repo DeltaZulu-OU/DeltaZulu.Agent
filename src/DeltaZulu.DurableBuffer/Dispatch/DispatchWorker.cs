@@ -46,6 +46,38 @@ internal sealed class DispatchWorker
 
     public int RetryQueueDepth => Volatile.Read(ref _retryQueueDepth);
 
+    public async Task DrainStoredChunksAsync(CancellationToken cancellationToken)
+    {
+        await DrainRemainingAsync(cancellationToken);
+        await DrainScheduledRetriesAsync(cancellationToken);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var sealedChunks = await _store.GetSealedChunksAsync(cancellationToken);
+            if (sealedChunks.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var chunk in sealedChunks.OrderBy(static chunk =>
+                         chunk.Metadata.NextAttemptUtc ?? chunk.Metadata.SealedUtc ?? chunk.Metadata.CreatedUtc))
+            {
+                var nextAttemptUtc = chunk.Metadata.NextAttemptUtc;
+                if (nextAttemptUtc is not null)
+                {
+                    var waitTime = nextAttemptUtc.Value - DateTimeOffset.UtcNow;
+                    if (waitTime > TimeSpan.Zero)
+                    {
+                        await Task.Delay(waitTime, cancellationToken);
+                    }
+                }
+
+                await ProcessChunkAsync(chunk, cancellationToken);
+                await DrainScheduledRetriesAsync(cancellationToken);
+            }
+        }
+    }
+
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -60,9 +92,19 @@ internal sealed class DispatchWorker
 
             var channelCompleted = _reader.Completion.IsCompleted;
             var waitTime = GetNextRetryWait();
-            if (channelCompleted && waitTime > TimeSpan.Zero)
+            if (channelCompleted)
             {
-                break;
+                if (waitTime == TimeSpan.MaxValue)
+                {
+                    break;
+                }
+
+                if (waitTime > TimeSpan.Zero)
+                {
+                    await Task.Delay(waitTime, cancellationToken);
+                }
+
+                continue;
             }
 
             try
@@ -81,11 +123,6 @@ internal sealed class DispatchWorker
                         break;
                     }
 
-                    if (_reader.Completion.IsCompleted)
-                    {
-                        break;
-                    }
-
                     await Task.Delay(waitTime, cancellationToken);
                 }
             }
@@ -96,7 +133,7 @@ internal sealed class DispatchWorker
 
         if (!cancellationToken.IsCancellationRequested)
         {
-            await DrainRemainingAsync(cancellationToken);
+            await DrainStoredChunksAsync(cancellationToken);
         }
     }
 
@@ -238,6 +275,20 @@ internal sealed class DispatchWorker
             {
                 break;
             }
+        }
+    }
+
+    private async Task DrainScheduledRetriesAsync(CancellationToken cancellationToken)
+    {
+        while (_retryQueue.Count > 0 && !cancellationToken.IsCancellationRequested)
+        {
+            var waitTime = GetNextRetryWait();
+            if (waitTime > TimeSpan.Zero)
+            {
+                await Task.Delay(waitTime, cancellationToken);
+            }
+
+            await ProcessDueRetriesAsync(cancellationToken);
         }
     }
 
