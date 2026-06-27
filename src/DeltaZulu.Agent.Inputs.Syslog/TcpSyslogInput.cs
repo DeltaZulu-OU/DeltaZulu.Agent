@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Net;
 using System.Net.Sockets;
@@ -8,7 +8,7 @@ using System.Text;
 
 namespace DeltaZulu.Agent.Inputs.Syslog;
 
-public sealed class TcpSyslogInput : IResourceInput
+public sealed class TcpSyslogInput : ISourceInput
 {
     private readonly IPAddress _address;
     private readonly int _port;

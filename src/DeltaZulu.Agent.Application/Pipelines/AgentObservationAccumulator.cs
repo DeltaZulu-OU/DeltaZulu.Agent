@@ -1,9 +1,12 @@
 using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Core.Observability;
 
-namespace DeltaZulu.Agent.Core.Observability;
+namespace DeltaZulu.Agent.Application.Pipelines;
 
 public sealed class AgentObservationAccumulator
 {
+    private const int MaxDistinctKeys = 10_000;
+
     private readonly object _gate = new();
     private readonly Dictionary<LogTelemetryKey, MutableCounts> _counts = [];
 
@@ -33,6 +36,11 @@ public sealed class AgentObservationAccumulator
         {
             if (!_counts.TryGetValue(key, out var counts))
             {
+                if (_counts.Count >= MaxDistinctKeys)
+                {
+                    return;
+                }
+
                 counts = new MutableCounts();
                 _counts[key] = counts;
             }

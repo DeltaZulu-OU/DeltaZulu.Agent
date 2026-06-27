@@ -10,7 +10,7 @@ public sealed class ProfileTests
     {
         var errors = new ResourceProfileValidator().Validate(CreateValidProfile());
 
-        Assert.AreEqual(0, errors.Count);
+        Assert.IsEmpty(errors);
     }
 
     [TestMethod]
@@ -21,7 +21,7 @@ public sealed class ProfileTests
 
         var errors = new ResourceProfileValidator().Validate(profile);
 
-        Assert.AreEqual(0, errors.Count);
+        Assert.IsEmpty(errors);
     }
 
     [TestMethod]
@@ -36,7 +36,7 @@ public sealed class ProfileTests
 
         var errors = new ResourceProfileValidator().Validate(profile);
 
-        Assert.AreEqual(0, errors.Count);
+        Assert.IsEmpty(errors);
     }
 
     [TestMethod]
@@ -76,8 +76,8 @@ public sealed class ProfileTests
 
         var exception = Assert.ThrowsExactly<InvalidDataException>(() => new ResourceProfileValidator().ThrowIfInvalid(profile, "profile.yaml"));
 
-        StringAssert.Contains(exception.Message, "Invalid resource profile 'profile.yaml'");
-        StringAssert.Contains(exception.Message, "id is required.");
+        Assert.Contains("Invalid resource profile 'profile.yaml'", exception.Message);
+        Assert.Contains("id is required.", exception.Message);
     }
 
     [TestMethod]
@@ -109,11 +109,11 @@ filter:
 
             var result = new YamlResourceProfileLoader().LoadDirectory(directory.FullName);
 
-            Assert.AreEqual(0, result.Errors.Count);
-            Assert.AreEqual(1, result.Warnings.Count);
-            Assert.AreEqual(0, result.Profiles.Count);
-            StringAssert.Contains(result.Warnings[0], "optional.invalid");
-            StringAssert.Contains(result.Warnings[0], "Only output.format: ndjson is supported");
+            Assert.IsEmpty(result.Errors);
+            Assert.HasCount(1, result.Warnings);
+            Assert.IsEmpty(result.Profiles);
+            Assert.Contains("optional.invalid", result.Warnings[0]);
+            Assert.Contains("Only output.format: ndjson is supported", result.Warnings[0]);
         }
         finally
         {
@@ -150,10 +150,10 @@ filter:
 
             var result = new YamlResourceProfileLoader().LoadDirectory(directory.FullName);
 
-            Assert.AreEqual(1, result.Errors.Count);
-            Assert.AreEqual(0, result.Warnings.Count);
-            Assert.AreEqual(0, result.Profiles.Count);
-            StringAssert.Contains(result.Errors[0], "mandatory.invalid");
+            Assert.HasCount(1, result.Errors);
+            Assert.IsEmpty(result.Warnings);
+            Assert.IsEmpty(result.Profiles);
+            Assert.Contains("mandatory.invalid", result.Errors[0]);
         }
         finally
         {

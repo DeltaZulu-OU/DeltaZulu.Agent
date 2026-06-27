@@ -1,11 +1,11 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 namespace DeltaZulu.Agent.Inputs.Auditd;
 
-public sealed class AuditdFileInput : IResourceInput
+public sealed class AuditdFileInput : ISourceInput
 {
     private readonly string _path;
     private readonly AuditdRecordParser _parser = new();

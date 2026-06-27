@@ -1,5 +1,5 @@
 using CsvHelper;
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Globalization;
 using System.Reactive.Disposables;
@@ -7,7 +7,7 @@ using System.Reactive.Linq;
 
 namespace DeltaZulu.Agent.Inputs.Files;
 
-public sealed class CsvFileInput : IResourceInput
+public sealed class CsvFileInput : ISourceInput
 {
     private readonly string _path;
     public string Name { get; }

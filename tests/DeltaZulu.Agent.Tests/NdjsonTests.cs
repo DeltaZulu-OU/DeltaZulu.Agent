@@ -13,7 +13,7 @@ public sealed class NdjsonTests
     {
         var json = JsonSerializer.Serialize(new { OriginalName = "value", Missing = (string?)null }, NdjsonSerializerOptions.CreateDefault());
 
-        StringAssert.Contains(json, "\"OriginalName\":\"value\"");
+        Assert.Contains("\"OriginalName\":\"value\"", json);
         Assert.IsFalse(json.Contains("Missing", StringComparison.Ordinal));
         Assert.IsFalse(json.Contains(Environment.NewLine, StringComparison.Ordinal));
     }
@@ -34,8 +34,8 @@ public sealed class NdjsonTests
 
         var json = JsonSerializer.Serialize(record, NdjsonSerializerOptions.CreateDefault());
 
-        StringAssert.Contains(json, "\"CyclicValue\"");
-        StringAssert.Contains(json, "\"Name\":\"root\"");
+        Assert.Contains("\"CyclicValue\"", json);
+        Assert.Contains("\"Name\":\"root\"", json);
     }
 
     private sealed class CyclicNode

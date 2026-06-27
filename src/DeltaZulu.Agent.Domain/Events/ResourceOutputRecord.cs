@@ -2,10 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace DeltaZulu.Agent.Core.Events;
 
-/// <summary>
-/// The structured NDJSON envelope emitted by Agent sinks.
-/// Server-side normalization should consume this envelope and map event-native fields later.
-/// </summary>
 public sealed record ResourceOutputRecord
 {
     [JsonPropertyName("_metadata")]

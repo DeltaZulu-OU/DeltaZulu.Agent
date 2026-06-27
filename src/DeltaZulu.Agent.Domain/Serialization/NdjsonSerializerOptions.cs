@@ -15,7 +15,6 @@ public static class NdjsonSerializerOptions
     }.AddNdjsonConverters();
 }
 
-
 internal static class NdjsonSerializerOptionsExtensions
 {
     public static JsonSerializerOptions AddNdjsonConverters(this JsonSerializerOptions options)

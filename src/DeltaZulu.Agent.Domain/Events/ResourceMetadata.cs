@@ -1,8 +1,5 @@
 namespace DeltaZulu.Agent.Core.Events;
 
-/// <summary>
-/// Agent-controlled metadata. Original source fields must not be placed here.
-/// </summary>
 public sealed record ResourceMetadata
 {
     public int SchemaVersion { get; init; } = 1;

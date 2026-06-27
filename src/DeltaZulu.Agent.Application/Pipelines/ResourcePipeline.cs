@@ -1,26 +1,21 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Core.Observability;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
-namespace DeltaZulu.Agent.Core.Pipelines;
+namespace DeltaZulu.Agent.Application.Pipelines;
 
-/// <summary>
-/// Small host-neutral helper for wiring inputs to profile execution and sinks.
-/// The daemon remains responsible for service lifecycle, config reload, and OS integration.
-/// </summary>
 public sealed class ResourcePipeline
 {
-    private readonly IResourceInput _input;
+    private readonly ISourceInput _input;
     private readonly Func<IObservable<SourceEvent>, IObservable<ResourceOutputRecord>> _executeProfiles;
-    private readonly IResourceSink _sink;
+    private readonly IOutputWriter _sink;
     private readonly AgentObservationAccumulator? _observations;
 
     public ResourcePipeline(
-        IResourceInput input,
+        ISourceInput input,
         Func<IObservable<SourceEvent>, IObservable<ResourceOutputRecord>> executeProfiles,
-        IResourceSink sink,
+        IOutputWriter sink,
         AgentObservationAccumulator? observations = null)
     {
         _input = input;
@@ -56,10 +51,10 @@ public sealed class ResourcePipeline
 
     private sealed class ForwardingObservationSink : IObserver<ResourceOutputRecord>
     {
-        private readonly IResourceSink _inner;
+        private readonly IOutputWriter _inner;
         private readonly AgentObservationAccumulator _observations;
 
-        public ForwardingObservationSink(IResourceSink inner, AgentObservationAccumulator observations)
+        public ForwardingObservationSink(IOutputWriter inner, AgentObservationAccumulator observations)
         {
             _inner = inner;
             _observations = observations;

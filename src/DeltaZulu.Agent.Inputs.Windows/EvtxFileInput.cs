@@ -1,10 +1,10 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Reactive.Linq;
 
 namespace DeltaZulu.Agent.Inputs.Windows;
 
-public sealed class EvtxFileInput : IResourceInput
+public sealed class EvtxFileInput : ISourceInput
 {
     private readonly string _path;
     public string Name { get; }

@@ -44,7 +44,7 @@ public sealed class AuditdTests
         var execve = Assert.IsInstanceOfType<Dictionary<string, object?>>(sourceEvent.Fields["EXECVE"]);
         CollectionAssert.AreEqual(new object?[] { "/bin/bash", "-l" }, Assert.IsInstanceOfType<object?[]>(execve["ARGV"]));
         var paths = Assert.IsInstanceOfType<List<Dictionary<string, object?>>>(sourceEvent.Fields["PATH"]);
-        Assert.AreEqual(1, paths.Count);
+        Assert.HasCount(1, paths);
         Assert.AreEqual("/bin/bash", paths[0]["name"]);
     }
 
@@ -57,7 +57,7 @@ public sealed class AuditdTests
         assembler.Accept(parser.Parse("type=SYSCALL msg=audit(1.1:1): syscall=59"));
         assembler.Accept(parser.Parse("type=SYSCALL msg=audit(1.1:2): syscall=60"));
 
-        Assert.AreEqual(2, assembler.FlushAll().Count());
-        Assert.AreEqual(0, assembler.FlushAll().Count());
+        Assert.HasCount(2, assembler.FlushAll());
+        Assert.IsEmpty(assembler.FlushAll());
     }
 }

@@ -1,11 +1,11 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 namespace DeltaZulu.Agent.Inputs.Syslog;
 
-public sealed class SyslogFileTailInput : IResourceInput
+public sealed class SyslogFileTailInput : ISourceInput
 {
     private readonly string _path;
     private readonly TimeSpan _pollInterval;

@@ -1,8 +1,8 @@
 using System.Reactive.Linq;
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
+using DeltaZulu.Agent.Application.Pipelines;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Core.Pipelines;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -76,7 +76,7 @@ public sealed class ObservabilityTests
             sink,
             observations);
 
-        using var subscription = pipeline.Start();
+        using var subscription = pipeline.Start(TestContext.CancellationToken);
 
         var count = observations.SnapshotPipelineCounts(new CollectorObservationMetadata
         {
@@ -107,15 +107,19 @@ public sealed class ObservabilityTests
             ["ProviderName"] = provider
         });
 
-    private sealed class TestInput : IResourceInput
+    private sealed class TestInput : ISourceInput
     {
         private readonly IReadOnlyList<SourceEvent> _events;
-        public TestInput(IReadOnlyList<SourceEvent> events) => _events = events;
+        public TestInput(IReadOnlyList<SourceEvent> events)
+        {
+            _events = events;
+        }
+
         public string Name => "test";
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => _events.ToObservable();
     }
 
-    private sealed class TestSink : IResourceSink
+    private sealed class TestSink : IOutputWriter
     {
         public string Name => "test";
         public List<ResourceOutputRecord> Records { get; } = [];
@@ -124,4 +128,6 @@ public sealed class ObservabilityTests
         public void OnNext(ResourceOutputRecord value) => Records.Add(value);
         public void Dispose() { }
     }
+
+    public TestContext TestContext { get; set; }
 }

@@ -1,10 +1,11 @@
 using System.Net.Sockets;
 using System.Text.Json;
+using DeltaZulu.Agent.Application.Abstractions;
 using Relp;
 
 namespace DeltaZulu.Agent.Forwarder;
 
-public sealed class RelpForwarderTransport : IForwarderTransport, IAsyncDisposable, IDisposable
+public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposable, IDisposable
 {
     private static readonly TimeSpan SessionCloseTimeout = TimeSpan.FromSeconds(5);
 
