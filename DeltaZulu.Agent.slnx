@@ -1,6 +1,6 @@
 <Solution>
-  <Project Path="external/RELP.Net/src/Relp/Relp.csproj" />
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
+  <Project Path="external/DeltaZulu.Relp/src/DeltaZulu.Relp/DeltaZulu.Relp.csproj" />
   <Project Path="src/DeltaZulu.Agent.Application/DeltaZulu.Agent.Application.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
   <Project Path="src/DeltaZulu.Agent.Domain/DeltaZulu.Agent.Domain.csproj" />

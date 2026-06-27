@@ -1,7 +1,7 @@
 using System.Net.Sockets;
 using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
-using Relp;
+using DeltaZulu.Relp;
 
 namespace DeltaZulu.Agent.Forwarder;
 

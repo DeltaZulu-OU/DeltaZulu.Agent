@@ -48,7 +48,7 @@ public sealed class ArchitectureTests
             "DeltaZulu.Agent.Domain",
             "DeltaZulu.Agent.Application",
             "DeltaZulu.DurableBuffer",
-            "Relp"
+            "DeltaZulu.Relp"
         };
 
         foreach (var assemblyName in infraAssemblyNames)
