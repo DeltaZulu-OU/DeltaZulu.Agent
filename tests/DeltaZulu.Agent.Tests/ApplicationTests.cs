@@ -68,6 +68,21 @@ public sealed class ApplicationTests
     }
 
     [TestMethod]
+    public void CompletionTrackingWriter_DoesNotForwardErrorToInnerWhenCompleteInnerIsFalse()
+    {
+        using var completed = new ManualResetEventSlim(false);
+        var inner = new RecordingSink();
+        using var writer = new CompletionTrackingWriter(inner, completed, completeInner: false);
+        var exception = new InvalidOperationException("test error");
+
+        writer.OnError(exception);
+
+        Assert.IsTrue(completed.IsSet);
+        Assert.AreSame(exception, writer.Error);
+        Assert.AreEqual(0, inner.Errors.Count);
+    }
+
+    [TestMethod]
     public void CompletionTrackingWriter_DoesNotCompleteInnerWhenFlagIsFalse()
     {
         using var completed = new ManualResetEventSlim(false);

@@ -45,7 +45,10 @@ public sealed class CompletionTrackingWriter : IOutputWriter
         {
             Error ??= error;
         }
-        _inner.OnError(error);
+        if (_completeInner)
+        {
+            _inner.OnError(error);
+        }
         _completed.Set();
     }
 
