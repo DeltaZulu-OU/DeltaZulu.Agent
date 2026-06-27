@@ -12,8 +12,8 @@ It is intentionally thin: the executable wires the existing input libraries, KQL
 
 ```text
 Usage:
-  dzagentctl <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
-  dzagentctl <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
+  dzagentctl <input> [<arg>] [json [<file.ndjson>]] [--profile <profile.yaml>]
+  dzagentctl <input> [<arg>] [json [<file.ndjson>]] --kql <query> [--table <name>] [--schema <columns>]
   dzagentctl schemas [<profiles-dir>] [table|json]
 
 Inputs:
@@ -29,7 +29,6 @@ Inputs:
 
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
-  table                     Print a compact console table.
 
 
 Options:
@@ -45,7 +44,7 @@ Options:
 Examples:
 
 ```bash
-dzagentctl syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
+dzagentctl syslog /var/log/auth.log --profile profiles/linux/syslog/sshd.yaml
 dzagentctl csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
 dzagentctl syslogserver --address 127.0.0.1 --port 5514
 dzagentctl fifo /run/deltazulu/logs.fifo json fifo.ndjson --kql "Source | project ReceivedAt, RawMessage, Message"
@@ -124,9 +123,6 @@ Windows process creation examples:
 # Sysmon process creation, Event ID 1, to console NDJSON.
 dzagentctl eventlog sysmon --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
-# Sysmon process creation, Event ID 1, to a compact console table.
-dzagentctl eventlog sysmon table --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
-
 # Windows Security process creation, Event ID 4688, to console NDJSON.
 dzagentctl eventlog Security --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
@@ -139,7 +135,7 @@ The CLI validates requested Windows Event Log resources before starting KQL. Pro
 
 Without a profile, source events pass through unchanged into the standard DeltaZulu NDJSON envelope.
 With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Kql`.
-With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to another sink with the existing output parameters such as `json out.ndjson` or `table`.
+With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to a file sink with `json out.ndjson`.
 CLI options such as `--kql` can appear before or after the input command; for example, `dzagentctl --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
 
 Profiles may include an optional host condition. The first supported condition type is `wmi`, which runs a WQL query and enables the profile only when the query returns at least one row. This is useful for Windows resource profiles that should only run on a specific server role, such as domain controllers:
@@ -157,7 +153,7 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - `DeltaZulu.Agent.Domain` contains source events, resource outputs, profile models, delivery envelopes, and observation records.
 - `DeltaZulu.Agent.Shared` contains cross-boundary helpers such as shared NDJSON serializer options used by inputs and outputs.
 - `DeltaZulu.Agent.Application` contains the shared runtime, profile binding, pipeline orchestration, and output multiplexing used by both hosts.
-- `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, NDJSON, and table output.
+- `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, and NDJSON output.
 - `dzagentd` is the forwarder-only daemon host configured by `config/dzagentd.yaml`.
 - `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
 - `DeltaZulu.Agent.Outputs` owns NDJSON sinks plus RELP buffered forwarding, RELP-neutral transport contracts, RELP.Net transport, endpoint failover groundwork, TLS policy options, and health snapshots.

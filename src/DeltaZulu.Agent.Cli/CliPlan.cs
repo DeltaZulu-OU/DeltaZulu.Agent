@@ -5,7 +5,7 @@ namespace DeltaZulu.Agent.Cli;
 
 internal static partial class Program
 {
-    private sealed record CliPlan(string? InputCommand, string? InputArgument, string OutputCommand, string? OutputArgument, IReadOnlyDictionary<string, string?> Options)
+    private sealed record CliPlan(string? InputCommand, string? InputArgument, string? OutputPath, IReadOnlyDictionary<string, string?> Options)
     {
         public bool IsProfileMode => !string.IsNullOrWhiteSpace(Option("--profile"));
 
@@ -15,8 +15,7 @@ internal static partial class Program
         {
             string? input = null;
             string? inputArg = null;
-            var output = "json";
-            string? outputArg = null;
+            string? outputPath = null;
             var options = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
             for (var index = 0; index < args.Length; index++)
@@ -35,12 +34,16 @@ internal static partial class Program
 
                 if (IsOutput(token))
                 {
-                    output = token.ToLowerInvariant();
                     if (index + 1 < args.Length && !args[index + 1].StartsWith('-') && !IsInput(args[index + 1]) && !IsOutput(args[index + 1]))
                     {
-                        outputArg = args[++index];
+                        outputPath = args[++index];
                     }
                     continue;
+                }
+
+                if (token.Equals("table", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ArgumentException("table output has been removed; omit the output argument for console NDJSON or use 'json <file.ndjson>' to write NDJSON to a file.");
                 }
 
                 if (input is null)
@@ -48,7 +51,7 @@ internal static partial class Program
                     if (IsInput(token))
                     {
                         input = token.ToLowerInvariant();
-                        if (index + 1 < args.Length && !args[index + 1].StartsWith('-') && !IsOutput(args[index + 1]))
+                        if (index + 1 < args.Length && !args[index + 1].StartsWith('-') && !IsOutput(args[index + 1]) && !args[index + 1].Equals("table", StringComparison.OrdinalIgnoreCase))
                         {
                             inputArg = args[++index];
                         }
@@ -72,11 +75,10 @@ internal static partial class Program
                 throw new ArgumentException("input command is required unless --profile is used. Put an input such as 'eventlog Security' before or after --kql.");
             }
 
-            return new CliPlan(input, inputArg, output, outputArg, options);
+            return new CliPlan(input, inputArg, outputPath, options);
         }
 
-        private static bool IsOutput(string value) => value.Equals("json", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("table", StringComparison.OrdinalIgnoreCase);
+        private static bool IsOutput(string value) => value.Equals("json", StringComparison.OrdinalIgnoreCase);
 
         private static bool IsInput(string value) => value.Equals("syslog", StringComparison.OrdinalIgnoreCase)
             || value.Equals("syslogserver", StringComparison.OrdinalIgnoreCase)

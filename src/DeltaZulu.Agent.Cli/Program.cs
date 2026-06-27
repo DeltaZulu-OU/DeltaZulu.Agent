@@ -444,11 +444,9 @@ internal static partial class Program
 #endif
     }
 
-    private static IOutputWriter CreateSink(CliPlan plan) => plan.OutputCommand switch {
-        "json" => string.IsNullOrWhiteSpace(plan.OutputArgument) ? new ConsoleNdjsonSink() : new NdjsonFileSink(plan.OutputArgument),
-        "table" => new ConsoleTableSink(),
-        _ => throw new ArgumentException($"unknown output command '{plan.OutputCommand}'")
-    };
+    private static IOutputWriter CreateSink(CliPlan plan) => string.IsNullOrWhiteSpace(plan.OutputPath)
+        ? new ConsoleNdjsonSink()
+        : new NdjsonFileSink(plan.OutputPath);
 
     private static bool IsHelp(string value) => value is "-h" or "--help" or "help";
 
@@ -539,8 +537,8 @@ internal static partial class Program
     {
         Console.WriteLine("""
 Usage:
-  dzagentctl [<input>] [<target>] [<output> [<arg>]] [--profile <profile.yaml|profiles-dir>]
-  dzagentctl <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
+  dzagentctl [<input>] [<target>] [json [<file.ndjson>]] [--profile <profile.yaml|profiles-dir>]
+  dzagentctl <input> [<arg>] [json [<file.ndjson>]] --kql <query> [--table <name>] [--schema <columns>]
   dzagentctl schemas [<profiles-dir>] [table|json]
 
 Inputs:
@@ -556,7 +554,6 @@ Inputs:
 
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
-  table                    Print a compact console table.
 
 Options:
   --profile <path>          Apply one profile, or every YAML profile under a directory.
@@ -569,10 +566,10 @@ Options:
   --port <port>             syslogserver TCP port.
 
 Examples:
-  dzagentctl /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
+  dzagentctl /var/log/auth.log --profile profiles/linux/syslog/sshd.yaml
   dzagentctl /var/log/auth.log json out.ndjson --profile profiles/linux/syslog
   dzagentctl csv events.csv json out.ndjson --kql "EventLog | where RawMessage has 'sudo'"
-  dzagentctl eventlog table --profile profiles/windows/eventlog
+  dzagentctl eventlog --profile profiles/windows/eventlog
   dzagentctl eventlog sysmon --kql "EventLog | where EventId == 1"
   dzagentctl eventlog Security --kql "EventLog | where EventId == 4688"
   dzagentctl schemas profiles json

@@ -10,7 +10,7 @@ Implemented foundation:
 - `DeltaZulu.Agent.Core` compatibility type-forwarding shim for older references.
 - `System.Reactive` based input/runtime flow without custom observable infrastructure.
 - Resource-profile YAML model, loader, validation, WMI host conditions, and KQL execution seam using `Microsoft.Rx.Kql`.
-- NDJSON file/console sinks and compact table output for the exploration CLI.
+- NDJSON file/console sinks for the exploration CLI.
 - Syslog TCP/file input with lightweight parsing.
 - CSV file input.
 - Auditd parser and assembler with malformed-line handling, EOE/PROCTITLE completion, hex PATH decoding, and array handling for repeated record types.

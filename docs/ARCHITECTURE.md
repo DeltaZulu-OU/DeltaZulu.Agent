@@ -19,7 +19,7 @@ DeltaZulu.Agent currently has three executable hosts:
 
 | Host | Project | Purpose |
 | --- | --- | --- |
-| `dzagentctl` | `src/DeltaZulu.Agent.Cli` | Thin exploration CLI for schemas, inline KQL, profile testing, table output, and NDJSON export. |
+| `dzagentctl` | `src/DeltaZulu.Agent.Cli` | Thin exploration CLI for schemas, inline KQL, profile testing, and NDJSON console/file export. |
 | `dzagentd` | `src/DeltaZulu.Agent.Daemon` | Forwarder-only daemon host using YAML configuration, the shared runtime, `DeltaZulu.DurableBuffer`, and RELP delivery. |
 | `dzdemo-collector` | `src/DeltaZulu.Demo.Collector` | Local validation receiver that accepts RELP frames, prints decoded batches, and ACKs with `rsp 200`. |
 
@@ -56,7 +56,7 @@ flowchart LR
     A[Input adapter] --> B[SourceEvent]
     B --> C[Profile or inline KQL]
     C --> D[ResourceOutputRecord]
-    D --> E[NDJSON or table sink]
+    D --> E[NDJSON console/file sink]
 ```
 
 ### Daemon forwarding flow
