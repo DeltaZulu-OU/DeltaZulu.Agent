@@ -167,12 +167,12 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 ```text
 src/
   DeltaZulu.Agent.Domain/
+    Profiles/
   DeltaZulu.Agent.Shared/
     Ndjson/
     MessagePack/
   DeltaZulu.Agent.Application/
   DeltaZulu.Agent.Core/        (compatibility type-forwarding shim)
-  DeltaZulu.Agent.Profiles/
   DeltaZulu.Agent.Kql/
   DeltaZulu.Agent.Outputs/
     Ndjson/

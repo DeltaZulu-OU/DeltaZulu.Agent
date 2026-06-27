@@ -29,12 +29,11 @@ DeltaZulu.Agent currently has three executable hosts:
 
 ```text
 src/
-  DeltaZulu.Agent.Domain/        Source events, resource records, delivery records, profiles, observations.
+  DeltaZulu.Agent.Domain/        Source events, resource records, delivery records, profiles, observations, YAML profile loading, and profile validation.
   DeltaZulu.Agent.Shared/        Cross-boundary helpers shared by inputs and outputs.
     Ndjson/                      Shared NDJSON serializer options and converters.
   DeltaZulu.Agent.Application/   Runtime orchestration, profile bindings, pipeline helpers, output multiplexing.
   DeltaZulu.Agent.Core/          Compatibility type-forwarding shim for older Agent.Core references.
-  DeltaZulu.Agent.Profiles/      YAML profile loading and validation adapter.
   DeltaZulu.Agent.Kql/           Microsoft.Rx.Kql-backed resource profile executor.
   DeltaZulu.Agent.Outputs/        Output adapters grouped by type.
     Ndjson/                       NDJSON console/file sinks, serializer options, and error records.

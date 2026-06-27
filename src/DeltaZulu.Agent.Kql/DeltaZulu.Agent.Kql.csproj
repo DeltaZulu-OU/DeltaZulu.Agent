@@ -11,6 +11,5 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Profiles\DeltaZulu.Agent.Profiles.csproj" />
   </ItemGroup>
 </Project>

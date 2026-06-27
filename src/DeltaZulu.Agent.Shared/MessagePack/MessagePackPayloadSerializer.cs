@@ -9,8 +9,10 @@ public sealed class MessagePackPayloadSerializer
 {
     private readonly MessagePackSerializerOptions _options;
 
-    public MessagePackPayloadSerializer(MessagePackSerializerOptions? options = null) =>
+    public MessagePackPayloadSerializer(MessagePackSerializerOptions? options = null)
+    {
         _options = options ?? AgentMessagePackSerializerOptions.CreateDefault();
+    }
 
     public byte[] Serialize<T>(T value) => MessagePackSerializer.Serialize(value, _options);
 

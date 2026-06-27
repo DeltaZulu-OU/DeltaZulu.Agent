@@ -80,7 +80,7 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 
 | Project | Current test focus | High-ROI scenarios | Deferred coverage |
 | --- | --- | --- | --- |
-| `DeltaZulu.Agent.Domain` / `DeltaZulu.Agent.Core` | Domain records, dictionary helpers, and compatibility type forwarding. | Dictionary coercion, metadata preservation, delivery identity, serialization helpers, and type-forwarding compatibility. | Additional compatibility tests only when older consumers require them. |
+| `DeltaZulu.Agent.Domain` / `DeltaZulu.Agent.Core` | Domain records, dictionary helpers, profile validation/YAML loading, and compatibility type forwarding. | Dictionary coercion, metadata preservation, delivery identity, serialization helpers, profile validation/loading, and type-forwarding compatibility. | Additional compatibility tests only when older consumers require them. |
 | `DeltaZulu.Agent.Inputs/Auditd` | Parser and assembler business logic using literal audit lines. | Audit line prefix validation, scalar coercion, hex argument decoding, record grouping by audit ID, ordered `ARGV`, multi-record fields such as `PATH`, and one-shot flush behavior. | Reading `/var/log/audit/audit.log`, tailing files, or interacting with auditd. |
 | `DeltaZulu.Agent.Inputs/Syslog` | Dependency-free parser behavior using literal RFC 3164, RFC 5424, and unstructured messages. | Priority decoding, hostname/process extraction, source address preservation, key/value extraction, and raw-message preservation. | TCP listener behavior, journald, syslog daemon configuration, and socket-level error handling. |
 | `DeltaZulu.Agent.Inputs/Files` | CSV row-to-event behavior using temporary files and culture-invariant parsing. | File roundtrip behavior, type coercion, malformed row diagnostics, and long-running file scenarios if added. | Filesystem watcher behavior. |
@@ -88,7 +88,6 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 | `DeltaZulu.Agent.Kql` | In-memory profile execution, no-match/error behavior, metadata fallback injection, and nested field access. | Source-family-specific nested field probes as profiles mature. | Query engine internals and package behavior outside the repository boundary. |
 | `DeltaZulu.Agent.Shared` (`Ndjson` namespace) | Shared NDJSON serializer business logic. | Property-name preservation, null omission, compact single-line JSON settings. | Output sink I/O failures and file permission integration cases. |
 | `DeltaZulu.Agent.Outputs` (`Ndjson`/`Relp` namespaces) | Output sink behavior and RELP forwarding. | Exception-to-error mapping, console/file output behavior, buffered RELP health and delivery behavior. | Filesystem/network integration beyond deterministic tests. |
-| `DeltaZulu.Agent.Profiles` | Profile validation business rules and YAML loading. | Minimal valid profiles, unsupported languages/formats, required fields, preservation requirements, WMI host conditions, and source-aware exception messages. | Full YAML fixture loading across every bundled production profile. |
 | `DeltaZulu.DurableBuffer` | Durable chunking, state transitions, retry, backpressure, metrics, recovery, and integration flows. | Write-dispatch-ACK, flush-on-stop, permanent failure dead-lettering, record-too-large rejection, checksum/corruption behavior, and option defaults. | Filesystem and disk-pressure behavior beyond deterministic temp-directory tests. |
 
 ### Required local validation
@@ -164,12 +163,11 @@ The following projects move into the pipeline repository under their new namespa
 
 | Current project | Pipeline project | Content |
 | --- | --- | --- |
-| `DeltaZulu.Agent.Domain` | `DeltaZulu.Pipeline.Domain` | SourceEvent, ResourceOutputRecord, DeliveryRecord, ResourceProfile, observations. |
+| `DeltaZulu.Agent.Domain` | `DeltaZulu.Pipeline.Domain` | SourceEvent, ResourceOutputRecord, DeliveryRecord, ResourceProfile, observations, YAML profile loading, and profile validation. |
 | `DeltaZulu.Agent.Application` | `DeltaZulu.Pipeline.Application` | AgentRuntime, ResourcePipeline, ProfileBinding, output multiplexer. |
 | `DeltaZulu.Agent.Inputs` | `DeltaZulu.Pipeline.Inputs` | All input adapters: syslog, CSV, auditd, Windows Event Log, EVTX, ETL, ETW, RELP. |
 | `DeltaZulu.Agent.Kql` | `DeltaZulu.Pipeline.Kql` | ResourceKqlProfileExecutor and custom scalar functions. |
 | `DeltaZulu.Agent.Outputs` | `DeltaZulu.Pipeline.Outputs` | NDJSON console/file sinks, buffered RELP sink, transport adapter, health reporting. |
-| `DeltaZulu.Agent.Profiles` | `DeltaZulu.Pipeline.Profiles` | YAML profile loading and validation. |
 | `DeltaZulu.Agent.Shared` | `DeltaZulu.Pipeline.Shared` | Cross-boundary NDJSON serialization helpers. |
 | `DeltaZulu.Agent.Core` | `DeltaZulu.Pipeline.Core` | Compatibility type-forwarding shim (if still needed). |
 

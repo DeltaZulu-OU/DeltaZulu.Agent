@@ -11,7 +11,6 @@ using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
 using DeltaZulu.Agent.Outputs.Relp;
-using DeltaZulu.Agent.Profiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

@@ -35,7 +35,6 @@ public sealed class ArchitectureTests
         {
             "DeltaZulu.Agent.Inputs",
             "DeltaZulu.Agent.Kql",
-            "DeltaZulu.Agent.Profiles",
             "DeltaZulu.Agent.Shared",
             "DeltaZulu.Agent.Outputs"
         };

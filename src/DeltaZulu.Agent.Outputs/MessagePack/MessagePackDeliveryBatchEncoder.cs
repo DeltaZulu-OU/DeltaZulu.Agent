@@ -10,8 +10,10 @@ public sealed class MessagePackDeliveryBatchEncoder
 {
     private readonly MessagePackPayloadSerializer _serializer;
 
-    public MessagePackDeliveryBatchEncoder(MessagePackPayloadSerializer? serializer = null) =>
+    public MessagePackDeliveryBatchEncoder(MessagePackPayloadSerializer? serializer = null)
+    {
         _serializer = serializer ?? new MessagePackPayloadSerializer();
+    }
 
     public byte[] Encode(DeliveryBatch batch) => _serializer.Serialize(batch);
 }

@@ -9,7 +9,6 @@
   <Project Path="src/DeltaZulu.Agent.Kql/DeltaZulu.Agent.Kql.csproj" />
   <Project Path="src/DeltaZulu.Agent.Shared/DeltaZulu.Agent.Shared.csproj" />
   <Project Path="src/DeltaZulu.Agent.Outputs/DeltaZulu.Agent.Outputs.csproj" />
-  <Project Path="src/DeltaZulu.Agent.Profiles/DeltaZulu.Agent.Profiles.csproj" />
   <Project Path="src/DeltaZulu.Demo.Collector/DeltaZulu.Demo.Collector.csproj" />
   <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
 </Solution>

@@ -8,7 +8,6 @@ using DeltaZulu.Agent.Inputs.Files;
 using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
-using DeltaZulu.Agent.Profiles;
 using DeltaZulu.Agent.Shared.Ndjson;
 
 #if WINDOWS
