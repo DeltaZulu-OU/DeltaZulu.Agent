@@ -47,13 +47,9 @@ public sealed class SyslogTests
     }
 
     [TestMethod]
+    [OSCondition(OperatingSystems.Linux)]
     public void EnsureFifo_CreatesLinuxNamedPipe()
     {
-        if (!OperatingSystem.IsLinux())
-        {
-            Assert.Inconclusive("FIFO input is Linux-only.");
-        }
-
         var directory = Path.Combine(Path.GetTempPath(), $"deltazulu-fifo-{Guid.NewGuid():N}");
         var fifoPath = Path.Combine(directory, "logs.fifo");
         try

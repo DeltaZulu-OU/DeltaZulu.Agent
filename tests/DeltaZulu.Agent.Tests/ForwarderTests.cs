@@ -21,7 +21,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
-        var options = new Buffer.Configuration.DurableBufferOptions {
+        var options = new DurableBuffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
@@ -67,7 +67,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new RejectingTransport(accepted: false, reason: "permanent error");
-        var options = new Buffer.Configuration.DurableBufferOptions {
+        var options = new DurableBuffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
@@ -104,7 +104,7 @@ public sealed class ForwarderTests
             return new DeliveryAck { BatchId = batch.BatchId, Accepted = true };
         });
 
-        var options = new Buffer.Configuration.DurableBufferOptions {
+        var options = new DurableBuffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
@@ -173,7 +173,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
-        var options = new Buffer.Configuration.DurableBufferOptions {
+        var options = new DurableBuffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 10,
             MaxChunkBytes = 4096,
@@ -205,7 +205,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
-        var options = new Buffer.Configuration.DurableBufferOptions {
+        var options = new DurableBuffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 10,
             MaxChunkBytes = 4096,
@@ -508,14 +508,11 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpForwarderTransport_Constructor_RejectsInvalidFailoverEndpoint()
-    {
-        Assert.ThrowsExactly<ArgumentException>(() => new RelpForwarderTransport(new RelpForwarderOptions {
-            Host = "primary.example",
-            Port = 6514,
-            Endpoints = [new RelpEndpoint { Host = " ", Port = 6514 }]
-        }));
-    }
+    public void RelpForwarderTransport_Constructor_RejectsInvalidFailoverEndpoint() => Assert.ThrowsExactly<ArgumentException>(() => new RelpForwarderTransport(new RelpForwarderOptions {
+        Host = "primary.example",
+        Port = 6514,
+        Endpoints = [new RelpEndpoint { Host = " ", Port = 6514 }]
+    }));
 
     [TestMethod]
     public async Task RelpForwarderTransport_SendAsync_SendsBatchAndReturnsAcceptedAck()
