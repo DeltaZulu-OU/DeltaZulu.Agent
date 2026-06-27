@@ -1,9 +1,9 @@
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
-using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
-using DeltaZulu.Agent.Shared.Orchestrator.Runtime;
-using DeltaZulu.Agent.Shared.Pipeline.Observability;
-using DeltaZulu.Agent.Shared.Pipeline.Profiles;
+using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Agent.Pipeline.Observability;
+using DeltaZulu.Agent.Pipeline.Profiles;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
 using DeltaZulu.Agent.Inputs.Relp;

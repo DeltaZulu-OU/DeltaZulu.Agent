@@ -1,5 +1,5 @@
-using DeltaZulu.Agent.Shared.Pipeline.Delivery;
-using DeltaZulu.Agent.Shared.Pipeline.MessagePack;
+using DeltaZulu.Agent.Pipeline.Delivery;
+using DeltaZulu.Agent.Pipeline.MessagePack;
 
 namespace DeltaZulu.Agent.Inputs.MessagePack;
 

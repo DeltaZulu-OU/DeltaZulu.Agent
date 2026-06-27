@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Shared.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Events;
 using System.Dynamic;
 
 namespace DeltaZulu.Agent.Tests;

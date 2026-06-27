@@ -1,6 +1,6 @@
 using System.Reactive.Linq;
-using DeltaZulu.Agent.Shared.Pipeline.Events;
-using DeltaZulu.Agent.Shared.Pipeline.Profiles;
+using DeltaZulu.Agent.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Profiles;
 using DeltaZulu.Agent.Kql;
 
 namespace DeltaZulu.Agent.Tests;

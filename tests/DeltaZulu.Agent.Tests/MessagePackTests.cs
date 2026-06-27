@@ -1,8 +1,8 @@
-using DeltaZulu.Agent.Shared.Pipeline.Delivery;
-using DeltaZulu.Agent.Shared.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Delivery;
+using DeltaZulu.Agent.Pipeline.Events;
 using DeltaZulu.Agent.Inputs.MessagePack;
 using DeltaZulu.Agent.Outputs.MessagePack;
-using DeltaZulu.Agent.Shared.Pipeline.MessagePack;
+using DeltaZulu.Agent.Pipeline.MessagePack;
 
 namespace DeltaZulu.Agent.Tests;
 

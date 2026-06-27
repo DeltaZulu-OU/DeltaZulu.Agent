@@ -1,8 +1,8 @@
 using System.Reactive.Linq;
-using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
-using DeltaZulu.Agent.Shared.Pipeline;
-using DeltaZulu.Agent.Shared.Orchestrator.Runtime;
-using DeltaZulu.Agent.Shared.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Agent.Pipeline;
+using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Agent.Pipeline.Events;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -10,7 +10,7 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ApplicationTests
 {
     [TestMethod]
-    public void SharedAssembly_DoesNotReferenceLegacyProjectsAndBcl()
+    public void PipelineAssembly_DoesNotReferenceLegacyProjectsAndBcl()
     {
         var applicationAssembly = typeof(ResourcePipeline).Assembly;
         var referencedAssemblies = applicationAssembly.GetReferencedAssemblies();

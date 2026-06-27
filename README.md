@@ -150,8 +150,8 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ## Current implementation status
 
-- `DeltaZulu.Agent.Shared` consolidates the former application and domain layers. `DeltaZulu.Agent.Shared/Pipeline` contains ETL pipeline contracts, source events, resource outputs, profile models/loaders/validators, delivery envelopes, observation records, RELP frame helpers, NDJSON options, and MessagePack payload wrappers.
-- `DeltaZulu.Agent.Shared/Orchestrator` contains daemon/CLI orchestration primitives such as the shared runtime, profile binding, completion tracking, and output multiplexing used by both hosts.
+- `DeltaZulu.Agent.Pipeline` contains ETL pipeline contracts, source events, resource outputs, profile models/loaders/validators, delivery envelopes, observation records, RELP frame helpers, NDJSON options, MessagePack payload wrappers, completion tracking, and output multiplexing.
+- `DeltaZulu.Agent.Runtime` contains daemon/CLI orchestration primitives such as the shared runtime and profile binding used by both hosts.
 - `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, and NDJSON output.
 - `dzagentd` is the forwarder-only daemon host configured by `config/dzagentd.yaml`.
 - `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
@@ -165,18 +165,16 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ```text
 src/
-  DeltaZulu.Agent.Shared/
-    Pipeline/
-      Abstractions/
-      Delivery/
-      Events/
-      MessagePack/
-      Ndjson/
-      Observability/
-      Profiles/
-      Relp/
-    Orchestrator/
-      Runtime/
+  DeltaZulu.Agent.Pipeline/
+    Abstractions/
+    Delivery/
+    Events/
+    MessagePack/
+    Ndjson/
+    Observability/
+    Profiles/
+    Relp/
+  DeltaZulu.Agent.Runtime/
   DeltaZulu.Agent.Kql/
   DeltaZulu.Agent.Outputs/
     Ndjson/

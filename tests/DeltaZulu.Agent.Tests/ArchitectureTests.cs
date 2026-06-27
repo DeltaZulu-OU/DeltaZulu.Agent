@@ -1,6 +1,6 @@
 using System.Reflection;
-using DeltaZulu.Agent.Shared.Pipeline;
-using DeltaZulu.Agent.Shared.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline;
+using DeltaZulu.Agent.Pipeline.Events;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -8,23 +8,23 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ArchitectureTests
 {
     [TestMethod]
-    public void SharedAssembly_HasNoProjectReferences()
+    public void PipelineAssembly_HasNoProjectReferences()
     {
-        var sharedAssembly = typeof(SourceEvent).Assembly;
-        var projectRefs = GetProjectReferences(sharedAssembly);
+        var pipelineAssembly = typeof(SourceEvent).Assembly;
+        var projectRefs = GetProjectReferences(pipelineAssembly);
 
         Assert.IsEmpty(projectRefs,
-            $"Shared must have zero DeltaZulu project references but found: {string.Join(", ", projectRefs)}");
+            $"Pipeline must have zero DeltaZulu project references but found: {string.Join(", ", projectRefs)}");
     }
 
     [TestMethod]
-    public void SharedAssembly_DoesNotReferenceLegacyProjects()
+    public void PipelineAssembly_DoesNotReferenceLegacyProjects()
     {
-        var sharedAssembly = typeof(ResourcePipeline).Assembly;
-        var projectRefs = GetProjectReferences(sharedAssembly);
+        var pipelineAssembly = typeof(ResourcePipeline).Assembly;
+        var projectRefs = GetProjectReferences(pipelineAssembly);
 
         Assert.IsEmpty(projectRefs,
-            $"Shared should not reference other DeltaZulu projects but found: {string.Join(", ", projectRefs)}");
+            $"Pipeline should not reference other DeltaZulu projects but found: {string.Join(", ", projectRefs)}");
     }
 
     [TestMethod]
@@ -34,13 +34,13 @@ public sealed class ArchitectureTests
         {
             "DeltaZulu.Agent.Inputs",
             "DeltaZulu.Agent.Kql",
-            "DeltaZulu.Agent.Shared",
+            "DeltaZulu.Agent.Pipeline",
             "DeltaZulu.Agent.Outputs"
         };
 
         var allowedProjectRefs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "DeltaZulu.Agent.Shared",
+            "DeltaZulu.Agent.Pipeline",
             "DeltaZulu.DurableBuffer",
             "DeltaZulu.Relp"
         };

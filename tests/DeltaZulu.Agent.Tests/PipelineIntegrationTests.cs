@@ -1,13 +1,13 @@
 using System.Reactive.Linq;
 using System.Text.Json;
-using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
-using DeltaZulu.Agent.Shared.Pipeline;
-using DeltaZulu.Agent.Shared.Orchestrator.Runtime;
-using DeltaZulu.Agent.Shared.Pipeline.Ndjson;
-using DeltaZulu.Agent.Shared.Pipeline.Delivery;
-using DeltaZulu.Agent.Shared.Pipeline.Events;
-using DeltaZulu.Agent.Shared.Pipeline.Profiles;
-using DeltaZulu.Agent.Shared.Pipeline.Observability;
+using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Agent.Pipeline;
+using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Agent.Pipeline.Ndjson;
+using DeltaZulu.Agent.Pipeline.Delivery;
+using DeltaZulu.Agent.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Profiles;
+using DeltaZulu.Agent.Pipeline.Observability;
 
 namespace DeltaZulu.Agent.Tests;
 

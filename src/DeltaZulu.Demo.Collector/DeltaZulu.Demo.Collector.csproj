@@ -6,6 +6,6 @@
     <RootNamespace>DeltaZulu.Demo.Collector</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Agent.Shared\DeltaZulu.Agent.Shared.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Pipeline\DeltaZulu.Agent.Pipeline.csproj" />
   </ItemGroup>
 </Project>

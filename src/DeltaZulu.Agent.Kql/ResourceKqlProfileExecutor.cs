@@ -1,6 +1,6 @@
-using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
-using DeltaZulu.Agent.Shared.Pipeline.Events;
-using DeltaZulu.Agent.Shared.Pipeline.Profiles;
+using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Agent.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Profiles;
 using System.Reactive.Disposables;
 using System.Reactive.Kql;
 using System.Reactive.Kql.CustomTypes;

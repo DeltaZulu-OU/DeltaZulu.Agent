@@ -80,13 +80,13 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 
 | Project | Current test focus | High-ROI scenarios | Deferred coverage |
 | --- | --- | --- | --- |
-| `DeltaZulu.Agent.Shared/Pipeline` | Pipeline records, dictionary helpers, profile validation/YAML loading, delivery identity, and serialization helpers. | Dictionary coercion, metadata preservation, delivery identity, serialization helpers, and profile validation/loading. | Additional compatibility tests only when older consumers require them. |
+| `DeltaZulu.Agent.Pipeline` | Pipeline records, dictionary helpers, profile validation/YAML loading, delivery identity, and serialization helpers. | Dictionary coercion, metadata preservation, delivery identity, serialization helpers, and profile validation/loading. | Additional compatibility tests only when older consumers require them. |
 | `DeltaZulu.Agent.Inputs/Auditd` | Parser and assembler business logic using literal audit lines. | Audit line prefix validation, scalar coercion, hex argument decoding, record grouping by audit ID, ordered `ARGV`, multi-record fields such as `PATH`, and one-shot flush behavior. | Reading `/var/log/audit/audit.log`, tailing files, or interacting with auditd. |
 | `DeltaZulu.Agent.Inputs/Syslog` | Dependency-free parser behavior using literal RFC 3164, RFC 5424, and unstructured messages. | Priority decoding, hostname/process extraction, source address preservation, key/value extraction, and raw-message preservation. | TCP listener behavior, journald, syslog daemon configuration, and socket-level error handling. |
 | `DeltaZulu.Agent.Inputs/Files` | CSV row-to-event behavior using temporary files and culture-invariant parsing. | File roundtrip behavior, type coercion, malformed row diagnostics, and long-running file scenarios if added. | Filesystem watcher behavior. |
 | `DeltaZulu.Agent.Inputs/Windows` | Host-neutral mapping helpers, named EventData extraction, and nested field exposure. | More XML mapping variants and optional provider fixtures. | ETW sessions, live Windows Event Log subscriptions, and EVTX/ETL host dependencies. |
 | `DeltaZulu.Agent.Kql` | In-memory profile execution, no-match/error behavior, metadata fallback injection, and nested field access. | Source-family-specific nested field probes as profiles mature. | Query engine internals and package behavior outside the repository boundary. |
-| `DeltaZulu.Agent.Shared/Pipeline` (`Ndjson`, `MessagePack`, `Relp` namespaces) | Shared parser/serializer and transport-framing business logic. | Property-name preservation, null omission, compact single-line JSON settings, MessagePack payload roundtrips, and RELP frame behavior. | Output sink I/O failures and file permission integration cases. |
+| `DeltaZulu.Agent.Pipeline` (`Ndjson`, `MessagePack`, `Relp` namespaces) | Shared parser/serializer and transport-framing business logic. | Property-name preservation, null omission, compact single-line JSON settings, MessagePack payload roundtrips, and RELP frame behavior. | Output sink I/O failures and file permission integration cases. |
 | `DeltaZulu.Agent.Outputs` (`Ndjson`/`Relp` namespaces) | Output sink behavior and RELP forwarding. | Exception-to-error mapping, console/file output behavior, buffered RELP health and delivery behavior. | Filesystem/network integration beyond deterministic tests. |
 | `DeltaZulu.DurableBuffer` | Durable chunking, state transitions, retry, backpressure, metrics, recovery, and integration flows. | Write-dispatch-ACK, flush-on-stop, permanent failure dead-lettering, record-too-large rejection, checksum/corruption behavior, and option defaults. | Filesystem and disk-pressure behavior beyond deterministic temp-directory tests. |
 
@@ -159,12 +159,12 @@ Extract the streaming ETL engine into a standalone `DeltaZulu.Pipeline` reposito
 
 ### Projects to extract
 
-The former `DeltaZulu.Agent.Domain` and `DeltaZulu.Agent.Application` projects have been consolidated into `DeltaZulu.Agent.Shared` before any future repository extraction. Shared code is categorized by role: `DeltaZulu.Agent.Shared/Pipeline` for ETL pipeline input/output/filter/serialization/parsing models and helpers, and `DeltaZulu.Agent.Shared/Orchestrator` for daemon/CLI orchestration. If extraction resumes, these folders are the source boundaries for future `DeltaZulu.Pipeline.*` packages.
+The former `DeltaZulu.Agent.Domain` and `DeltaZulu.Agent.Application` responsibilities have been split into `DeltaZulu.Agent.Pipeline` and `DeltaZulu.Agent.Runtime` projects. `DeltaZulu.Agent.Pipeline` owns ETL pipeline input/output/filter/serialization/parsing models and helpers, while `DeltaZulu.Agent.Runtime` owns daemon/CLI orchestration. If extraction resumes, these projects are the source boundaries for future `DeltaZulu.Pipeline.*` packages.
 
 | Current project/folder | Pipeline project | Content |
 | --- | --- | --- |
-| `DeltaZulu.Agent.Shared/Pipeline` | `DeltaZulu.Pipeline.Shared` | SourceEvent, ResourceOutputRecord, DeliveryRecord, ResourceProfile, observations, YAML profile loading, profile validation, and shared serialization/framing helpers. |
-| `DeltaZulu.Agent.Shared/Orchestrator` | `DeltaZulu.Pipeline.Application` | AgentRuntime, ProfileBinding, completion tracking, and output multiplexer. |
+| `DeltaZulu.Agent.Pipeline` | `DeltaZulu.Pipeline.Shared` | SourceEvent, ResourceOutputRecord, DeliveryRecord, ResourceProfile, observations, YAML profile loading, profile validation, completion tracking, output multiplexing, and shared serialization/framing helpers. |
+| `DeltaZulu.Agent.Runtime` | `DeltaZulu.Pipeline.Application` | AgentRuntime and ProfileBinding orchestration that bind inputs, profiles, executors, and sinks. |
 | `DeltaZulu.Agent.Inputs` | `DeltaZulu.Pipeline.Inputs` | All input adapters: syslog, CSV, auditd, Windows Event Log, EVTX, ETL, ETW, RELP. |
 | `DeltaZulu.Agent.Kql` | `DeltaZulu.Pipeline.Kql` | ResourceKqlProfileExecutor and custom scalar functions. |
 | `DeltaZulu.Agent.Outputs` | `DeltaZulu.Pipeline.Outputs` | NDJSON console/file sinks, buffered RELP sink, transport adapter, health reporting. |

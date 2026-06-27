@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Shared.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Events;
 
 namespace DeltaZulu.Agent.Inputs.Windows;
 

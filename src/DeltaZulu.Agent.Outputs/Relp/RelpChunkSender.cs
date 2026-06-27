@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Text.Json;
-using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
-using DeltaZulu.Agent.Shared.Pipeline.Delivery;
+using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Agent.Pipeline.Delivery;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
 

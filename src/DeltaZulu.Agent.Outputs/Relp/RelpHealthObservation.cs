@@ -1,5 +1,5 @@
-using DeltaZulu.Agent.Shared.Pipeline.Events;
-using DeltaZulu.Agent.Shared.Pipeline.Observability;
+using DeltaZulu.Agent.Pipeline.Events;
+using DeltaZulu.Agent.Pipeline.Observability;
 
 namespace DeltaZulu.Agent.Outputs.Relp;
 
