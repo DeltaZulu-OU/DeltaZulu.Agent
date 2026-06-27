@@ -18,6 +18,7 @@ internal sealed class DispatchWorker
     private readonly BufferMetricsCounter _metrics;
     private readonly BufferEventBroadcaster _events;
     private readonly ILogger? _logger;
+    private readonly Action? _signalSpaceAvailable;
     private readonly PriorityQueue<StoredChunk, DateTimeOffset> _retryQueue = new();
     private int _retryQueueDepth;
 
@@ -29,7 +30,8 @@ internal sealed class DispatchWorker
         DeltaZuluBufferOptions options,
         BufferMetricsCounter metrics,
         BufferEventBroadcaster events,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        Action? signalSpaceAvailable = null)
     {
         _reader = reader;
         _sender = sender;
@@ -39,6 +41,7 @@ internal sealed class DispatchWorker
         _metrics = metrics;
         _events = events;
         _logger = logger;
+        _signalSpaceAvailable = signalSpaceAvailable;
     }
 
     public int RetryQueueDepth => Volatile.Read(ref _retryQueueDepth);
@@ -55,8 +58,9 @@ internal sealed class DispatchWorker
                 continue;
             }
 
+            var channelCompleted = _reader.Completion.IsCompleted;
             var waitTime = GetNextRetryWait();
-            if (waitTime == TimeSpan.MaxValue && _reader.Completion.IsCompleted)
+            if (channelCompleted && waitTime > TimeSpan.Zero)
             {
                 break;
             }
@@ -73,6 +77,11 @@ internal sealed class DispatchWorker
                 if (!hasMoreChunks)
                 {
                     if (waitTime == TimeSpan.MaxValue)
+                    {
+                        break;
+                    }
+
+                    if (_reader.Completion.IsCompleted)
                     {
                         break;
                     }
@@ -146,6 +155,7 @@ internal sealed class DispatchWorker
                 await _store.DeleteAsync(dispatching, cancellationToken);
                 _metrics.ChunkDelivered();
                 _metrics.AddDiskBytes(-dispatching.Metadata.PayloadBytes);
+                _signalSpaceAvailable?.Invoke();
                 _events.Publish(BufferEvent.Create(
                     BufferEventType.BufferChunkDispatchSucceeded, dispatching.Id.Value, chunk: dispatching));
                 break;
@@ -189,6 +199,7 @@ internal sealed class DispatchWorker
             {
                 await _store.DeleteAsync(chunk, cancellationToken);
                 _metrics.AddDiskBytes(-chunk.Metadata.PayloadBytes);
+                _signalSpaceAvailable?.Invoke();
                 _events.Publish(BufferEvent.Create(
                     BufferEventType.BufferChunkDropped, chunk.Id.Value,
                     detail: "Retry exhausted, discarded", chunk: chunk));

@@ -81,10 +81,16 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
             return new BufferWriteResult(BufferWriteStatus.RejectedRecordTooLarge);
         }
 
+        var writeStatus = BufferWriteStatus.Accepted;
         var pressureResult = await HandleBackpressureAsync(cancellationToken);
         if (pressureResult.HasValue)
         {
-            return pressureResult.Value;
+            if (pressureResult.Value.Status != BufferWriteStatus.DroppedOldestAndAccepted)
+            {
+                return pressureResult.Value;
+            }
+
+            writeStatus = BufferWriteStatus.DroppedOldestAndAccepted;
         }
 
         await _writeLock.WaitAsync(cancellationToken);
@@ -105,7 +111,7 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
                 await RotateChunkAsync(cancellationToken);
             }
 
-            return new BufferWriteResult(BufferWriteStatus.Accepted);
+            return new BufferWriteResult(writeStatus);
         }
         finally
         {
@@ -163,7 +169,7 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
         _events.Publish(BufferEvent.Create(
             BufferEventType.BufferChunkSealed, storedChunk.Id.Value, chunk: storedChunk));
 
-        _dispatchWriter.TryWrite(storedChunk);
+        await _dispatchWriter.WriteAsync(storedChunk, cancellationToken);
 
         _chunkBuilder.Reset();
         _metrics.ChunkCreated();
@@ -176,64 +182,72 @@ internal sealed class DeltaZuluBuffer<T> : IDeltaZuluBuffer<T>, IDisposable
     private async ValueTask<BufferWriteResult?> HandleBackpressureAsync(
         CancellationToken cancellationToken)
     {
-        var diskUsed = _metrics.DiskBytesUsed;
-        var memUsed = _chunkBuilder.CurrentBytes;
-        const int retryDepth = 0;
-
-        var (state, shouldAccept) = _backpressure.Evaluate(diskUsed, memUsed, retryDepth);
-        var previousState = (BufferState)Volatile.Read(ref _lastState);
-
-        if (state != previousState)
+        var droppedOldest = false;
+        while (true)
         {
-            Volatile.Write(ref _lastState, (int)state);
-            _metrics.UpdateState(state);
+            var diskUsed = _metrics.DiskBytesUsed;
+            var memUsed = _chunkBuilder.CurrentBytes;
+            const int retryDepth = 0;
 
-            if (state >= BufferState.Pressured && previousState < BufferState.Pressured)
+            var (state, shouldAccept) = _backpressure.Evaluate(diskUsed, memUsed, retryDepth);
+            var previousState = (BufferState)Volatile.Read(ref _lastState);
+
+            if (state != previousState)
             {
-                _events.Publish(BufferEvent.Create(BufferEventType.BufferPressureEntered, detail: state.ToString()));
-            }
-            else if (state < BufferState.Pressured && previousState >= BufferState.Pressured)
-            {
-                _events.Publish(BufferEvent.Create(BufferEventType.BufferPressureExited, detail: state.ToString()));
-            }
-        }
+                Volatile.Write(ref _lastState, (int)state);
+                _metrics.UpdateState(state);
 
-        if (shouldAccept)
-        {
-            return null;
-        }
-
-        switch (_options.FullPolicy)
-        {
-            case BufferFullPolicy.RejectNewest:
-                _metrics.RecordRejected();
-                _events.Publish(BufferEvent.Create(BufferEventType.BufferRecordRejected, detail: "Buffer full"));
-                return new BufferWriteResult(BufferWriteStatus.RejectedBufferFull);
-
-            case BufferFullPolicy.Block:
-                await _spaceAvailable.WaitAsync(cancellationToken);
-                return null;
-
-            case BufferFullPolicy.DropOldest:
-                await _writeLock.WaitAsync(cancellationToken);
-                try
+                if (state >= BufferState.Pressured && previousState < BufferState.Pressured)
                 {
-                    var dropped = await DropOldestChunkAsync(cancellationToken);
-                    if (!dropped)
+                    _events.Publish(BufferEvent.Create(BufferEventType.BufferPressureEntered, detail: state.ToString()));
+                }
+                else if (state < BufferState.Pressured && previousState >= BufferState.Pressured)
+                {
+                    _events.Publish(BufferEvent.Create(BufferEventType.BufferPressureExited, detail: state.ToString()));
+                }
+            }
+
+            if (shouldAccept)
+            {
+                return droppedOldest
+                    ? new BufferWriteResult(BufferWriteStatus.DroppedOldestAndAccepted)
+                    : null;
+            }
+
+            switch (_options.FullPolicy)
+            {
+                case BufferFullPolicy.RejectNewest:
+                    _metrics.RecordRejected();
+                    _events.Publish(BufferEvent.Create(BufferEventType.BufferRecordRejected, detail: "Buffer full"));
+                    return new BufferWriteResult(BufferWriteStatus.RejectedBufferFull);
+
+                case BufferFullPolicy.Block:
+                    await _spaceAvailable.WaitAsync(cancellationToken);
+                    continue;
+
+                case BufferFullPolicy.DropOldest:
+                    await _writeLock.WaitAsync(cancellationToken);
+                    try
                     {
-                        _metrics.RecordRejected();
-                        return new BufferWriteResult(BufferWriteStatus.RejectedBufferFull);
-                    }
-                    _metrics.RecordDropped();
-                    return new BufferWriteResult(BufferWriteStatus.DroppedOldestAndAccepted);
-                }
-                finally
-                {
-                    _writeLock.Release();
-                }
+                        var dropped = await DropOldestChunkAsync(cancellationToken);
+                        if (!dropped)
+                        {
+                            _metrics.RecordRejected();
+                            return new BufferWriteResult(BufferWriteStatus.RejectedBufferFull);
+                        }
 
-            default:
-                return new BufferWriteResult(BufferWriteStatus.RejectedBufferFull);
+                        _metrics.RecordDropped();
+                        droppedOldest = true;
+                    }
+                    finally
+                    {
+                        _writeLock.Release();
+                    }
+                    continue;
+
+                default:
+                    return new BufferWriteResult(BufferWriteStatus.RejectedBufferFull);
+            }
         }
     }
 

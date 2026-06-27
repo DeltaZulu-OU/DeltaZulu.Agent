@@ -65,7 +65,8 @@ public sealed class DeltaZuluBufferHost<T> : IAsyncDisposable
         _dispatchWorker = new DispatchWorker(
             _dispatchChannel.Reader, sender, store, scheduler,
             options, _metrics, _eventBroadcaster,
-            loggerFactory?.CreateLogger<DispatchWorker>());
+            loggerFactory?.CreateLogger<DispatchWorker>(),
+            _buffer.SignalSpaceAvailable);
 
         _recoveryManager = new FileSystemRecoveryManager(
             store, _dispatchChannel.Writer, _metrics,
@@ -88,12 +89,13 @@ public sealed class DeltaZuluBufferHost<T> : IAsyncDisposable
 
         _eventBroadcaster.Publish(BufferEvent.Create(BufferEventType.BufferStarted));
 
+        _dispatchTask = Task.Run(() => _dispatchWorker.RunAsync(_cts.Token), _cts.Token);
+
         await _recoveryManager.RecoverAsync(_cts.Token);
 
         var diskUsed = await _store.GetDiskBytesUsedAsync(_cts.Token);
         _metrics.UpdateDiskUsage(diskUsed, _options.MaxDiskBytes);
 
-        _dispatchTask = Task.Run(() => _dispatchWorker.RunAsync(_cts.Token), _cts.Token);
         _rotationTask = Task.Run(() => RunRotationTimerAsync(_cts.Token), _cts.Token);
 
         _started = true;

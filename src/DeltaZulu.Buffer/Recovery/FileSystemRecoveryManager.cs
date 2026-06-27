@@ -63,7 +63,7 @@ internal sealed class FileSystemRecoveryManager : IRecoveryManager
                 var sealed_ = await _store.MoveToSealedAsync(
                     chunk, chunk.Metadata with { AttemptCount = 0, NextAttemptUtc = null, LastError = null },
                     cancellationToken);
-                _dispatchWriter.TryWrite(sealed_);
+                await _dispatchWriter.WriteAsync(sealed_, cancellationToken);
                 recovered++;
             }
             catch (Exception ex)
@@ -90,7 +90,7 @@ internal sealed class FileSystemRecoveryManager : IRecoveryManager
                     continue;
                 }
 
-                _dispatchWriter.TryWrite(chunk);
+                await _dispatchWriter.WriteAsync(chunk, cancellationToken);
                 recovered++;
             }
             catch (Exception ex)

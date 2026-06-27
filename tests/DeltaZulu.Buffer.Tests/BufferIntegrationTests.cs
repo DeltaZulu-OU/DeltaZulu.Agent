@@ -1,9 +1,11 @@
 using System.Text;
+using System.Threading.Channels;
 using DeltaZulu.Buffer.Abstractions;
 using DeltaZulu.Buffer.Chunks;
 using DeltaZulu.Buffer.Configuration;
 using DeltaZulu.Buffer.Dispatch;
 using DeltaZulu.Buffer.Metrics;
+using DeltaZulu.Buffer.Storage;
 
 namespace DeltaZulu.Buffer.Tests;
 
@@ -220,6 +222,51 @@ public sealed class BufferIntegrationTests
         Assert.AreEqual(BufferWriteStatus.RejectedRecordTooLarge, result.Status);
 
         await host.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task Write_DropOldestPolicy_WritesIncomingRecordAfterDroppingOldestChunk()
+    {
+        var options = new DeltaZuluBufferOptions
+        {
+            StoragePath = _storagePath,
+            MaxDiskBytes = 1,
+            MaxChunkRecords = 100,
+            MaxChunkBytes = 4096,
+            MaxChunkAge = TimeSpan.FromMinutes(5),
+            FullPolicy = BufferFullPolicy.DropOldest
+        };
+        var store = new FileChunkStore(_storagePath);
+        var metrics = new BufferMetricsCounter();
+        var events = new BufferEventBroadcaster();
+        var dispatchChannel = Channel.CreateUnbounded<StoredChunk>();
+        var backpressure = new BackpressureController(options);
+
+        var oldChunkId = ChunkId.NewChunkId();
+        using (var builder = new ChunkBuilder(options))
+        {
+            builder.Append(Encoding.UTF8.GetBytes("\"old\""));
+            var (data, metadata) = builder.Seal();
+            await store.SealAsync(oldChunkId, data, metadata with { ChunkId = oldChunkId.Value });
+        }
+
+        using var buffer = new DeltaZuluBuffer<string>(
+            new JsonRecordSerializer<string>(),
+            store,
+            options,
+            metrics,
+            events,
+            backpressure,
+            dispatchChannel.Writer);
+        metrics.AddDiskBytes(options.MaxDiskBytes);
+
+        var result = await buffer.WriteAsync("new");
+        await buffer.FlushAsync();
+
+        Assert.AreEqual(BufferWriteStatus.DroppedOldestAndAccepted, result.Status);
+        Assert.IsFalse(File.Exists(Path.Combine(_storagePath, "sealed", $"{oldChunkId.Value}.chunk")));
+        Assert.IsTrue(dispatchChannel.Reader.TryRead(out var newChunk));
+        Assert.AreNotEqual(oldChunkId, newChunk.Id);
     }
 
     private sealed class EventCollector(List<BufferEvent> events) : IObserver<BufferEvent>
