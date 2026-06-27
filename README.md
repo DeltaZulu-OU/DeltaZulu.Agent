@@ -1,8 +1,8 @@
 # DeltaZulu Agent
 
-Agent is inspired by RealTimeKql, but it is a new DeltaZulu implementation. It is a daemon-consumable .NET library for resource-native event filtering and field selection using KQL-style YAML profiles.
+DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records through `DeltaZulu.Buffer` and a RELP.Net-backed transport adapter.
 
-This package is not an installer, SIEM, or server-side normalization engine. It includes a thin CLI host for local exploration and a separate forwarder-only daemon host for service deployment.
+This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a separate `dzagentd` forwarder-only daemon host for service deployment, and a `dzdemo-collector` receiver for local RELP validation.
 
 
 ## Command line tool
@@ -121,19 +121,18 @@ condition:
 
 The `schemas` command always lists built-in input resource schemas, so it works before any profile files exist. If the `profiles` directory (or another directory passed on the command line) exists, profile schemas are appended to the same output. Pass optional `table` or `json` format when you need to discover the resource ids, input tables, and schema strings available on the host while deciding which profile files still need to be created or tuned.
 
-## Current implementation goals
+## Current implementation status
 
-- Use `DeltaZulu.Agent.*` namespaces rather than the RealTimeKql namespace.
-- Target .NET 10.
-- Remove custom observable classes and use `System.Reactive` directly.
-- Provide ETW, ETL, EVTX, and Windows Event Log capabilities inspired by the RealTimeKql input model.
-- Replace the missing `Microsoft.Syslog` project dependency with a clear syslog input boundary and a lightweight parser.
-- Add resource-profile YAML files that perform KQL filter/select operations.
-- Emit structured NDJSON using `_metadata` and `event` envelopes.
-- Preserve original resource field names.
-- Push semantic normalization to the server.
-- Keep enrichment in the roadmap, implemented later through typed resource-local state providers.
-- Exclude DuckDB permanently.
+- `DeltaZulu.Agent.Domain` contains source events, resource outputs, profile models, delivery envelopes, and observation records.
+- `DeltaZulu.Agent.Application` contains the shared runtime, profile binding, pipeline orchestration, and output multiplexing used by both hosts.
+- `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, NDJSON, and table output.
+- `dzagentd` is the forwarder-only daemon host configured by `config/dzagentd.yaml`.
+- `DeltaZulu.Buffer` is the durable queue and backpressure layer before RELP dispatch.
+- `DeltaZulu.Agent.Forwarder` owns delivery serialization, buffered forwarding, RELP-neutral transport contracts, RELP.Net transport, endpoint failover groundwork, TLS policy options, and health snapshots.
+- Input families include syslog, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW.
+- Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
+- Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
+- Enrichment, DuckDB, SQL window engines, and edge-side canonical normalization remain out of scope for the agent.
 
 ## DeltaZulu.Buffer
 
@@ -145,8 +144,9 @@ See [docs/BUFFER_ARCHITECTURE.md](docs/BUFFER_ARCHITECTURE.md) for full design d
 
 ```text
 src/
-  DeltaZulu.Agent.Application/
   DeltaZulu.Agent.Domain/
+  DeltaZulu.Agent.Application/
+  DeltaZulu.Agent.Core/        (compatibility type-forwarding shim)
   DeltaZulu.Agent.Profiles/
   DeltaZulu.Agent.Kql/
   DeltaZulu.Agent.Outputs.Ndjson/
@@ -159,6 +159,7 @@ src/
   DeltaZulu.Agent.Inputs.Windows/
   DeltaZulu.Buffer/
 tests/
+  DeltaZulu.Agent.Tests/
   DeltaZulu.Buffer.Tests/
 profiles/
   linux/
@@ -192,6 +193,8 @@ use:
 git submodule update --remote external/RELP.Net
 ```
 
-## Important implementation note
+## Documentation
 
-This archive is an implementation pass that should be compiled locally. The first compile pass should focus on the `Microsoft.Rx.Kql` and `Tx.Windows` API surfaces because those dependencies are old relative to the .NET 10 target.
+- [Architecture](docs/ARCHITECTURE.md) describes the current host split, project boundaries, data flow, delivery envelopes, and normalization boundary.
+- [Roadmap](docs/ROADMAP.md) tracks implementation status, production hardening work, validation commands, and forwarder smoke testing.
+- [RELP receiver setup](docs/RELP_RECEIVER_SETUP.md) captures local and production receiver notes.
