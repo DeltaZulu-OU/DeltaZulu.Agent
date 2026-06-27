@@ -41,7 +41,8 @@ internal static class Program
                 .ConfigureServices(services => services.AddHostedService(provider => new ForwarderDaemonService(
                     configPath,
                     provider.GetRequiredService<ILogger<ForwarderDaemonService>>())))
-                .RunAsync();
+                .RunConsoleAsync();
+
             return 0;
         }
         catch (OperationCanceledException)
@@ -139,11 +140,8 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         base.Dispose();
     }
 
-    private IReadOnlyList<ProfileBinding> CreateBindings(ForwarderDaemonConfiguration configuration)
-    {
-        return configuration.Sources
-            .Select(source =>
-            {
+    private IReadOnlyList<ProfileBinding> CreateBindings(ForwarderDaemonConfiguration configuration) => configuration.Sources
+            .Select(source => {
                 var profile = LoadProfile(source);
                 var executor = new ResourceKqlProfileExecutor();
                 _disposables.Add(executor);
@@ -151,7 +149,6 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                 return new ProfileBinding(CreateInput(source, profile), profile, executor);
             })
             .ToArray();
-    }
 
     private static ResourceProfile LoadProfile(ForwarderDaemonSourceConfiguration source)
     {

@@ -11,6 +11,10 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\config\dzagentd.yaml" Link="config\dzagentd.yaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Forwarder\DeltaZulu.Agent.Forwarder.csproj" />
