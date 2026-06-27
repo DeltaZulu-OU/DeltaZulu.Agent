@@ -20,7 +20,7 @@ Implemented foundation:
 - Shared application runtime that binds inputs, optional profiles, and outputs.
 - Split hosts: `dzagentctl` for exploration, `dzagentd` for forwarder-only daemon operation, and `dzdemo-collector` for local RELP validation.
 - YAML daemon configuration in `config/dzagentd.yaml` for sources, buffer, RELP endpoints/TLS policy, and diagnostics.
-- `DeltaZulu.Buffer` durable chunk storage, checksums, atomic file transitions, retry, backpressure, recovery, metrics, and dead-letter support.
+- `DeltaZulu.DurableBuffer` durable chunk storage, checksums, atomic file transitions, retry, backpressure, recovery, metrics, and dead-letter support.
 - RELP-neutral delivery records, batches, ACKs, transport port, buffered forwarder sink, RELP.Net adapter, ordered endpoint failover groundwork, and forwarder health snapshots.
 - Stable `DeliveryId` per delivery envelope for at-least-once server deduplication.
 - Metadata fallback injection so user KQL projections cannot accidentally remove delivery identity.
@@ -42,7 +42,7 @@ Not implemented yet:
 The old forwarder-first plan is complete and no longer maintained as a separate document. Its implemented outcomes are:
 
 - RELP-neutral `DeliveryRecord`, `DeliveryBatch`, `DeliveryAck`, and transport boundary.
-- Buffered forwarder path using `DeltaZulu.Buffer` as the durability/backpressure layer.
+- Buffered forwarder path using `DeltaZulu.DurableBuffer` as the durability/backpressure layer.
 - RELP.Net-backed transport adapter hidden behind the transport boundary.
 - Separate `dzdemo-collector` executable for local validation.
 - Stable delivery IDs and metadata preservation across KQL projections.
@@ -77,7 +77,7 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 | `DeltaZulu.Agent.Kql` | In-memory profile execution, no-match/error behavior, metadata fallback injection, and nested field access. | Source-family-specific nested field probes as profiles mature. | Query engine internals and package behavior outside the repository boundary. |
 | `DeltaZulu.Agent.Outputs.Ndjson` | Serializer and error-record business logic. | Property-name preservation, null omission, compact single-line JSON settings, and exception-to-error mapping. | Console/file sink I/O failures and file permission integration cases. |
 | `DeltaZulu.Agent.Profiles` | Profile validation business rules and YAML loading. | Minimal valid profiles, unsupported languages/formats, required fields, preservation requirements, WMI host conditions, and source-aware exception messages. | Full YAML fixture loading across every bundled production profile. |
-| `DeltaZulu.Buffer` | Durable chunking, state transitions, retry, backpressure, metrics, recovery, and integration flows. | Write-dispatch-ACK, flush-on-stop, permanent failure dead-lettering, record-too-large rejection, checksum/corruption behavior, and option defaults. | Filesystem and disk-pressure behavior beyond deterministic temp-directory tests. |
+| `DeltaZulu.DurableBuffer` | Durable chunking, state transitions, retry, backpressure, metrics, recovery, and integration flows. | Write-dispatch-ACK, flush-on-stop, permanent failure dead-lettering, record-too-large rejection, checksum/corruption behavior, and option defaults. | Filesystem and disk-pressure behavior beyond deterministic temp-directory tests. |
 
 ### Required local validation
 
@@ -96,7 +96,7 @@ Run host-neutral validation on any .NET 10-capable host:
 dotnet restore DeltaZulu.Agent.slnx
 dotnet build DeltaZulu.Agent.slnx --no-restore
 dotnet test tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj --no-build
-dotnet test tests/DeltaZulu.Buffer.Tests/DeltaZulu.Buffer.Tests.csproj --no-build
+dotnet test tests/DeltaZulu.DurableBuffer.Tests/DeltaZulu.DurableBuffer.Tests.csproj --no-build
 ```
 
 Run Windows-specific checks on a Windows host when changing Windows input adapters or profiles:
@@ -148,7 +148,7 @@ The demo collector is only a local validation receiver. It is not a production c
 - Validate plain RELP and RELP/TLS wire behavior against production rsyslog and syslog-ng builds.
 - Wire configured certificate policy into server-certificate validation when supported by the underlying RELP.Net surface.
 - Add certificate-expiry diagnostics and clearer TLS failure reporting.
-- Refine endpoint selection and transient/permanent failure classification while leaving durable retry scheduling in `DeltaZulu.Buffer`.
+- Refine endpoint selection and transient/permanent failure classification while leaving durable retry scheduling in `DeltaZulu.DurableBuffer`.
 - Keep `docs/RELP_RECEIVER_SETUP.md` aligned with validated receiver behavior.
 
 ## P1: Operations
@@ -180,7 +180,7 @@ DeltaZulu will not use Fluent Forward as the native agent protocol, but its ecos
 
 ## Architecture discipline
 
-- Keep `DeltaZulu.Buffer` as the authoritative durability and backpressure layer.
+- Keep `DeltaZulu.DurableBuffer` as the authoritative durability and backpressure layer.
 - Keep RELP.Net details behind the forwarder transport adapter.
 - Keep `dzagentctl` and `dzagentd` responsibilities separate.
 - Keep input adapters source-native and avoid broad architecture-only reshuffles.

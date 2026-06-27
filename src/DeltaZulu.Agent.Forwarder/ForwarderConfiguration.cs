@@ -1,4 +1,4 @@
-using DeltaZulu.Buffer.Configuration;
+using DeltaZulu.DurableBuffer.Configuration;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -29,7 +29,7 @@ public sealed record ForwarderBufferConfiguration
     public double RetryBaseDelaySeconds { get; init; } = 1;
     public double RetryMaxDelaySeconds { get; init; } = 300;
 
-    public DeltaZuluBufferOptions ToBufferOptions() => new()
+    public DurableBufferOptions ToBufferOptions() => new()
     {
         StoragePath = Path,
         MaxDiskBytes = MaxDiskBytes,

@@ -12,7 +12,7 @@
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Domain\DeltaZulu.Agent.Domain.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Forwarder\DeltaZulu.Agent.Forwarder.csproj" />
-    <ProjectReference Include="..\..\src\DeltaZulu.Buffer\DeltaZulu.Buffer.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.DurableBuffer\DeltaZulu.DurableBuffer.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Auditd\DeltaZulu.Agent.Inputs.Auditd.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Files\DeltaZulu.Agent.Inputs.Files.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Syslog\DeltaZulu.Agent.Inputs.Syslog.csproj" />

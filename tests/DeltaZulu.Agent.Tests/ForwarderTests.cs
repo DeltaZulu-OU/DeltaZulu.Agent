@@ -7,9 +7,9 @@ using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Forwarder;
-using DeltaZulu.Buffer.Abstractions;
-using DeltaZulu.Buffer.Chunks;
-using DeltaZulu.Buffer.Dispatch;
+using DeltaZulu.DurableBuffer.Abstractions;
+using DeltaZulu.DurableBuffer.Chunks;
+using DeltaZulu.DurableBuffer.Dispatch;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -21,7 +21,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
-        var options = new Buffer.Configuration.DeltaZuluBufferOptions {
+        var options = new Buffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
@@ -67,7 +67,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new RejectingTransport(accepted: false, reason: "permanent error");
-        var options = new Buffer.Configuration.DeltaZuluBufferOptions {
+        var options = new Buffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
@@ -104,7 +104,7 @@ public sealed class ForwarderTests
             return new DeliveryAck { BatchId = batch.BatchId, Accepted = true };
         });
 
-        var options = new Buffer.Configuration.DeltaZuluBufferOptions {
+        var options = new Buffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
@@ -173,7 +173,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
-        var options = new Buffer.Configuration.DeltaZuluBufferOptions {
+        var options = new Buffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 10,
             MaxChunkBytes = 4096,
@@ -205,7 +205,7 @@ public sealed class ForwarderTests
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
-        var options = new Buffer.Configuration.DeltaZuluBufferOptions {
+        var options = new Buffer.Configuration.DurableBufferOptions {
             StoragePath = directory.Path,
             MaxChunkRecords = 10,
             MaxChunkBytes = 4096,

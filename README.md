@@ -1,6 +1,6 @@
   # DeltaZulu Agent
 
-DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records through `DeltaZulu.Buffer` and a RELP.Net-backed transport adapter.
+DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records through `DeltaZulu.DurableBuffer` and a RELP.Net-backed transport adapter.
 
 This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a separate `dzagentd` forwarder-only daemon host for service deployment, and a `dzdemo-collector` receiver for local RELP validation.
 
@@ -144,18 +144,18 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - `DeltaZulu.Agent.Application` contains the shared runtime, profile binding, pipeline orchestration, and output multiplexing used by both hosts.
 - `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, NDJSON, and table output.
 - `dzagentd` is the forwarder-only daemon host configured by `config/dzagentd.yaml`.
-- `DeltaZulu.Buffer` is the durable queue and backpressure layer before RELP dispatch.
+- `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
 - `DeltaZulu.Agent.Forwarder` owns delivery serialization, buffered forwarding, RELP-neutral transport contracts, RELP.Net transport, endpoint failover groundwork, TLS policy options, and health snapshots.
 - Input families include syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW.
 - Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
 - Enrichment, DuckDB, SQL window engines, and edge-side canonical normalization remain out of scope for the agent.
 
-## DeltaZulu.Buffer
+## DeltaZulu.DurableBuffer
 
 A local durable buffering library that provides crash-safe, disk-backed buffering between the collector pipeline and network forwarder. The forwarder uses this buffer as the authoritative durability/backpressure layer before dispatching batches through the RELP.Net transport adapter by default. Features include binary chunk format with SHA-256 checksums, exponential backoff retry with jitter, backpressure control, dead-lettering, and atomic file-based state transitions.
 
-See [docs/BUFFER_ARCHITECTURE.md](docs/BUFFER_ARCHITECTURE.md) for full design documentation.
+See [docs/DURABLE_BUFFER_ARCHITECTURE.md](docs/DURABLE_BUFFER_ARCHITECTURE.md) for full design documentation.
 
 ## Project layout
 
@@ -174,10 +174,10 @@ src/
   DeltaZulu.Agent.Inputs.Files/
   DeltaZulu.Agent.Inputs.Auditd/
   DeltaZulu.Agent.Inputs.Windows/
-  DeltaZulu.Buffer/
+  DeltaZulu.DurableBuffer/
 tests/
   DeltaZulu.Agent.Tests/
-  DeltaZulu.Buffer.Tests/
+  DeltaZulu.DurableBuffer.Tests/
 profiles/
   linux/
   windows/

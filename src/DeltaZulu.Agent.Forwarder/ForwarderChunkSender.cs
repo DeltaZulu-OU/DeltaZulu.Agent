@@ -1,7 +1,7 @@
 using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Buffer.Chunks;
-using DeltaZulu.Buffer.Dispatch;
+using DeltaZulu.DurableBuffer.Chunks;
+using DeltaZulu.DurableBuffer.Dispatch;
 
 namespace DeltaZulu.Agent.Forwarder;
 

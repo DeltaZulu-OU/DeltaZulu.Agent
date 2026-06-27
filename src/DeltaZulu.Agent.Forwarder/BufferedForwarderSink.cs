@@ -1,15 +1,15 @@
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Buffer;
-using DeltaZulu.Buffer.Configuration;
-using DeltaZulu.Buffer.Metrics;
+using DeltaZulu.DurableBuffer;
+using DeltaZulu.DurableBuffer.Configuration;
+using DeltaZulu.DurableBuffer.Metrics;
 
 namespace DeltaZulu.Agent.Forwarder;
 
 public sealed class BufferedForwarderSink : IOutputWriter
 {
-    private readonly DeltaZuluBufferHost<DeliveryRecord> _host;
+    private readonly DurableBufferHost<DeliveryRecord> _host;
     private readonly IDeliveryTransport _transport;
     private readonly CancellationToken _cancellationToken;
     private readonly IDisposable _activitySubscription;
@@ -17,13 +17,13 @@ public sealed class BufferedForwarderSink : IOutputWriter
     private int _disposed;
 
     public BufferedForwarderSink(
-        DeltaZuluBufferOptions options,
+        DurableBufferOptions options,
         IDeliveryTransport transport,
         CancellationToken cancellationToken = default)
     {
         _cancellationToken = cancellationToken;
         _transport = transport;
-        _host = new DeltaZuluBufferHost<DeliveryRecord>(
+        _host = new DurableBufferHost<DeliveryRecord>(
             options,
             new DeliveryRecordSerializer(),
             new ForwarderChunkSender(_transport));

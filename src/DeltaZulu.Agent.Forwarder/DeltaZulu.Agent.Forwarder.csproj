@@ -10,6 +10,6 @@
     <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Domain\DeltaZulu.Agent.Domain.csproj" />
     <ProjectReference Include="..\..\external\RELP.Net\src\Relp\Relp.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Buffer\DeltaZulu.Buffer.csproj" />
+    <ProjectReference Include="..\DeltaZulu.DurableBuffer\DeltaZulu.DurableBuffer.csproj" />
   </ItemGroup>
 </Project>

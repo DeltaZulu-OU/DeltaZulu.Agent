@@ -1,4 +1,4 @@
-using DeltaZulu.Buffer.Abstractions;
+using DeltaZulu.DurableBuffer.Abstractions;
 
 namespace DeltaZulu.Agent.Forwarder;
 

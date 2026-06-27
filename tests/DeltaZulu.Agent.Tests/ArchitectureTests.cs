@@ -46,7 +46,7 @@ public sealed class ArchitectureTests
         {
             "DeltaZulu.Agent.Domain",
             "DeltaZulu.Agent.Application",
-            "DeltaZulu.Buffer",
+            "DeltaZulu.DurableBuffer",
             "Relp"
         };
 

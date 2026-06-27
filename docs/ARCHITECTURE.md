@@ -20,7 +20,7 @@ DeltaZulu.Agent currently has three executable hosts:
 | Host | Project | Purpose |
 | --- | --- | --- |
 | `dzagentctl` | `src/DeltaZulu.Agent.Cli` | Thin exploration CLI for schemas, inline KQL, profile testing, table output, and NDJSON export. |
-| `dzagentd` | `src/DeltaZulu.Agent.Daemon` | Forwarder-only daemon host using YAML configuration, the shared runtime, `DeltaZulu.Buffer`, and RELP delivery. |
+| `dzagentd` | `src/DeltaZulu.Agent.Daemon` | Forwarder-only daemon host using YAML configuration, the shared runtime, `DeltaZulu.DurableBuffer`, and RELP delivery. |
 | `dzdemo-collector` | `src/DeltaZulu.Demo.Collector` | Local validation receiver that accepts RELP frames, prints decoded batches, and ACKs with `rsp 200`. |
 
 `dzagentctl` is intentionally convenient for development. `dzagentd` is intentionally smaller: it has no inline query mode, schema listing, table renderer, or ad-hoc export command. Daemon source selection belongs in YAML and resource profiles.
@@ -39,10 +39,10 @@ src/
   DeltaZulu.Agent.Daemon/        YAML-driven forwarder daemon composition root.
   DeltaZulu.Agent.Cli/           Development/exploration CLI composition root.
   DeltaZulu.Agent.Inputs.*       Resource-specific input adapters.
-  DeltaZulu.Buffer/              Durable disk buffer, retry, backpressure, dead-lettering, recovery.
+  DeltaZulu.DurableBuffer/              Durable disk buffer, retry, backpressure, dead-lettering, recovery.
 ```
 
-Dependency direction is inward: inputs produce domain `SourceEvent` values; KQL and output projects implement application/domain ports; `DeltaZulu.Buffer` owns durable storage mechanics; RELP.Net remains hidden behind the forwarder transport adapter.
+Dependency direction is inward: inputs produce domain `SourceEvent` values; KQL and output projects implement application/domain ports; `DeltaZulu.DurableBuffer` owns durable storage mechanics; RELP.Net remains hidden behind the forwarder transport adapter.
 
 ## Data flow
 
@@ -65,7 +65,7 @@ flowchart LR
     C --> D[Optional resource profile]
     D --> E[ResourceOutputRecord]
     E --> F[DeliveryRecord with stable DeliveryId]
-    F --> G[DeltaZulu.Buffer durable chunk]
+    F --> G[DeltaZulu.DurableBuffer durable chunk]
     G --> H[ForwarderChunkSender]
     H --> I[RELP.Net transport adapter]
     I --> J[Receiver ACK / retry / dead-letter]
@@ -122,7 +122,7 @@ Windows Event Log records expose named XML `EventData` values both under the dyn
 
 ## Buffer and forwarder ownership
 
-`DeltaZulu.Buffer` is the authoritative durability and backpressure layer. It owns chunk files, checksums, atomic state transitions, retry scheduling, backpressure policy, recovery, metrics, and dead-letter state. RELP transport ACKs are transport results; durable commit/delete decisions remain on the buffer/application side.
+`DeltaZulu.DurableBuffer` is the authoritative durability and backpressure layer. It owns chunk files, checksums, atomic state transitions, retry scheduling, backpressure policy, recovery, metrics, and dead-letter state. RELP transport ACKs are transport results; durable commit/delete decisions remain on the buffer/application side.
 
 The forwarder path emits health observations through `ForwarderHealthReporter`, including buffer state, disk usage, record/chunk/batch counters, and last activity timestamps. The daemon config controls diagnostic cadence.
 
