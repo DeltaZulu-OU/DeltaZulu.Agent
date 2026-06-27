@@ -32,11 +32,7 @@ public sealed class ArchitectureTests
     {
         var infraAssemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "DeltaZulu.Agent.Inputs.Syslog",
-            "DeltaZulu.Agent.Inputs.Files",
-            "DeltaZulu.Agent.Inputs.Relp",
-            "DeltaZulu.Agent.Inputs.Auditd",
-            "DeltaZulu.Agent.Inputs.Windows",
+            "DeltaZulu.Agent.Inputs",
             "DeltaZulu.Agent.Kql",
             "DeltaZulu.Agent.Profiles",
             "DeltaZulu.Agent.Outputs.Ndjson",

@@ -58,7 +58,7 @@ dzdemo-collector --address 127.0.0.1 --port 6514
 
 ## Daemon as forwarder or collector
 
-`dzagentd` can run as either side of the local RELP smoke test by changing configuration. A forwarding instance reads local inputs, applies profiles, and writes to RELP. A collector-style instance enables an `input: relp` source backed by `DeltaZulu.Agent.Inputs.Relp` and sets `output.mode: console` or `output.mode: file`, so the same daemon binary can replace the separate demo collector for validation.
+`dzagentd` can run as either side of the local RELP smoke test by changing configuration. A forwarding instance reads local inputs, applies profiles, and writes to RELP. A collector-style instance enables an `input: relp` source backed by `DeltaZulu.Agent.Inputs/Relp` and sets `output.mode: console` or `output.mode: file`, so the same daemon binary can replace the separate demo collector for validation.
 
 The current coordination contract is configuration files plus process supervision. The buffer is the durable handoff and retry state for RELP output, so named pipes, a local database, or other IPC are not required for the initial split. Add IPC only when live reload or command/control operations require runtime mutation without restarting the daemon.
 
@@ -184,11 +184,12 @@ src/
   DeltaZulu.Agent.Forwarder/
   DeltaZulu.Agent.Daemon/
   DeltaZulu.Demo.Collector/
-  DeltaZulu.Agent.Inputs.Relp/
-  DeltaZulu.Agent.Inputs.Syslog/
-  DeltaZulu.Agent.Inputs.Files/
-  DeltaZulu.Agent.Inputs.Auditd/
-  DeltaZulu.Agent.Inputs.Windows/
+  DeltaZulu.Agent.Inputs/
+    Relp/
+    Syslog/
+    Files/
+    Auditd/
+    Windows/
   DeltaZulu.DurableBuffer/
 tests/
   DeltaZulu.Agent.Tests/

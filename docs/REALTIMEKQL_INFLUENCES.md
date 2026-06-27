@@ -14,7 +14,7 @@ This implementation is inspired by RealTimeKql, but it is not a restructuring of
 | Query file array in constructor | YAML resource profile with embedded KQL |
 | JSON array file output | NDJSON envelope output |
 | ADX/Blob direct output | intentionally not included in this agent; emit NDJSON and let the daemon/server forward |
-| `Microsoft.Syslog` project reference | lightweight parser behind `DeltaZulu.Agent.Inputs.Syslog`; can later be replaced by a parser adapter |
+| `Microsoft.Syslog` project reference | lightweight parser behind `DeltaZulu.Agent.Inputs/Syslog`; can later be replaced by a parser adapter |
 
 ## Inspired source capability
 
