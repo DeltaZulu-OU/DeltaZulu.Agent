@@ -1,4 +1,7 @@
 [submodule "external/DeltaZulu.Relp"]
 	path = external/DeltaZulu.Relp
-	url = https://github.com/DeltaZulu-OU/DeltaZulu.Relp
+	url = https://github.com/DeltaZulu-OU/DeltaZulu.Relp.git
 	branch = master
+[submodule "external/DeltaZulu.DurableBuffer"]
+	path = external/DeltaZulu.DurableBuffer
+	url = https://github.com/DeltaZulu-OU/DeltaZulu.DurableBuffer.git
