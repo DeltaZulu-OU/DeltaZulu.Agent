@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Domain.Delivery;
 
 public sealed record DeliveryRecord
 {

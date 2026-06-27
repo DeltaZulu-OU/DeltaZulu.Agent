@@ -1,5 +1,5 @@
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Profiles;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Domain.Profiles;
 
 namespace DeltaZulu.Agent.Application.Abstractions;
 

@@ -1,4 +1,4 @@
-namespace DeltaZulu.Agent.Profiles;
+namespace DeltaZulu.Agent.Domain.Profiles;
 
 public sealed class ResourceProfile
 {

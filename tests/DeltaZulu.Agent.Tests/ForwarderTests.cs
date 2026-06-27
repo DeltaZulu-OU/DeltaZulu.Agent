@@ -4,11 +4,12 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Domain.Delivery;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Domain.Observability;
 using DeltaZulu.Agent.Inputs.Relp;
 using DeltaZulu.Agent.Outputs.Relp;
+using DeltaZulu.Agent.Shared.Ndjson;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
@@ -455,15 +456,12 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpInput_Constructor_RejectsTlsInputWithoutCertificate()
-    {
-        Assert.ThrowsExactly<InvalidDataException>(() => new RelpInput(new RelpInputConfiguration
-        {
+    public void RelpInput_Constructor_RejectsTlsInputWithoutCertificate() =>
+        Assert.ThrowsExactly<InvalidDataException>(() => new RelpInput(new RelpInputConfiguration {
             Address = "127.0.0.1",
             Port = 6514,
             UseTls = true
         }));
-    }
 
     [TestMethod]
     public void YamlRelpOutputConfigurationLoader_LoadFile_RejectsInvalidEndpoint()
@@ -679,7 +677,7 @@ public sealed class ForwarderTests
 
     private static class TestJson
     {
-        public static JsonSerializerOptions Options { get; } = Outputs.Ndjson.NdjsonSerializerOptions.CreateDefault();
+        public static JsonSerializerOptions Options { get; } = NdjsonSerializerOptions.CreateDefault();
     }
 
     private sealed class CallbackTransport : IDeliveryTransport

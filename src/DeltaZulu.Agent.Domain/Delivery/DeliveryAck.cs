@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Domain.Delivery;
 
 public sealed record DeliveryAck
 {

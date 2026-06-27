@@ -2,8 +2,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using DeltaZulu.Agent.Forwarder;
-using DeltaZulu.Agent.Outputs.Ndjson;
+using DeltaZulu.Agent.Domain.Delivery;
+using DeltaZulu.Agent.Shared.Ndjson;
 
 namespace DeltaZulu.Demo.Collector;
 

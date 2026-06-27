@@ -3,11 +3,11 @@ using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Application.Pipelines;
 using DeltaZulu.Agent.Application.Runtime;
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Forwarder;
-using DeltaZulu.Agent.Outputs.Ndjson;
-using DeltaZulu.Agent.Profiles;
+using DeltaZulu.Agent.Shared.Ndjson;
+using DeltaZulu.Agent.Domain.Delivery;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Domain.Profiles;
+using DeltaZulu.Agent.Domain.Observability;
 
 namespace DeltaZulu.Agent.Tests;
 

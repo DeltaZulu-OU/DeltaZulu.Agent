@@ -1,8 +1,9 @@
 using System.Text.Json;
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Outputs.Ndjson;
+using DeltaZulu.Agent.Shared.Ndjson;
 
 namespace DeltaZulu.Agent.Tests;
 

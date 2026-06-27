@@ -1,3 +1,5 @@
+using DeltaZulu.Agent.Domain.Profiles;
+
 namespace DeltaZulu.Agent.Profiles;
 
 public sealed class ResourceProfileValidator

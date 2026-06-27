@@ -1,6 +1,6 @@
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
 
-namespace DeltaZulu.Agent.Core.Observability;
+namespace DeltaZulu.Agent.Domain.Observability;
 
 public sealed record FilterSummaryObservation
 {

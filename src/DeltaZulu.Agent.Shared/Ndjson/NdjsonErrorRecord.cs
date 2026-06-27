@@ -1,4 +1,4 @@
-namespace DeltaZulu.Agent.Outputs.Ndjson;
+namespace DeltaZulu.Agent.Shared.Ndjson;
 
 public sealed record NdjsonErrorRecord
 {

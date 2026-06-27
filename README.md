@@ -155,11 +155,12 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 ## Current implementation status
 
 - `DeltaZulu.Agent.Domain` contains source events, resource outputs, profile models, delivery envelopes, and observation records.
+- `DeltaZulu.Agent.Shared` contains cross-boundary helpers such as shared NDJSON serializer options used by inputs and outputs.
 - `DeltaZulu.Agent.Application` contains the shared runtime, profile binding, pipeline orchestration, and output multiplexing used by both hosts.
 - `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, NDJSON, and table output.
 - `dzagentd` is the forwarder-only daemon host configured by `config/dzagentd.yaml`.
 - `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
-- `DeltaZulu.Agent.Forwarder` owns delivery serialization, buffered forwarding, RELP-neutral transport contracts, RELP.Net transport, endpoint failover groundwork, TLS policy options, and health snapshots.
+- `DeltaZulu.Agent.Outputs` owns NDJSON sinks plus RELP buffered forwarding, RELP-neutral transport contracts, RELP.Net transport, endpoint failover groundwork, TLS policy options, and health snapshots.
 - Input families include syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW.
 - Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
@@ -176,12 +177,15 @@ See [docs/DURABLE_BUFFER_ARCHITECTURE.md](docs/DURABLE_BUFFER_ARCHITECTURE.md) f
 ```text
 src/
   DeltaZulu.Agent.Domain/
+  DeltaZulu.Agent.Shared/
+    Ndjson/
   DeltaZulu.Agent.Application/
   DeltaZulu.Agent.Core/        (compatibility type-forwarding shim)
   DeltaZulu.Agent.Profiles/
   DeltaZulu.Agent.Kql/
-  DeltaZulu.Agent.Outputs.Ndjson/
-  DeltaZulu.Agent.Forwarder/
+  DeltaZulu.Agent.Outputs/
+    Ndjson/
+    Relp/
   DeltaZulu.Agent.Daemon/
   DeltaZulu.Demo.Collector/
   DeltaZulu.Agent.Inputs/

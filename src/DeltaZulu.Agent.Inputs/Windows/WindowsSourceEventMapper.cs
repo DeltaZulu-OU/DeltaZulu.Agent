@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
 
 namespace DeltaZulu.Agent.Inputs.Windows;
 

@@ -1,5 +1,5 @@
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
 using System.Net;
 using System.Net.Sockets;
 using System.Reactive.Disposables;

@@ -29,13 +29,16 @@ DeltaZulu.Agent currently has three executable hosts:
 
 ```text
 src/
-  DeltaZulu.Agent.Domain/        Source events, resource records, delivery records, profiles, serialization helpers, observations.
+  DeltaZulu.Agent.Domain/        Source events, resource records, delivery records, profiles, observations.
+  DeltaZulu.Agent.Shared/        Cross-boundary helpers shared by inputs and outputs.
+    Ndjson/                      Shared NDJSON serializer options and converters.
   DeltaZulu.Agent.Application/   Runtime orchestration, profile bindings, pipeline helpers, output multiplexing.
   DeltaZulu.Agent.Core/          Compatibility type-forwarding shim for older Agent.Core references.
   DeltaZulu.Agent.Profiles/      YAML profile loading and validation adapter.
   DeltaZulu.Agent.Kql/           Microsoft.Rx.Kql-backed resource profile executor.
-  DeltaZulu.Agent.Outputs.Ndjson/ NDJSON console/file sinks and error records.
-  DeltaZulu.Agent.Forwarder/     Buffered forwarder sink, RELP-neutral transport port, RELP.Net adapter, health reporting.
+  DeltaZulu.Agent.Outputs/        Output adapters grouped by type.
+    Ndjson/                       NDJSON console/file sinks, serializer options, and error records.
+    Relp/                         Buffered RELP sink, RELP-neutral transport port, RELP.Net adapter, and health reporting.
   DeltaZulu.Agent.Daemon/        YAML-driven forwarder daemon composition root.
   DeltaZulu.Agent.Cli/           Development/exploration CLI composition root.
   DeltaZulu.Agent.Inputs.*       Resource-specific input adapters, including RELP server input.
@@ -122,7 +125,7 @@ Windows Event Log records expose named XML `EventData` values both under the dyn
 
 ## Daemon roles and coordination
 
-`dzagentd` is the service boundary for both endpoint forwarding and collector-style validation. With local sources and `output.mode: relp`, it runs the normal input/filter/RELP path. With a `relp` source from `DeltaZulu.Agent.Inputs/Relp` and `output.mode: console` or `file`, a second instance accepts RELP or RELP-over-TLS and prints or stores decoded records, replacing the separate demo collector path while keeping one daemon binary and two configurations. `DeltaZulu.Agent.Forwarder` remains the RELP output library for now and is isolated so it can later be renamed to `DeltaZulu.Agent.Outputs.Relp`.
+`dzagentd` is the service boundary for both endpoint forwarding and collector-style validation. With local sources and `output.mode: relp`, it runs the normal input/filter/RELP path. With a `relp` source from `DeltaZulu.Agent.Inputs/Relp` and `output.mode: console` or `file`, a second instance accepts RELP or RELP-over-TLS and prints or stores decoded records, replacing the separate demo collector path while keeping one daemon binary and two configurations. The merged `DeltaZulu.Agent.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Agent.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Agent.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Agent.Shared.Ndjson` so inputs and outputs do not depend on each other.
 
 Coordination remains configuration-file based for the current split. The forwarder output path already owns durable queue state in `DeltaZulu.DurableBuffer`, while daemon configuration owns source/profile/output selection; no synchronous request/response decisions are required on the hot path. Named pipes or another IPC channel should only be introduced later for live reconfiguration, administrative health queries, or explicit control-plane commands that cannot be expressed safely by replacing configuration and restarting the supervised daemon process.
 

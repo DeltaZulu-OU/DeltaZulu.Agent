@@ -7,6 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Domain\DeltaZulu.Agent.Domain.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Outputs.Ndjson\DeltaZulu.Agent.Outputs.Ndjson.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Shared\DeltaZulu.Agent.Shared.csproj" />
   </ItemGroup>
 </Project>

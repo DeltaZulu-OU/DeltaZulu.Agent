@@ -1,9 +1,7 @@
-using System.Reflection;
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Profiles;
-using DeltaZulu.Agent.Forwarder;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using DeltaZulu.Agent.Domain.Observability;
+using DeltaZulu.Agent.Domain.Delivery;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Domain.Profiles;
 
 namespace DeltaZulu.Agent.Tests;
 

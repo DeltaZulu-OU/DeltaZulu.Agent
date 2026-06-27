@@ -1,5 +1,4 @@
-using DeltaZulu.Agent.Core.Events;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using DeltaZulu.Agent.Domain.Events;
 using System.Dynamic;
 
 namespace DeltaZulu.Agent.Tests;

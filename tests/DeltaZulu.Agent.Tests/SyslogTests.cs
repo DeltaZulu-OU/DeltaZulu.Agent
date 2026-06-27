@@ -1,5 +1,4 @@
 using DeltaZulu.Agent.Inputs.Syslog;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DeltaZulu.Agent.Tests;
 

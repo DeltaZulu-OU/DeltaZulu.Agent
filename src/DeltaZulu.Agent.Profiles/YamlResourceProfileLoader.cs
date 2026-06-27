@@ -1,4 +1,5 @@
 using DeltaZulu.Agent.Application.Abstractions;
+using DeltaZulu.Agent.Domain.Profiles;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 

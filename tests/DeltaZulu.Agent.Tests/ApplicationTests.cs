@@ -2,7 +2,7 @@ using System.Reactive.Linq;
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Application.Pipelines;
 using DeltaZulu.Agent.Application.Runtime;
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
 
 namespace DeltaZulu.Agent.Tests;
 

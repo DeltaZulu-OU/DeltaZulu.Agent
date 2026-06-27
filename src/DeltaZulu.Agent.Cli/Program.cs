@@ -1,13 +1,15 @@
+using System.Net;
+using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Application.Runtime;
+using DeltaZulu.Agent.Domain.Profiles;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
 using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
 using DeltaZulu.Agent.Profiles;
-using System.Text.Json;
-using System.Net;
+using DeltaZulu.Agent.Shared.Ndjson;
 
 #if WINDOWS
 using DeltaZulu.Agent.Inputs.Windows;

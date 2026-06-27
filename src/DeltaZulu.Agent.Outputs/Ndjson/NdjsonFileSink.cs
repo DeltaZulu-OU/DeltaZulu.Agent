@@ -1,5 +1,6 @@
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Shared.Ndjson;
 using System.Text.Json;
 
 namespace DeltaZulu.Agent.Outputs.Ndjson;

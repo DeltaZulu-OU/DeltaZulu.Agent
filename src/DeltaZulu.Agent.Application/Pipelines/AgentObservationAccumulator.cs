@@ -1,5 +1,5 @@
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Core.Observability;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Domain.Observability;
 
 namespace DeltaZulu.Agent.Application.Pipelines;
 

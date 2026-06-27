@@ -1,6 +1,6 @@
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Profiles;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Domain.Profiles;
 using System.Reactive.Disposables;
 using System.Reactive.Kql;
 using System.Reactive.Kql.CustomTypes;

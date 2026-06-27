@@ -1,6 +1,6 @@
 using System.Dynamic;
 
-namespace DeltaZulu.Agent.Core.Events;
+namespace DeltaZulu.Agent.Domain.Events;
 
 public static class DictionaryCoercion
 {

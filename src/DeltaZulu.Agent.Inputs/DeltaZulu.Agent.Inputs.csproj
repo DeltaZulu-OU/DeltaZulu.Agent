@@ -27,5 +27,6 @@
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Domain\DeltaZulu.Agent.Domain.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Shared\DeltaZulu.Agent.Shared.csproj" />
   </ItemGroup>
 </Project>

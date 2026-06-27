@@ -1,5 +1,5 @@
 using System.Text.Json;
-using DeltaZulu.Agent.Outputs.Ndjson;
+using DeltaZulu.Agent.Shared.Ndjson;
 
 namespace DeltaZulu.Agent.Outputs.Relp;
 

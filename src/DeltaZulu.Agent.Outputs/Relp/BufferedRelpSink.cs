@@ -1,7 +1,7 @@
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Domain.Delivery;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Domain.Observability;
 using DeltaZulu.DurableBuffer;
 using DeltaZulu.DurableBuffer.Configuration;
 using DeltaZulu.DurableBuffer.Metrics;

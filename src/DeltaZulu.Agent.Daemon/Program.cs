@@ -1,19 +1,20 @@
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Application.Runtime;
-using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Outputs.Relp;
+using DeltaZulu.Agent.Domain.Observability;
+using DeltaZulu.Agent.Domain.Profiles;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
 using DeltaZulu.Agent.Inputs.Relp;
 using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
+using DeltaZulu.Agent.Outputs.Relp;
 using DeltaZulu.Agent.Profiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
 
 #if WINDOWS
 using DeltaZulu.Agent.Inputs.Windows;

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace DeltaZulu.Agent.Core.Events;
+namespace DeltaZulu.Agent.Domain.Events;
 
 public sealed record ResourceOutputRecord
 {

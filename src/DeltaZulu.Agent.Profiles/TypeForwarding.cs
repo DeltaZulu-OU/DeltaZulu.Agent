@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using DeltaZulu.Agent.Profiles;
+using DeltaZulu.Agent.Domain.Profiles;
 
 [assembly: TypeForwardedTo(typeof(ResourceProfile))]
 [assembly: TypeForwardedTo(typeof(ResourceCondition))]

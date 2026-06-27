@@ -1,3 +1,4 @@
+using DeltaZulu.Agent.Domain.Profiles;
 using DeltaZulu.Agent.Profiles;
 
 namespace DeltaZulu.Agent.Tests;

@@ -1,4 +1,4 @@
-namespace DeltaZulu.Agent.Core.Events;
+namespace DeltaZulu.Agent.Domain.Events;
 
 public sealed record ResourceMetadata
 {

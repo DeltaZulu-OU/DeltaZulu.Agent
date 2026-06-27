@@ -1,7 +1,7 @@
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Core.Events;
-using DeltaZulu.Agent.Forwarder;
-using DeltaZulu.Agent.Outputs.Ndjson;
+using DeltaZulu.Agent.Domain.Delivery;
+using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Shared.Ndjson;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;

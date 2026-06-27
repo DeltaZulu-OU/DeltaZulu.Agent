@@ -1,5 +1,5 @@
 using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Profiles;
+using DeltaZulu.Agent.Domain.Profiles;
 
 namespace DeltaZulu.Agent.Application.Runtime;
 

@@ -11,7 +11,8 @@
     <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Inputs\DeltaZulu.Agent.Inputs.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Kql\DeltaZulu.Agent.Kql.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Outputs.Ndjson\DeltaZulu.Agent.Outputs.Ndjson.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Outputs\DeltaZulu.Agent.Outputs.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Profiles\DeltaZulu.Agent.Profiles.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Shared\DeltaZulu.Agent.Shared.csproj" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,6 @@
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Domain.Events;
 using DeltaZulu.Agent.Outputs.Ndjson;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using DeltaZulu.Agent.Shared.Ndjson;
 using System.Text.Json;
 
 namespace DeltaZulu.Agent.Tests;
@@ -70,7 +70,7 @@ public sealed class NdjsonTests
     {
         var exception = new InvalidOperationException("boom");
 
-        var record = NdjsonErrorRecord.FromException(exception);
+        var record = Shared.Ndjson.NdjsonErrorRecord.FromException(exception);
 
         Assert.AreEqual("agent.error", record.Type);
         Assert.AreEqual("boom", record.Message);

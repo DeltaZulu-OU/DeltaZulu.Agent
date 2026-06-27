@@ -1,4 +1,4 @@
-namespace DeltaZulu.Agent.Core.Observability;
+namespace DeltaZulu.Agent.Domain.Observability;
 
 internal static class ObservationRecord
 {

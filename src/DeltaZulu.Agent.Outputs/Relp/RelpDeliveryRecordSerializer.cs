@@ -1,5 +1,5 @@
 using System.Text.Json;
-using DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Domain.Delivery;
 using DeltaZulu.DurableBuffer.Abstractions;
 
 namespace DeltaZulu.Agent.Outputs.Relp;

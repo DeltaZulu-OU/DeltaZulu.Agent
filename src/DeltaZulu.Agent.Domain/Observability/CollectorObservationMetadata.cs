@@ -1,4 +1,4 @@
-namespace DeltaZulu.Agent.Core.Observability;
+namespace DeltaZulu.Agent.Domain.Observability;
 
 public sealed record CollectorObservationMetadata
 {

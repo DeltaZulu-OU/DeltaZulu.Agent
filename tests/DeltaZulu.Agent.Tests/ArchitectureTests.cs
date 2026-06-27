@@ -1,5 +1,6 @@
 using System.Reflection;
 using DeltaZulu.Agent.Application.Pipelines;
+using DeltaZulu.Agent.Domain.Events;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -9,7 +10,7 @@ public sealed class ArchitectureTests
     [TestMethod]
     public void DomainAssembly_HasNoProjectReferences()
     {
-        var domainAssembly = typeof(DeltaZulu.Agent.Core.Events.SourceEvent).Assembly;
+        var domainAssembly = typeof(SourceEvent).Assembly;
         var projectRefs = GetProjectReferences(domainAssembly);
 
         Assert.IsEmpty(projectRefs,
@@ -35,15 +36,15 @@ public sealed class ArchitectureTests
             "DeltaZulu.Agent.Inputs",
             "DeltaZulu.Agent.Kql",
             "DeltaZulu.Agent.Profiles",
-            "DeltaZulu.Agent.Outputs.Ndjson",
-            "DeltaZulu.Agent.Outputs.Relp"
+            "DeltaZulu.Agent.Shared",
+            "DeltaZulu.Agent.Outputs"
         };
 
         var allowedProjectRefs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "DeltaZulu.Agent.Domain",
             "DeltaZulu.Agent.Application",
-            "DeltaZulu.Agent.Outputs.Ndjson",
+            "DeltaZulu.Agent.Shared",
             "DeltaZulu.DurableBuffer",
             "DeltaZulu.Relp"
         };
