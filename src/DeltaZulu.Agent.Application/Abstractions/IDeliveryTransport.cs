@@ -1,6 +1,8 @@
-namespace DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Forwarder;
 
-public interface IForwarderTransport
+namespace DeltaZulu.Agent.Application.Abstractions;
+
+public interface IDeliveryTransport
 {
     ValueTask<DeliveryAck> SendAsync(
         DeliveryBatch batch,

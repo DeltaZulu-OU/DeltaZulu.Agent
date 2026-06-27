@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Buffer.Chunks;
 using DeltaZulu.Buffer.Dispatch;
 
@@ -6,9 +7,9 @@ namespace DeltaZulu.Agent.Forwarder;
 
 public sealed class ForwarderChunkSender : IChunkSender
 {
-    private readonly IForwarderTransport _transport;
+    private readonly IDeliveryTransport _transport;
 
-    public ForwarderChunkSender(IForwarderTransport transport) => _transport = transport;
+    public ForwarderChunkSender(IDeliveryTransport transport) => _transport = transport;
 
     public async ValueTask<ChunkSendResult> SendAsync(
         StoredChunk chunk,

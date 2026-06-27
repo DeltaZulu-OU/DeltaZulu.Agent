@@ -1,7 +1,6 @@
-using DeltaZulu.Agent.Core.Abstractions;
-using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Application.Abstractions;
+using DeltaZulu.Agent.Application.Runtime;
 using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Core.Pipelines;
 using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
@@ -9,7 +8,6 @@ using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
 using DeltaZulu.Agent.Profiles;
-using System.Reactive.Linq;
 using System.Text.Json;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
@@ -61,31 +59,31 @@ internal static partial class Program
 
             using var sink = CreateSink(plan);
             using var healthReporter = CreateHealthReporter(plan, sink);
-            if (plan.IsProfileMode)
+
+            var bindings = CreateBindings(plan);
+            try
             {
-                var profileResult = RunProfiles(plan, sink, cts.Token);
+                var runtime = new AgentRuntime(bindings, sink, warn: msg =>
+                {
+                    Console.Error.WriteLine($"warning: {msg}");
+                    Console.Error.Flush();
+                });
+                var result = runtime.Run(cts.Token);
+
                 healthReporter?.EmitHealthSnapshot();
-                return profileResult;
+
+                if (!result.Success)
+                {
+                    LogPipelineError(result.Error!);
+                    return 1;
+                }
+
+                return 0;
             }
-
-            using var executor = new ResourceKqlProfileExecutor();
-            using var completed = new ManualResetEventSlim(false);
-            using var doneSink = new CompletionTrackingSink(sink, completed);
-            var trackedPipeline = new ResourcePipeline(
-                CreateInput(plan),
-                source => Execute(source, plan, executor, cts.Token),
-                doneSink);
-
-            using var subscription = trackedPipeline.Start(cts.Token);
-            completed.Wait(cts.Token);
-            healthReporter?.EmitHealthSnapshot();
-            if (doneSink.Error is not null)
+            finally
             {
-                LogPipelineError(doneSink.Error);
-                return 1;
+                DisposeExecutors(bindings);
             }
-
-            return 0;
         }
         catch (OperationCanceledException)
         {
@@ -96,6 +94,14 @@ internal static partial class Program
             LogPipelineError(ex);
             Console.Error.Flush();
             return 1;
+        }
+    }
+
+    private static void DisposeExecutors(IReadOnlyList<ProfileBinding> bindings)
+    {
+        foreach (var binding in bindings)
+        {
+            binding.Executor.Dispose();
         }
     }
 
@@ -211,9 +217,9 @@ internal static partial class Program
         }
     };
 
-    private static IResourceInput CreateInput(CliPlan plan) => CreateInput(plan, null);
+    private static ISourceInput CreateInput(CliPlan plan) => CreateInput(plan, null);
 
-    private static IResourceInput CreateInput(CliPlan plan, ResourceProfile? profile)
+    private static ISourceInput CreateInput(CliPlan plan, ResourceProfile? profile)
     {
         var inputCommand = plan.InputCommand ?? ProfileFamilyToInputCommand(profile)
             ?? throw new ArgumentException("input command is required when no profile resource family is available.");
@@ -249,38 +255,48 @@ internal static partial class Program
         _ => null
     };
 
-    private static int RunProfiles(CliPlan plan, IResourceSink sink, CancellationToken cancellationToken)
+    private static IReadOnlyList<ProfileBinding> CreateBindings(CliPlan plan)
     {
-        var profiles = FilterUnavailableResources(plan, LoadProfiles(plan.Option("--profile")!));
-        if (profiles.Count == 0)
+        if (plan.IsProfileMode)
         {
-            Console.Error.WriteLine("error: no enabled profiles were found.");
-            Console.Error.Flush();
-            return 1;
+            var profiles = FilterUnavailableResources(plan, LoadProfiles(plan.Option("--profile")!));
+            if (profiles.Count == 0)
+            {
+                throw new InvalidOperationException("No enabled profiles were found.");
+            }
+
+            return profiles
+                .Select(profile => new ProfileBinding(
+                    CreateInput(plan, profile),
+                    profile,
+                    new ResourceKqlProfileExecutor()))
+                .ToArray();
         }
 
-        using var channelSink = new ChannelResourceSink(sink);
-        var tasks = profiles
-            .Select(profile => Task.Run(() => RunProfileSafely(plan, profile, channelSink, cancellationToken), cancellationToken))
-            .ToArray();
+        var executor = new ResourceKqlProfileExecutor();
+        var inlineKql = plan.Option("--kql") ?? plan.Option("--query") ?? plan.Option("-q");
+        var profilePath = plan.Option("--profile");
+        ResourceProfile profile2;
 
-        try
+        if (!string.IsNullOrWhiteSpace(profilePath) && !string.IsNullOrWhiteSpace(inlineKql))
         {
-            Task.WaitAll(tasks, cancellationToken);
-        }
-        catch (AggregateException ex) when (ex.InnerExceptions.Count == 1)
-        {
-            throw ex.InnerExceptions[0];
+            throw new ArgumentException("Use either --profile <profile.yaml> or --kql <query>, not both.");
         }
 
-        channelSink.Complete();
-        if (channelSink.Error is not null)
+        if (!string.IsNullOrWhiteSpace(profilePath))
         {
-            LogPipelineError(channelSink.Error);
-            return 1;
+            profile2 = new YamlResourceProfileLoader().LoadFile(profilePath);
+        }
+        else if (!string.IsNullOrWhiteSpace(inlineKql))
+        {
+            profile2 = CreateInlineProfile(plan, inlineKql);
+        }
+        else
+        {
+            profile2 = CreatePassthroughProfile(plan);
         }
 
-        return 0;
+        return [new ProfileBinding(CreateInput(plan), profile2, executor)];
     }
 
     private static IReadOnlyList<ResourceProfile> FilterUnavailableResources(CliPlan plan, IReadOnlyList<ResourceProfile> profiles)
@@ -327,38 +343,28 @@ internal static partial class Program
 #endif
     }
 
-    private static bool RunProfileSafely(CliPlan plan, ResourceProfile profile, IResourceSink sink, CancellationToken cancellationToken)
+    private static ResourceProfile CreatePassthroughProfile(CliPlan plan) => new()
     {
-        try
+        SchemaVersion = 1,
+        Id = plan.Option("--resource-id") ?? "cli.passthrough",
+        Name = "Passthrough",
+        Version = "1.0.0",
+        Resource = new ResourceDescriptor
         {
-            RunProfile(plan, profile, sink, cancellationToken);
-            return true;
-        }
-        catch (Exception ex) when (!profile.Mandatory)
+            Platform = plan.Option("--platform") ?? "local",
+            Family = plan.InputCommand ?? "inline"
+        },
+        Input = new ResourceInputContract
         {
-            Console.Error.WriteLine($"warning: profile '{profile.Id}' failed and will be skipped because mandatory is false: {ex.Message}");
-            Console.Error.Flush();
-            return false;
-        }
-    }
-
-    private static void RunProfile(CliPlan plan, ResourceProfile profile, IResourceSink sink, CancellationToken cancellationToken)
-    {
-        using var executor = new ResourceKqlProfileExecutor();
-        using var completed = new ManualResetEventSlim(false);
-        using var doneSink = new CompletionTrackingSink(sink, completed, completeInner: false);
-        var pipeline = new ResourcePipeline(
-            CreateInput(plan, profile),
-            source => executor.Execute(source, profile, cancellationToken),
-            doneSink);
-
-        using var subscription = pipeline.Start(cancellationToken);
-        completed.Wait(cancellationToken);
-        if (doneSink.Error is not null)
+            Table = plan.Option("--table") ?? "Source",
+            Schema = plan.Option("--schema") ?? string.Empty
+        },
+        Output = new ResourceOutputContract
         {
-            throw doneSink.Error;
+            Format = "ndjson",
+            PreserveOriginalFieldNames = true
         }
-    }
+    };
 
     private static IReadOnlyList<ResourceProfile> LoadProfiles(string path)
     {
@@ -421,7 +427,7 @@ internal static partial class Program
 #endif
     }
 
-    private static IResourceSink CreateSink(CliPlan plan) => plan.OutputCommand switch {
+    private static IOutputWriter CreateSink(CliPlan plan) => plan.OutputCommand switch {
         "json" => string.IsNullOrWhiteSpace(plan.OutputArgument) ? new ConsoleNdjsonSink() : new NdjsonFileSink(plan.OutputArgument),
         "table" => new ConsoleTableSink(),
         "forwarder" => CreateForwarderSink(plan),
@@ -430,7 +436,7 @@ internal static partial class Program
 
     private const string DefaultForwarderConfigPath = "forwarder.yaml";
 
-    private static IResourceSink CreateForwarderSink(CliPlan plan)
+    private static IOutputWriter CreateForwarderSink(CliPlan plan)
     {
         RejectForwarderInlineOptions(plan);
 
@@ -493,7 +499,7 @@ internal static partial class Program
         }
     }
 
-    private static ForwarderHealthReporter? CreateHealthReporter(CliPlan plan, IResourceSink sink)
+    private static ForwarderHealthReporter? CreateHealthReporter(CliPlan plan, IOutputWriter sink)
     {
         if (sink is not BufferedForwarderSink forwarderSink)
         {
@@ -508,7 +514,7 @@ internal static partial class Program
 
         var intervalSeconds = double.Parse(intervalRaw, System.Globalization.CultureInfo.InvariantCulture);
         var diagnosticFile = plan.Option("--diagnostic-file");
-        IResourceSink diagnosticSink = string.IsNullOrWhiteSpace(diagnosticFile)
+        IOutputWriter diagnosticSink = string.IsNullOrWhiteSpace(diagnosticFile)
             ? new ConsoleNdjsonSink()
             : new NdjsonFileSink(diagnosticFile);
 
@@ -523,26 +529,6 @@ internal static partial class Program
             diagnosticSink,
             metadata,
             TimeSpan.FromSeconds(intervalSeconds));
-    }
-
-    private static IObservable<ResourceOutputRecord> Execute(IObservable<SourceEvent> source, CliPlan plan, ResourceKqlProfileExecutor executor, CancellationToken cancellationToken)
-    {
-        var profilePath = plan.Option("--profile");
-        var inlineKql = plan.Option("--kql") ?? plan.Option("--query") ?? plan.Option("-q");
-        if (string.IsNullOrWhiteSpace(profilePath) && string.IsNullOrWhiteSpace(inlineKql))
-        {
-            return source.Select(sourceEvent => ResourceOutputRecord.FromSource(sourceEvent));
-        }
-
-        if (!string.IsNullOrWhiteSpace(profilePath) && !string.IsNullOrWhiteSpace(inlineKql))
-        {
-            throw new ArgumentException("Use either --profile <profile.yaml> or --kql <query>, not both.");
-        }
-
-        var profile = !string.IsNullOrWhiteSpace(profilePath)
-            ? new YamlResourceProfileLoader().LoadFile(profilePath)
-            : CreateInlineProfile(plan, inlineKql!);
-        return executor.Execute(source, profile, cancellationToken);
     }
 
     private static bool IsHelp(string value) => value is "-h" or "--help" or "help";

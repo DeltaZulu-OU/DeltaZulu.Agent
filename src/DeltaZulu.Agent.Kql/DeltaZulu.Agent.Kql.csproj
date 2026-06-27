@@ -10,7 +10,7 @@
     <PackageReference Include="System.Runtime.Caching" Version="10.0.9" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Profiles\DeltaZulu.Agent.Profiles.csproj" />
   </ItemGroup>
 </Project>

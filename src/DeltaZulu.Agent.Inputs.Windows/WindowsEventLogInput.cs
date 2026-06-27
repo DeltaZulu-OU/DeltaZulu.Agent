@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Diagnostics.Eventing.Reader;
 using System.Xml.Linq;
@@ -6,7 +6,7 @@ using System.Reactive.Disposables;
 
 namespace DeltaZulu.Agent.Inputs.Windows;
 
-public sealed class WindowsEventLogInput : IResourceInput
+public sealed class WindowsEventLogInput : ISourceInput
 {
     private readonly string _requestedLogName;
     private readonly TimeSpan _pollInterval;

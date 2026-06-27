@@ -1,0 +1,98 @@
+using System.Reflection;
+using DeltaZulu.Agent.Core.Events;
+using DeltaZulu.Agent.Core.Observability;
+using DeltaZulu.Agent.Profiles;
+using DeltaZulu.Agent.Forwarder;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace DeltaZulu.Agent.Tests;
+
+[TestClass]
+public sealed class DomainTests
+{
+    [TestMethod]
+    public void Domain_Assembly_Has_No_Project_Dependencies()
+    {
+        var domainAssembly = typeof(SourceEvent).Assembly;
+        var referencedAssemblies = domainAssembly.GetReferencedAssemblies();
+        var projectReferences = referencedAssemblies
+            .Where(a => a.Name!.StartsWith("DeltaZulu.", StringComparison.OrdinalIgnoreCase))
+            .Select(a => a.Name!)
+            .ToList();
+
+        Assert.IsEmpty(projectReferences,
+            $"Domain assembly should have no project dependencies but references: {string.Join(", ", projectReferences)}");
+    }
+
+    [TestMethod]
+    public void Domain_Types_Are_In_Expected_Assembly()
+    {
+        const string domainAssemblyName = "DeltaZulu.Agent.Domain";
+
+        Assert.AreEqual(domainAssemblyName, typeof(SourceEvent).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceMetadata).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceOutputRecord).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(DictionaryCoercion).Assembly.GetName().Name);
+
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceProfile).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceDescriptor).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceFilter).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceInputContract).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceOutputContract).Assembly.GetName().Name);
+
+        Assert.AreEqual(domainAssemblyName, typeof(DeliveryRecord).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(DeliveryBatch).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(DeliveryAck).Assembly.GetName().Name);
+
+        Assert.AreEqual(domainAssemblyName, typeof(CollectorObservationMetadata).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(LogTelemetryKey).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(PipelineCountsObservation).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(FilterSummaryObservation).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(SourceHealthObservation).Assembly.GetName().Name);
+    }
+
+    [TestMethod]
+    public void SourceEvent_ToKqlRow_Includes_Metadata()
+    {
+        var metadata = new ResourceMetadata { SourceType = "test", SourceName = "unit" };
+        var fields = new Dictionary<string, object?> { ["key"] = "value" };
+        var source = new SourceEvent(metadata, fields);
+
+        var row = source.ToKqlRow();
+
+        Assert.AreEqual("value", row["key"]);
+        Assert.IsNotNull(row["_metadata"]);
+    }
+
+    [TestMethod]
+    public void ResourceOutputRecord_FromSource_Preserves_Fields()
+    {
+        var metadata = new ResourceMetadata { SourceType = "test", SourceName = "unit" };
+        var fields = new Dictionary<string, object?> { ["EventId"] = 42 };
+        var source = new SourceEvent(metadata, fields);
+
+        var record = ResourceOutputRecord.FromSource(source, "profile1", "1.0");
+
+        Assert.AreEqual("profile1", record.Metadata["profileId"]);
+        Assert.AreEqual(42, record.Event["EventId"]);
+    }
+
+    [TestMethod]
+    public void DeliveryRecord_FromResourceOutput_Creates_Valid_Record()
+    {
+        var metadata = new Dictionary<string, object?>
+        {
+            ["collectorId"] = "agent-1",
+            ["sourceType"] = "syslog",
+            ["sourceName"] = "auth.log"
+        };
+        var eventData = new Dictionary<string, object?> { ["Message"] = "test" };
+        var output = new ResourceOutputRecord { Metadata = metadata, Event = eventData };
+
+        var delivery = DeliveryRecord.FromResourceOutput(output);
+
+        Assert.AreEqual("agent-1", delivery.AgentId);
+        Assert.AreEqual("syslog:auth.log", delivery.SourceId);
+        Assert.IsNotNull(delivery.DeliveryId);
+    }
+}

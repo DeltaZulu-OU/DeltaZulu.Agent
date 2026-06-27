@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Outputs.Ndjson;
 using System.Text.Json;
@@ -10,7 +10,7 @@ namespace DeltaZulu.Agent.Cli;
 
 internal static partial class Program
 {
-    private sealed class ConsoleTableSink : IResourceSink
+    private sealed class ConsoleTableSink : IOutputWriter
     {
         private readonly JsonSerializerOptions _jsonOptions = NdjsonSerializerOptions.CreateDefault();
         private bool _printedHeader;

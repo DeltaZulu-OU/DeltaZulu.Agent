@@ -115,7 +115,7 @@ public sealed class GoldenFixtureTests
     {
         var parser = new AuditdRecordParser();
         var assembler = new AuditdEventAssembler();
-        var line = "type=SYSCALL msg=audit(1710000000.100:501): arch=c000003e syscall=59 success=yes exit=0 pid=1234 uid=0 comm=\"ls\" exe=\"/bin/ls\"";
+        const string line = "type=SYSCALL msg=audit(1710000000.100:501): arch=c000003e syscall=59 success=yes exit=0 pid=1234 uid=0 comm=\"ls\" exe=\"/bin/ls\"";
 
         assembler.Accept(parser.Parse(line));
         var source = assembler.Flush("1710000000.100:501")!;
@@ -143,12 +143,12 @@ public sealed class GoldenFixtureTests
             var records = new List<ResourceOutputRecord>();
             using var completed = new ManualResetEventSlim(false);
 
-            using var subscription = input.Open().Subscribe(
+            using var subscription = input.Open(TestContext.CancellationToken).Subscribe(
                 source => records.Add(ResourceOutputRecord.FromSource(source)),
                 _ => completed.Set(),
                 () => completed.Set());
 
-            Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(10)));
+            Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(10), TestContext.CancellationToken));
 
             var json0 = SerializeAndDeserialize(records[0]);
             Assert.AreEqual(42, json0.GetProperty("event").GetProperty("Count").GetInt64());
@@ -158,7 +158,10 @@ public sealed class GoldenFixtureTests
         }
         finally
         {
-            if (File.Exists(tmpPath)) File.Delete(tmpPath);
+            if (File.Exists(tmpPath))
+            {
+                File.Delete(tmpPath);
+            }
         }
     }
 
@@ -174,13 +177,13 @@ public sealed class GoldenFixtureTests
             var records = new List<ResourceOutputRecord>();
             using var completed = new ManualResetEventSlim(false);
 
-            using var subscription = input.Open().Subscribe(
+            using var subscription = input.Open(TestContext.CancellationToken).Subscribe(
                 source => records.Add(ResourceOutputRecord.FromSource(source)),
                 _ => completed.Set(),
                 () => completed.Set());
 
-            Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(10)));
-            Assert.AreEqual(2, records.Count);
+            Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(10), TestContext.CancellationToken));
+            Assert.HasCount(2, records);
 
             var json0 = SerializeAndDeserialize(records[0]);
             Assert.AreEqual("Csv", json0.GetProperty("_metadata").GetProperty("sourceType").GetString());
@@ -195,7 +198,10 @@ public sealed class GoldenFixtureTests
         }
         finally
         {
-            if (File.Exists(tmpPath)) File.Delete(tmpPath);
+            if (File.Exists(tmpPath))
+            {
+                File.Delete(tmpPath);
+            }
         }
     }
 
@@ -305,7 +311,7 @@ public sealed class GoldenFixtureTests
             }
 
             var lines = File.ReadAllLines(tmpPath).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
-            Assert.AreEqual(2, lines.Length);
+            Assert.HasCount(2, lines);
 
             foreach (var line in lines)
             {
@@ -317,14 +323,17 @@ public sealed class GoldenFixtureTests
         }
         finally
         {
-            if (File.Exists(tmpPath)) File.Delete(tmpPath);
+            if (File.Exists(tmpPath))
+            {
+                File.Delete(tmpPath);
+            }
         }
     }
 
     [TestMethod]
     public void Syslog_Rfc3164_SudoSession_ProducesExpectedNdjsonEnvelope()
     {
-        var raw = "<86>Jun 25 14:30:01 apphost sudo[12345]: pam_unix(sudo:session): session opened for user root(uid=0) by admin(uid=1000)";
+        const string raw = "<86>Jun 25 14:30:01 apphost sudo[12345]: pam_unix(sudo:session): session opened for user root(uid=0) by admin(uid=1000)";
         var parser = new LightweightSyslogParser();
 
         var source = parser.Parse(raw, "auth.log");
@@ -340,14 +349,14 @@ public sealed class GoldenFixtureTests
         Assert.AreEqual("info", evt.GetProperty("Severity").GetString());
         Assert.AreEqual("sudo", evt.GetProperty("ProcessName").GetString());
         Assert.AreEqual(12345, evt.GetProperty("ProcessId").GetInt32());
-        StringAssert.Contains(evt.GetProperty("Message").GetString(), "session opened for user root");
+        Assert.Contains("session opened for user root", evt!.GetProperty("Message").GetString()!);
     }
 
     // --- Syslog RFC 3164 ---
     [TestMethod]
     public void Syslog_Rfc3164_WithKeyValues_ExtractsDataFromMessage()
     {
-        var raw = "<38>Jun 25 08:00:00 mailhost postfix[555]: connect from client=mx.example.com port=25 status=sent";
+        const string raw = "<38>Jun 25 08:00:00 mailhost postfix[555]: connect from client=mx.example.com port=25 status=sent";
         var parser = new LightweightSyslogParser();
 
         var source = parser.Parse(raw, "mail.log");
@@ -364,7 +373,7 @@ public sealed class GoldenFixtureTests
     [TestMethod]
     public void Syslog_Rfc5424_SshdAccepted_ProducesExpectedNdjsonEnvelope()
     {
-        var raw = "<38>1 2024-03-09T10:11:12Z webhost sshd 4321 - - Accepted publickey for admin from 10.0.0.5 port 22 ssh2: RSA SHA256:abc123";
+        const string raw = "<38>1 2024-03-09T10:11:12Z webhost sshd 4321 - - Accepted publickey for admin from 10.0.0.5 port 22 ssh2: RSA SHA256:abc123";
         var parser = new LightweightSyslogParser();
 
         var source = parser.Parse(raw, "auth.log");
@@ -384,13 +393,13 @@ public sealed class GoldenFixtureTests
         Assert.AreEqual("info", evt.GetProperty("Severity").GetString());
         Assert.AreEqual("sshd", evt.GetProperty("ProcessName").GetString());
         Assert.AreEqual(4321, evt.GetProperty("ProcessId").GetInt32());
-        StringAssert.Contains(evt.GetProperty("Message").GetString(), "Accepted publickey for admin");
+        Assert.Contains("Accepted publickey for admin", evt!.GetProperty("Message").GetString()!);
     }
 
     [TestMethod]
     public void Syslog_Rfc5424_WithStructuredData_PreservesStructuredDataField()
     {
-        var raw = "<165>1 2024-03-09T10:11:12Z router syslog-ng 999 ID47 [exampleSDID@32473 eventSource=\"Application\"] Configuration reload";
+        const string raw = "<165>1 2024-03-09T10:11:12Z router syslog-ng 999 ID47 [exampleSDID@32473 eventSource=\"Application\"] Configuration reload";
         var parser = new LightweightSyslogParser();
 
         var source = parser.Parse(raw, "syslog-tcp");
@@ -403,7 +412,7 @@ public sealed class GoldenFixtureTests
         Assert.AreEqual("notice", evt.GetProperty("Severity").GetString());
         Assert.AreEqual("router", evt.GetProperty("Hostname").GetString());
         Assert.AreEqual("syslog-ng", evt.GetProperty("AppName").GetString());
-        StringAssert.Contains(evt.GetProperty("StructuredData").GetString(), "exampleSDID@32473");
+        Assert.Contains("exampleSDID@32473", evt.GetProperty("StructuredData").GetString()!);
     }
 
     // --- Syslog unstructured ---
@@ -411,7 +420,7 @@ public sealed class GoldenFixtureTests
     [TestMethod]
     public void Syslog_Unstructured_PreservesRawMessageAsEvent()
     {
-        var raw = "kernel: [12345.678] TCP: out of memory -- consider tuning tcp_mem";
+        const string raw = "kernel: [12345.678] TCP: out of memory -- consider tuning tcp_mem";
         var parser = new LightweightSyslogParser();
 
         var source = parser.Parse(raw, "kern.log");
@@ -438,4 +447,6 @@ public sealed class GoldenFixtureTests
         Assert.IsFalse(json.Contains(Environment.NewLine, StringComparison.Ordinal), "NDJSON must be single-line");
         return JsonDocument.Parse(json).RootElement;
     }
+
+    public TestContext TestContext { get; set; }
 }

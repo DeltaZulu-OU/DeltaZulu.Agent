@@ -3,7 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Forwarder;
@@ -672,7 +672,7 @@ public sealed class ForwarderTests
         public static JsonSerializerOptions Options { get; } = Outputs.Ndjson.NdjsonSerializerOptions.CreateDefault();
     }
 
-    private sealed class CallbackTransport : IForwarderTransport
+    private sealed class CallbackTransport : IDeliveryTransport
     {
         private readonly Func<DeliveryBatch, DeliveryAck> _handler;
 
@@ -684,7 +684,7 @@ public sealed class ForwarderTests
         public ValueTask<DeliveryAck> SendAsync(DeliveryBatch batch, CancellationToken cancellationToken = default) => ValueTask.FromResult(_handler(batch));
     }
 
-    private sealed class CapturingTransport : IForwarderTransport
+    private sealed class CapturingTransport : IDeliveryTransport
     {
         public DeliveryBatch? Batch { get; private set; }
 
@@ -698,7 +698,7 @@ public sealed class ForwarderTests
         }
     }
 
-    private sealed class RejectingTransport : IForwarderTransport
+    private sealed class RejectingTransport : IDeliveryTransport
     {
         private readonly bool _accepted;
         private readonly string? _reason;
@@ -879,7 +879,7 @@ public sealed class ForwarderTests
         }
     }
 
-    private sealed class CapturingResourceSink : IResourceSink
+    private sealed class CapturingResourceSink : IOutputWriter
     {
         public string Name => "capturing";
         public List<ResourceOutputRecord> Records { get; } = [];

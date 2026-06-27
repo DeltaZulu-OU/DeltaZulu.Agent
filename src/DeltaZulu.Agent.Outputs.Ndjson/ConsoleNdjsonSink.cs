@@ -1,10 +1,10 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Text.Json;
 
 namespace DeltaZulu.Agent.Outputs.Ndjson;
 
-public sealed class ConsoleNdjsonSink : IResourceSink
+public sealed class ConsoleNdjsonSink : IOutputWriter
 {
     private readonly JsonSerializerOptions _jsonOptions = NdjsonSerializerOptions.CreateDefault();
     public string Name { get; }

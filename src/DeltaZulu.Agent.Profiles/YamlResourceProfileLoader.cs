@@ -1,9 +1,10 @@
+using DeltaZulu.Agent.Application.Abstractions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 namespace DeltaZulu.Agent.Profiles;
 
-public sealed class YamlResourceProfileLoader
+public sealed class YamlResourceProfileLoader : IProfileRepository
 {
     private readonly IDeserializer _deserializer;
     private readonly ResourceProfileValidator _validator = new();

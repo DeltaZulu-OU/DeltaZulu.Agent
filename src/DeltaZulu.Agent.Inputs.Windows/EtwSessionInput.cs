@@ -1,11 +1,11 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using System.Reactive.Linq;
 using System.Security.Principal;
 
 namespace DeltaZulu.Agent.Inputs.Windows;
 
-public sealed class EtwSessionInput : IResourceInput
+public sealed class EtwSessionInput : ISourceInput
 {
     private readonly string _sessionName;
     public string Name { get; }

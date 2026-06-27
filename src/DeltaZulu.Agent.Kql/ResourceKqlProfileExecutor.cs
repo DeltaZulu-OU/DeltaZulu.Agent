@@ -1,3 +1,4 @@
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Profiles;
 using System.Reactive.Disposables;
@@ -13,7 +14,7 @@ namespace DeltaZulu.Agent.Kql;
 /// Executes resource profile KQL over SourceEvent rows.
 /// This class intentionally keeps KQL as the profile language while preserving source-native fields in NDJSON output.
 /// </summary>
-public sealed class ResourceKqlProfileExecutor : IDisposable
+public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 {
     private static readonly Lazy<bool> ScalarFunctionsRegistered = new(RegisterScalarFunctions, LazyThreadSafetyMode.ExecutionAndPublication);
 

@@ -9,7 +9,8 @@
     <PackageReference Include="MSTest.TestFramework" Version="4.2.3" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Core\DeltaZulu.Agent.Core.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Domain\DeltaZulu.Agent.Domain.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Forwarder\DeltaZulu.Agent.Forwarder.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Buffer\DeltaZulu.Buffer.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Inputs.Auditd\DeltaZulu.Agent.Inputs.Auditd.csproj" />

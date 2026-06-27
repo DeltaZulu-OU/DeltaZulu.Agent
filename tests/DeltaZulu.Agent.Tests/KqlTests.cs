@@ -17,7 +17,7 @@ public sealed class KqlTests
         using var completed = new ManualResetEventSlim(false);
 
         using var subscription = executor
-            .Execute(Observable.Throw<SourceEvent>(sourceException), CreatePassThroughProfile())
+            .Execute(Observable.Throw<SourceEvent>(sourceException), CreatePassThroughProfile(), TestContext.CancellationToken)
             .Subscribe(
                 _ => { },
                 error => {
@@ -26,7 +26,7 @@ public sealed class KqlTests
                 },
                 completed.Set);
 
-        Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(5)), "The output observer did not receive source termination.");
+        Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The output observer did not receive source termination.");
         Assert.AreSame(sourceException, observedException);
     }
 
@@ -40,7 +40,7 @@ public sealed class KqlTests
             {
                 using var executor = new ResourceKqlProfileExecutor();
                 using var subscription = executor
-                    .Execute(Observable.Empty<SourceEvent>(), CreatePassThroughProfile())
+                    .Execute(Observable.Empty<SourceEvent>(), CreatePassThroughProfile(), TestContext.CancellationToken)
                     .Subscribe(_ => { });
             }
             catch (Exception ex)
@@ -52,13 +52,13 @@ public sealed class KqlTests
             }
         });
 
-        Assert.AreEqual(0, exceptions.Count, string.Join(Environment.NewLine, exceptions));
+        Assert.IsEmpty(exceptions, string.Join(Environment.NewLine, exceptions));
     }
 
     [TestMethod]
     public void NormalizeQueryForRxKql_RewritesNotInAliasOutsideStrings()
     {
-        var query = "EventLog | where EventID notin (4656, 4658) | where Message has 'notin' | where Other NOTIN (1)";
+        const string query = "EventLog | where EventID notin (4656, 4658) | where Message has 'notin' | where Other NOTIN (1)";
 
         var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
 
@@ -68,7 +68,7 @@ public sealed class KqlTests
     [TestMethod]
     public void NormalizeQueryForRxKql_DoesNotRewriteIdentifierSubstrings()
     {
-        var query = "EventLog | where Annotationnotin == 'x' | where notinValue == 'notin'";
+        const string query = "EventLog | where Annotationnotin == 'x' | where notinValue == 'notin'";
 
         var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
 
@@ -163,4 +163,6 @@ public sealed class KqlTests
         Assert.Fail($"Expected a nested dictionary but found {value.GetType().FullName}.");
         return new Dictionary<string, object?>();
     }
+
+    public TestContext TestContext { get; set; }
 }

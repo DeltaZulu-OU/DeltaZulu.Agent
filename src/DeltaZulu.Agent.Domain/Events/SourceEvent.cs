@@ -1,9 +1,5 @@
 namespace DeltaZulu.Agent.Core.Events;
 
-/// <summary>
-/// A resource-native event after input parsing and before profile filtering.
-/// Fields preserve source-native names where technically possible.
-/// </summary>
 public sealed record SourceEvent(
     ResourceMetadata Metadata,
     IReadOnlyDictionary<string, object?> Fields)

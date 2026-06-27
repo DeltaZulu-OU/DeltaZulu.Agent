@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Buffer;
@@ -7,18 +7,18 @@ using DeltaZulu.Buffer.Metrics;
 
 namespace DeltaZulu.Agent.Forwarder;
 
-public sealed class BufferedForwarderSink : IResourceSink
+public sealed class BufferedForwarderSink : IOutputWriter
 {
     private readonly DeltaZuluBufferHost<DeliveryRecord> _host;
-    private readonly IForwarderTransport _transport;
+    private readonly IDeliveryTransport _transport;
     private readonly CancellationToken _cancellationToken;
     private readonly IDisposable _activitySubscription;
     private long _lastForwarderActivityTicks;
-    private bool _disposed;
+    private int _disposed;
 
     public BufferedForwarderSink(
         DeltaZuluBufferOptions options,
-        IForwarderTransport transport,
+        IDeliveryTransport transport,
         CancellationToken cancellationToken = default)
     {
         _cancellationToken = cancellationToken;
@@ -48,6 +48,8 @@ public sealed class BufferedForwarderSink : IResourceSink
 
     public void OnNext(ResourceOutputRecord value)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+
         var result = _host.Buffer.WriteAsync(
             DeliveryRecord.FromResourceOutput(value),
             _cancellationToken).AsTask().GetAwaiter().GetResult();
@@ -69,7 +71,7 @@ public sealed class BufferedForwarderSink : IResourceSink
 
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
@@ -78,7 +80,6 @@ public sealed class BufferedForwarderSink : IResourceSink
         _activitySubscription.Dispose();
         _host.DisposeAsync().AsTask().GetAwaiter().GetResult();
         DisposeTransport();
-        _disposed = true;
     }
 
     private void RecordActivity(DateTimeOffset timestamp) =>

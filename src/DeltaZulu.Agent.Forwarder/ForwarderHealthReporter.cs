@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Core.Abstractions;
+using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Observability;
 
 namespace DeltaZulu.Agent.Forwarder;
@@ -9,14 +9,14 @@ namespace DeltaZulu.Agent.Forwarder;
 public sealed class ForwarderHealthReporter : IDisposable
 {
     private readonly BufferedForwarderSink _forwarder;
-    private readonly IResourceSink _diagnosticSink;
+    private readonly IOutputWriter _diagnosticSink;
     private readonly CollectorObservationMetadata _metadata;
     private readonly Timer _timer;
     private bool _disposed;
 
     public ForwarderHealthReporter(
         BufferedForwarderSink forwarder,
-        IResourceSink diagnosticSink,
+        IOutputWriter diagnosticSink,
         CollectorObservationMetadata metadata,
         TimeSpan interval)
     {
@@ -53,5 +53,7 @@ public sealed class ForwarderHealthReporter : IDisposable
 
         _disposed = true;
         _timer.Dispose();
+        _diagnosticSink.OnCompleted();
+        _diagnosticSink.Dispose();
     }
 }
