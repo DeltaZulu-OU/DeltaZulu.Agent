@@ -61,8 +61,7 @@ internal static partial class Program
             var bindings = CreateBindings(plan);
             try
             {
-                var runtime = new AgentRuntime(bindings, sink, warn: msg =>
-                {
+                var runtime = new AgentRuntime(bindings, sink, warn: msg => {
                     Console.Error.WriteLine($"warning: {msg}");
                     Console.Error.Flush();
                 });
@@ -93,19 +92,48 @@ internal static partial class Program
         }
     }
 
-    private static void DisposeExecutors(IReadOnlyList<ProfileBinding> bindings)
+    private static IReadOnlyList<ProfileBinding> CreateBindings(CliPlan plan)
     {
-        foreach (var binding in bindings)
+        if (plan.IsProfileMode)
         {
-            binding.Executor.Dispose();
-        }
-    }
+            var profiles = FilterUnavailableResources(plan, LoadProfiles(plan.Option("--profile")!));
+            if (profiles.Count == 0)
+            {
+                throw new InvalidOperationException("No enabled profiles were found.");
+            }
 
-    private static void LogPipelineError(Exception exception)
-    {
-        Console.Error.WriteLine("error: unhandled pipeline exception");
-        Console.Error.WriteLine(exception);
-        Console.Error.Flush();
+            return profiles
+                .Select(profile => new ProfileBinding(
+                    CreateInput(plan, profile),
+                    profile,
+                    new ResourceKqlProfileExecutor()))
+                .ToArray();
+        }
+
+        var executor = new ResourceKqlProfileExecutor();
+        var inlineKql = plan.Option("--kql") ?? plan.Option("--query") ?? plan.Option("-q");
+        var profilePath = plan.Option("--profile");
+        ResourceProfile profile2;
+
+        if (!string.IsNullOrWhiteSpace(profilePath) && !string.IsNullOrWhiteSpace(inlineKql))
+        {
+            throw new ArgumentException("Use either --profile <profile.yaml> or --kql <query>, not both.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(profilePath))
+        {
+            profile2 = new YamlResourceProfileLoader().LoadFile(profilePath);
+        }
+        else if (!string.IsNullOrWhiteSpace(inlineKql))
+        {
+            profile2 = CreateInlineProfile(plan, inlineKql);
+        }
+        else
+        {
+            profile2 = CreatePassthroughProfile(plan);
+        }
+
+        return [new ProfileBinding(CreateInput(plan), profile2, executor)];
     }
 
     private static List<ResourceSchemaDescription> CreateBuiltInSchemas() =>
@@ -234,80 +262,52 @@ internal static partial class Program
             ?? throw new ArgumentException("input command is required when no profile resource family is available.");
 
         return inputCommand switch {
-        "syslog" => new SyslogFileTailInput(plan.InputArgument ?? throw new ArgumentException("syslog profiles require a target <file> argument.")),
-        "syslogserver" => new TcpSyslogInput(IPAddress.Parse(plan.Option("--address") ?? "0.0.0.0"), int.Parse(plan.Option("--port") ?? "514")),
-        "fifo" => new FifoSyslogInput(plan.InputArgument ?? throw new ArgumentException("fifo requires a target <path> argument.")),
-        "csv" => new CsvFileInput(plan.InputArgument ?? throw new ArgumentException("csv profiles require a target <file.csv> argument.")),
-        "auditd" => new AuditdFileInput(plan.InputArgument ?? throw new ArgumentException("auditd profiles require a target <file> argument.")),
+            "syslog" => new SyslogFileTailInput(plan.InputArgument ?? throw new ArgumentException("syslog profiles require a target <file> argument.")),
+            "syslogserver" => new TcpSyslogInput(IPAddress.Parse(plan.Option("--address") ?? "0.0.0.0"), int.Parse(plan.Option("--port") ?? "514")),
+            "fifo" => new FifoSyslogInput(plan.InputArgument ?? throw new ArgumentException("fifo requires a target <path> argument.")),
+            "csv" => new CsvFileInput(plan.InputArgument ?? throw new ArgumentException("csv profiles require a target <file.csv> argument.")),
+            "auditd" => new AuditdFileInput(plan.InputArgument ?? throw new ArgumentException("auditd profiles require a target <file> argument.")),
 #if WINDOWS
-        "eventlog" => new WindowsEventLogInput(plan.InputArgument ?? profile?.Resource.Channel ?? throw new ArgumentException("eventlog profiles require resource.channel or a target <logname> argument.")),
-        "evtx" => new EvtxFileInput(plan.InputArgument ?? throw new ArgumentException("evtx requires <file.evtx>")),
-        "etl" => new EtlFileInput(plan.InputArgument ?? throw new ArgumentException("etl requires <file.etl>")),
-        "etw" => new EtwSessionInput(plan.InputArgument ?? throw new ArgumentException("etw requires <session>")),
+            "eventlog" => new WindowsEventLogInput(plan.InputArgument ?? profile?.Resource.Channel ?? throw new ArgumentException("eventlog profiles require resource.channel or a target <logname> argument.")),
+            "evtx" => new EvtxFileInput(plan.InputArgument ?? throw new ArgumentException("evtx requires <file.evtx>")),
+            "etl" => new EtlFileInput(plan.InputArgument ?? throw new ArgumentException("etl requires <file.etl>")),
+            "etw" => new EtwSessionInput(plan.InputArgument ?? throw new ArgumentException("etw requires <session>")),
 #else
-        "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{inputCommand} is available from the net10.0-windows build."),
+            "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{inputCommand} is available from the net10.0-windows build."),
 #endif
-        _ => throw new ArgumentException($"unknown input command '{inputCommand}'")
+            _ => throw new ArgumentException($"unknown input command '{inputCommand}'")
         };
     }
 
-    private static string? ProfileFamilyToInputCommand(ResourceProfile? profile) => profile?.Resource.Family.ToLowerInvariant() switch
-    {
-        "syslog" => "syslog",
-        "syslogserver" => "syslogserver",
-        "fifo" => "fifo",
-        "csv" => "csv",
-        "auditd" => "auditd",
-        "eventlog" => "eventlog",
-        "windows.eventlog" => "eventlog",
-        "evtx" => "evtx",
-        "etl" => "etl",
-        "etw" => "etw",
-        _ => null
+    private static ResourceProfile CreatePassthroughProfile(CliPlan plan) => new() {
+        SchemaVersion = 1,
+        Id = plan.Option("--resource-id") ?? "cli.passthrough",
+        Name = "Passthrough",
+        Version = "1.0.0",
+        Resource = new ResourceDescriptor {
+            Platform = plan.Option("--platform") ?? "local",
+            Family = plan.InputCommand ?? "inline"
+        },
+        Input = new ResourceInputContract {
+            Table = plan.Option("--table") ?? "Source",
+            Schema = plan.Option("--schema") ?? string.Empty
+        },
+        Output = new ResourceOutputContract {
+            Format = "ndjson",
+            PreserveOriginalFieldNames = true
+        }
     };
 
-    private static IReadOnlyList<ProfileBinding> CreateBindings(CliPlan plan)
+    private static IOutputWriter CreateSink(CliPlan plan) => string.IsNullOrWhiteSpace(plan.OutputPath)
+        ? new ConsoleNdjsonSink()
+        : new NdjsonFileSink(plan.OutputPath);
+
+    private static void DisposeExecutors(IReadOnlyList<ProfileBinding> bindings)
     {
-        if (plan.IsProfileMode)
+        foreach (var binding in bindings)
         {
-            var profiles = FilterUnavailableResources(plan, LoadProfiles(plan.Option("--profile")!));
-            if (profiles.Count == 0)
-            {
-                throw new InvalidOperationException("No enabled profiles were found.");
-            }
-
-            return profiles
-                .Select(profile => new ProfileBinding(
-                    CreateInput(plan, profile),
-                    profile,
-                    new ResourceKqlProfileExecutor()))
-                .ToArray();
+            binding.Executor.Dispose();
         }
-
-        var executor = new ResourceKqlProfileExecutor();
-        var inlineKql = plan.Option("--kql") ?? plan.Option("--query") ?? plan.Option("-q");
-        var profilePath = plan.Option("--profile");
-        ResourceProfile profile2;
-
-        if (!string.IsNullOrWhiteSpace(profilePath) && !string.IsNullOrWhiteSpace(inlineKql))
-        {
-            throw new ArgumentException("Use either --profile <profile.yaml> or --kql <query>, not both.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(profilePath))
-        {
-            profile2 = new YamlResourceProfileLoader().LoadFile(profilePath);
-        }
-        else if (!string.IsNullOrWhiteSpace(inlineKql))
-        {
-            profile2 = CreateInlineProfile(plan, inlineKql);
-        }
-        else
-        {
-            profile2 = CreatePassthroughProfile(plan);
-        }
-
-        return [new ProfileBinding(CreateInput(plan), profile2, executor)];
     }
 
     private static IReadOnlyList<ResourceProfile> FilterUnavailableResources(CliPlan plan, IReadOnlyList<ResourceProfile> profiles)
@@ -360,57 +360,7 @@ internal static partial class Program
 #endif
     }
 
-    private static ResourceProfile CreatePassthroughProfile(CliPlan plan) => new()
-    {
-        SchemaVersion = 1,
-        Id = plan.Option("--resource-id") ?? "cli.passthrough",
-        Name = "Passthrough",
-        Version = "1.0.0",
-        Resource = new ResourceDescriptor
-        {
-            Platform = plan.Option("--platform") ?? "local",
-            Family = plan.InputCommand ?? "inline"
-        },
-        Input = new ResourceInputContract
-        {
-            Table = plan.Option("--table") ?? "Source",
-            Schema = plan.Option("--schema") ?? string.Empty
-        },
-        Output = new ResourceOutputContract
-        {
-            Format = "ndjson",
-            PreserveOriginalFieldNames = true
-        }
-    };
-
-    private static IReadOnlyList<ResourceProfile> LoadProfiles(string path)
-    {
-        var loader = new YamlResourceProfileLoader();
-        if (Directory.Exists(path))
-        {
-            var result = loader.LoadDirectory(path);
-            LogProfileLoadWarnings(result.Warnings);
-            if (result.Errors.Count > 0)
-            {
-                throw new InvalidDataException(string.Join(Environment.NewLine, result.Errors));
-            }
-
-            return result.Profiles.Where(profile => profile.Enabled && IsProfileConditionSatisfied(profile)).ToList();
-        }
-
-        var profile = loader.LoadFile(path);
-        return profile.Enabled && IsProfileConditionSatisfied(profile) ? [profile] : [];
-    }
-
-    private static void LogProfileLoadWarnings(IEnumerable<string> warnings)
-    {
-        foreach (var warning in warnings)
-        {
-            Console.Error.WriteLine($"warning: {warning}");
-        }
-
-        Console.Error.Flush();
-    }
+    private static bool IsHelp(string value) => value is "-h" or "--help" or "help";
 
     private static bool IsProfileConditionSatisfied(ResourceProfile profile)
     {
@@ -443,12 +393,6 @@ internal static partial class Program
         return false;
 #endif
     }
-
-    private static IOutputWriter CreateSink(CliPlan plan) => string.IsNullOrWhiteSpace(plan.OutputPath)
-        ? new ConsoleNdjsonSink()
-        : new NdjsonFileSink(plan.OutputPath);
-
-    private static bool IsHelp(string value) => value is "-h" or "--help" or "help";
 
     private static bool IsSchemaCommand(string value) => value is "schema" or "schemas" or "resources" or "list-schemas" or "list-resources";
 
@@ -533,6 +477,41 @@ internal static partial class Program
         Console.Out.Flush();
     }
 
+    private static IReadOnlyList<ResourceProfile> LoadProfiles(string path)
+    {
+        var loader = new YamlResourceProfileLoader();
+        if (Directory.Exists(path))
+        {
+            var result = loader.LoadDirectory(path);
+            LogProfileLoadWarnings(result.Warnings);
+            if (result.Errors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join(Environment.NewLine, result.Errors));
+            }
+
+            return result.Profiles.Where(profile => profile.Enabled && IsProfileConditionSatisfied(profile)).ToList();
+        }
+
+        var profile = loader.LoadFile(path);
+        return profile.Enabled && IsProfileConditionSatisfied(profile) ? [profile] : [];
+    }
+
+    private static void LogPipelineError(Exception exception)
+    {
+        Console.Error.WriteLine("error: unhandled pipeline exception");
+        Console.Error.WriteLine(exception);
+        Console.Error.Flush();
+    }
+    private static void LogProfileLoadWarnings(IEnumerable<string> warnings)
+    {
+        foreach (var warning in warnings)
+        {
+            Console.Error.WriteLine($"warning: {warning}");
+        }
+
+        Console.Error.Flush();
+    }
+
     private static void PrintUsage()
     {
         Console.WriteLine("""
@@ -577,6 +556,19 @@ Examples:
         Console.Out.Flush();
     }
 
+    private static string? ProfileFamilyToInputCommand(ResourceProfile? profile) => profile?.Resource.Family.ToLowerInvariant() switch {
+        "syslog" => "syslog",
+        "syslogserver" => "syslogserver",
+        "fifo" => "fifo",
+        "csv" => "csv",
+        "auditd" => "auditd",
+        "eventlog" => "eventlog",
+        "windows.eventlog" => "eventlog",
+        "evtx" => "evtx",
+        "etl" => "etl",
+        "etw" => "etw",
+        _ => null
+    };
     private static bool ValidateResources(CliPlan plan)
     {
 #if WINDOWS
@@ -645,4 +637,121 @@ Examples:
         return ProfileFamilyToInputCommand(profile)?.Equals("eventlog", StringComparison.OrdinalIgnoreCase) == true;
     }
 #endif
+
+    private sealed record CliPlan(string? InputCommand, string? InputArgument, string? OutputPath, IReadOnlyDictionary<string, string?> Options)
+    {
+        public bool IsProfileMode => !string.IsNullOrWhiteSpace(Option("--profile"));
+
+        public string? Option(string name) => Options.TryGetValue(name, out var value) ? value : null;
+
+        public static CliPlan Parse(string[] args)
+        {
+            string? input = null;
+            string? inputArg = null;
+            string? outputPath = null;
+            var options = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+            for (var index = 0; index < args.Length; index++)
+            {
+                var token = args[index];
+                if (token.StartsWith('-'))
+                {
+                    var (key, value, consumedNext) = ParseOption(args, index);
+                    options[key] = value;
+                    if (consumedNext)
+                    {
+                        index++;
+                    }
+                    continue;
+                }
+
+                if (IsOutput(token))
+                {
+                    if (index + 1 < args.Length && !args[index + 1].StartsWith('-') && !IsInput(args[index + 1]) && !IsOutput(args[index + 1]))
+                    {
+                        outputPath = args[++index];
+                    }
+                    continue;
+                }
+
+                if (token.Equals("table", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ArgumentException("table output has been removed; omit the output argument for console NDJSON or use 'json <file.ndjson>' to write NDJSON to a file.");
+                }
+
+                if (input is null)
+                {
+                    if (IsInput(token))
+                    {
+                        input = token.ToLowerInvariant();
+                        if (index + 1 < args.Length && !args[index + 1].StartsWith('-') && !IsOutput(args[index + 1]) && !args[index + 1].Equals("table", StringComparison.OrdinalIgnoreCase))
+                        {
+                            inputArg = args[++index];
+                        }
+                    }
+                    else if (inputArg is null)
+                    {
+                        inputArg = token;
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"unexpected argument '{token}'");
+                    }
+                    continue;
+                }
+
+                throw new ArgumentException($"unexpected argument '{token}'");
+            }
+
+            if (string.IsNullOrWhiteSpace(input) && !options.ContainsKey("--profile"))
+            {
+                throw new ArgumentException("input command is required unless --profile is used. Put an input such as 'eventlog Security' before or after --kql.");
+            }
+
+            return new CliPlan(input, inputArg, outputPath, options);
+        }
+
+        private static bool IsOutput(string value) => value.Equals("json", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsInput(string value) => value.Equals("syslog", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("syslogserver", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("fifo", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("csv", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("auditd", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("eventlog", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("evtx", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("etl", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("etw", StringComparison.OrdinalIgnoreCase);
+
+        private static (string Key, string? Value, bool ConsumedNext) ParseOption(string[] args, int index)
+        {
+            var key = args[index];
+            var equals = key.IndexOf('=');
+            if (equals >= 0)
+            {
+                return (key[..equals], key[(equals + 1)..], false);
+            }
+
+            if (index + 1 >= args.Length || args[index + 1].StartsWith('-'))
+            {
+                throw new ArgumentException($"{key} requires a value.");
+            }
+
+            return (key, args[index + 1], true);
+        }
+    }
+
+    private sealed record ResourceSchemaDescription(
+        string Id,
+        string Name,
+        string Version,
+        bool Enabled,
+        string Source,
+        string Platform,
+        string Family,
+        string? Service,
+        string? Channel,
+        string? Provider,
+        string Table,
+        string Schema);
 }
