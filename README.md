@@ -1,4 +1,4 @@
-# DeltaZulu Agent
+  # DeltaZulu Agent
 
 DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records through `DeltaZulu.Buffer` and a RELP.Net-backed transport adapter.
 
@@ -78,10 +78,19 @@ sources:
 buffer:
   path: ./buffer/agentd
 relp:
+  useTls: true
   endpoints:
-    - host: 127.0.0.1
-      port: 6514
+    - host: ingest.example.com
+      port: 443
 ```
+
+### Single-port 443 client/server egress
+
+Use TCP/443 as the only agent egress port for production client/server communication. Configure RELP with TLS enabled and set every `relp.endpoints[].port` value to `443`; the forwarder already treats the endpoint list as failover targets, so all configured RELP destinations should advertise the same firewall-approved port. Keep certificate validation enabled with system trust or thumbprint pinning, and use `relp.tls.clientCertificatePath` when the server requires mutual TLS.
+
+If RELP-over-TLS and future C2/control-plane traffic must share the same public address and port, terminate both protocols behind a TLS-aware edge proxy on 443 and route by SNI or ALPN rather than opening additional listener ports. For example, publish `relp-ingest.example.com:443` for RELP-over-TLS and `agent-api.example.com:443` for C2/HTTPS, both resolving to the same edge. The edge can then forward RELP traffic to the RELP receiver and C2 traffic to the control-plane service on private backend ports. Do not multiplex cleartext protocols on 443; keep TLS mandatory at the edge and restrict outbound firewall rules to destination TCP/443.
+
+For local RELP validation, the demo collector still defaults to 6514 so developers can run it without privileged port binding; production deployments should override the collector or edge listener to 443.
 
 ## Demo collector
 
