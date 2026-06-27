@@ -1,6 +1,6 @@
 using System.Reflection;
-using DeltaZulu.Agent.Application.Pipelines;
-using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Shared.Pipeline;
+using DeltaZulu.Agent.Shared.Pipeline.Events;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -8,24 +8,23 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ArchitectureTests
 {
     [TestMethod]
-    public void DomainAssembly_HasNoProjectReferences()
+    public void SharedAssembly_HasNoProjectReferences()
     {
-        var domainAssembly = typeof(SourceEvent).Assembly;
-        var projectRefs = GetProjectReferences(domainAssembly);
+        var sharedAssembly = typeof(SourceEvent).Assembly;
+        var projectRefs = GetProjectReferences(sharedAssembly);
 
         Assert.IsEmpty(projectRefs,
-            $"Domain must have zero project references but found: {string.Join(", ", projectRefs)}");
+            $"Shared must have zero DeltaZulu project references but found: {string.Join(", ", projectRefs)}");
     }
 
     [TestMethod]
-    public void ApplicationAssembly_ReferencesOnlyDomain()
+    public void SharedAssembly_DoesNotReferenceLegacyProjects()
     {
-        var appAssembly = typeof(ResourcePipeline).Assembly;
-        var projectRefs = GetProjectReferences(appAssembly);
+        var sharedAssembly = typeof(ResourcePipeline).Assembly;
+        var projectRefs = GetProjectReferences(sharedAssembly);
 
-        Assert.HasCount(1, projectRefs,
-            $"Application should reference only Domain but found: {string.Join(", ", projectRefs)}");
-        Assert.AreEqual("DeltaZulu.Agent.Domain", projectRefs[0]);
+        Assert.IsEmpty(projectRefs,
+            $"Shared should not reference other DeltaZulu projects but found: {string.Join(", ", projectRefs)}");
     }
 
     [TestMethod]
@@ -41,8 +40,6 @@ public sealed class ArchitectureTests
 
         var allowedProjectRefs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "DeltaZulu.Agent.Domain",
-            "DeltaZulu.Agent.Application",
             "DeltaZulu.Agent.Shared",
             "DeltaZulu.DurableBuffer",
             "DeltaZulu.Relp"

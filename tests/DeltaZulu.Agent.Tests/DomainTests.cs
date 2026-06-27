@@ -1,7 +1,7 @@
-using DeltaZulu.Agent.Domain.Observability;
-using DeltaZulu.Agent.Domain.Delivery;
-using DeltaZulu.Agent.Domain.Events;
-using DeltaZulu.Agent.Domain.Profiles;
+using DeltaZulu.Agent.Shared.Pipeline.Observability;
+using DeltaZulu.Agent.Shared.Pipeline.Delivery;
+using DeltaZulu.Agent.Shared.Pipeline.Events;
+using DeltaZulu.Agent.Shared.Pipeline.Profiles;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -9,9 +9,9 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class DomainTests
 {
     [TestMethod]
-    public void Domain_Assembly_Has_No_Project_Dependencies()
+    public void Shared_Assembly_Has_No_Project_Dependencies()
     {
-        var domainAssembly = typeof(SourceEvent).Assembly;
+        var sharedAssembly = typeof(SourceEvent).Assembly;
         var referencedAssemblies = domainAssembly.GetReferencedAssemblies();
         var projectReferences = referencedAssemblies
             .Where(a => a.Name!.StartsWith("DeltaZulu.", StringComparison.OrdinalIgnoreCase))
@@ -19,13 +19,13 @@ public sealed class DomainTests
             .ToList();
 
         Assert.IsEmpty(projectReferences,
-            $"Domain assembly should have no project dependencies but references: {string.Join(", ", projectReferences)}");
+            $"Shared assembly should have no DeltaZulu project dependencies but references: {string.Join(", ", projectReferences)}");
     }
 
     [TestMethod]
-    public void Domain_Types_Are_In_Expected_Assembly()
+    public void Pipeline_Types_Are_In_Shared_Assembly()
     {
-        const string domainAssemblyName = "DeltaZulu.Agent.Domain";
+        const string domainAssemblyName = "DeltaZulu.Agent.Shared";
 
         Assert.AreEqual(domainAssemblyName, typeof(SourceEvent).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(ResourceMetadata).Assembly.GetName().Name);

@@ -1,9 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
-using DeltaZulu.Agent.Domain.Delivery;
-using DeltaZulu.Agent.Shared.Ndjson;
-using DeltaZulu.Agent.Shared.Relp;
+using DeltaZulu.Agent.Shared.Pipeline.Delivery;
+using DeltaZulu.Agent.Shared.Pipeline.Ndjson;
+using DeltaZulu.Agent.Shared.Pipeline.Relp;
 
 namespace DeltaZulu.Demo.Collector;
 

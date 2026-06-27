@@ -1,5 +1,5 @@
-using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Domain.Observability;
+using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
+using DeltaZulu.Agent.Shared.Pipeline.Observability;
 
 namespace DeltaZulu.Agent.Outputs.Relp;
 

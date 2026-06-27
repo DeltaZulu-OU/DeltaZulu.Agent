@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Shared.Pipeline.Events;
 using System.Globalization;
 using System.Text.RegularExpressions;
 

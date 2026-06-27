@@ -1,8 +1,8 @@
-using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Domain.Delivery;
-using DeltaZulu.Agent.Domain.Events;
-using DeltaZulu.Agent.Shared.Ndjson;
-using DeltaZulu.Agent.Shared.Relp;
+using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
+using DeltaZulu.Agent.Shared.Pipeline.Delivery;
+using DeltaZulu.Agent.Shared.Pipeline.Events;
+using DeltaZulu.Agent.Shared.Pipeline.Ndjson;
+using DeltaZulu.Agent.Shared.Pipeline.Relp;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;

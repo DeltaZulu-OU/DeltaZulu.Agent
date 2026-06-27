@@ -1,8 +1,8 @@
-using DeltaZulu.Agent.Application.Abstractions;
+using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
 using System.Diagnostics.Eventing.Reader;
 using System.Xml.Linq;
 using System.Reactive.Disposables;
-using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Shared.Pipeline.Events;
 
 namespace DeltaZulu.Agent.Inputs.Windows;
 

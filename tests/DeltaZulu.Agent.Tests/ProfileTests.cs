@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Domain.Profiles;
+using DeltaZulu.Agent.Shared.Pipeline.Profiles;
 
 namespace DeltaZulu.Agent.Tests;
 

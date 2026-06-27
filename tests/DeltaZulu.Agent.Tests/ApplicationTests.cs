@@ -1,8 +1,8 @@
 using System.Reactive.Linq;
-using DeltaZulu.Agent.Application.Abstractions;
-using DeltaZulu.Agent.Application.Pipelines;
-using DeltaZulu.Agent.Application.Runtime;
-using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Shared.Pipeline.Abstractions;
+using DeltaZulu.Agent.Shared.Pipeline;
+using DeltaZulu.Agent.Shared.Orchestrator.Runtime;
+using DeltaZulu.Agent.Shared.Pipeline.Events;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -10,7 +10,7 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ApplicationTests
 {
     [TestMethod]
-    public void ApplicationAssembly_ReferencesOnlyDomainAndBcl()
+    public void SharedAssembly_DoesNotReferenceLegacyProjectsAndBcl()
     {
         var applicationAssembly = typeof(ResourcePipeline).Assembly;
         var referencedAssemblies = applicationAssembly.GetReferencedAssemblies();
@@ -20,8 +20,7 @@ public sealed class ApplicationTests
             .Select(name => name.Name!)
             .ToList();
 
-        Assert.HasCount(1, projectReferences, $"Expected only Domain reference, found: {string.Join(", ", projectReferences)}");
-        Assert.AreEqual("DeltaZulu.Agent.Domain", projectReferences[0]);
+        Assert.IsEmpty(projectReferences, $"Expected no DeltaZulu project references, found: {string.Join(", ", projectReferences)}");
     }
 
     [TestMethod]

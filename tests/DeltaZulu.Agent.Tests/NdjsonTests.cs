@@ -1,6 +1,6 @@
-using DeltaZulu.Agent.Domain.Events;
+using DeltaZulu.Agent.Shared.Pipeline.Events;
 using DeltaZulu.Agent.Outputs.Ndjson;
-using DeltaZulu.Agent.Shared.Ndjson;
+using DeltaZulu.Agent.Shared.Pipeline.Ndjson;
 using System.Text.Json;
 
 namespace DeltaZulu.Agent.Tests;

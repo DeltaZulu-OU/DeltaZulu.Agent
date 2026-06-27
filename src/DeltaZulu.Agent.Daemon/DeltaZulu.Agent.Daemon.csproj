@@ -18,7 +18,6 @@
     <Content Include="..\..\profiles\**\*" Link="profiles\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Outputs\DeltaZulu.Agent.Outputs.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Inputs\DeltaZulu.Agent.Inputs.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Kql\DeltaZulu.Agent.Kql.csproj" />
