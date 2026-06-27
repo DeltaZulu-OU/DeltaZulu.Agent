@@ -1,15 +1,16 @@
 using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
+using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Outputs.Relp;
 
-public sealed class ForwarderChunkSender : IChunkSender
+public sealed class RelpChunkSender : IChunkSender
 {
     private readonly IDeliveryTransport _transport;
 
-    public ForwarderChunkSender(IDeliveryTransport transport) => _transport = transport;
+    public RelpChunkSender(IDeliveryTransport transport) => _transport = transport;
 
     public async ValueTask<ChunkSendResult> SendAsync(
         StoredChunk chunk,
@@ -19,7 +20,7 @@ public sealed class ForwarderChunkSender : IChunkSender
         var records = new List<DeliveryRecord>();
         foreach (var recordBytes in ChunkFormat.ReadRecords(chunkBytes))
         {
-            var record = JsonSerializer.Deserialize<DeliveryRecord>(recordBytes.ToArray(), ForwarderJson.Options);
+            var record = JsonSerializer.Deserialize<DeliveryRecord>(recordBytes.ToArray(), RelpOutputJson.Options);
             if (record is not null)
             {
                 records.Add(record);

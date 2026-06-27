@@ -1,9 +1,10 @@
 using System.Net.Sockets;
 using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
+using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.Relp;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Outputs.Relp;
 
 public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposable, IDisposable
 {
@@ -38,7 +39,7 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
             try
             {
                 var session = await GetOrOpenSessionAsync(cancellationToken).ConfigureAwait(false);
-                var payload = JsonSerializer.SerializeToUtf8Bytes(batch, ForwarderJson.Options);
+                var payload = JsonSerializer.SerializeToUtf8Bytes(batch, RelpOutputJson.Options);
                 await session.SendMessageAsync(payload, cancellationToken).ConfigureAwait(false);
 
                 return new DeliveryAck {

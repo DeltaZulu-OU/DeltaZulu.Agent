@@ -1,7 +1,7 @@
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Application.Runtime;
 using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Outputs.Relp;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
 using DeltaZulu.Agent.Inputs.Relp;
@@ -129,9 +129,9 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
         var outputSink = CreateOutputSink(configuration);
         _disposables.Add(outputSink);
-        if (outputSink is BufferedForwarderSink forwarderSink)
+        if (outputSink is BufferedRelpSink relpSink)
         {
-            StartHealthReporter(configuration, forwarderSink);
+            StartHealthReporter(configuration, relpSink);
         }
 
         var bindings = CreateBindings(configuration);
@@ -276,14 +276,14 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         {
             "console" => new ConsoleNdjsonSink(),
             "file" => new NdjsonFileSink(configuration.Output.File!),
-            _ => CreateForwarderSink(configuration)
+            _ => CreateRelpSink(configuration)
         };
 
-    private static BufferedForwarderSink CreateForwarderSink(ForwarderDaemonConfiguration configuration)
+    private static BufferedRelpSink CreateRelpSink(ForwarderDaemonConfiguration configuration)
     {
         var endpoints = configuration.Relp.Endpoints;
         var primaryEndpoint = endpoints[0];
-        return new BufferedForwarderSink(configuration.Buffer.ToBufferOptions(), new RelpForwarderTransport(new RelpForwarderOptions
+        return new BufferedRelpSink(configuration.Buffer.ToBufferOptions(), new RelpForwarderTransport(new RelpForwarderOptions
         {
             Host = primaryEndpoint.Host,
             Port = primaryEndpoint.Port,
@@ -296,7 +296,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         }));
     }
 
-    private void StartHealthReporter(ForwarderDaemonConfiguration configuration, BufferedForwarderSink forwarderSink)
+    private void StartHealthReporter(ForwarderDaemonConfiguration configuration, BufferedRelpSink relpSink)
     {
         if (configuration.Diagnostics.IntervalSeconds is not { } intervalSeconds)
         {
@@ -307,14 +307,14 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             ? new ConsoleNdjsonSink()
             : new NdjsonFileSink(configuration.Diagnostics.File);
         _disposables.Add(diagnosticSink);
-        _disposables.Add(new ForwarderHealthReporter(
-            forwarderSink,
+        _disposables.Add(new RelpHealthReporter(
+            relpSink,
             diagnosticSink,
             new CollectorObservationMetadata { AgentId = configuration.Id, HostId = Environment.MachineName },
             TimeSpan.FromSeconds(intervalSeconds)));
     }
 
-    private static X509CertificateCollection? LoadClientCertificates(ForwarderTlsConfiguration tls)
+    private static X509CertificateCollection? LoadClientCertificates(RelpTlsConfiguration tls)
     {
         if (string.IsNullOrWhiteSpace(tls.ClientCertificatePath))
         {

@@ -1,13 +1,14 @@
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
+using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.DurableBuffer;
 using DeltaZulu.DurableBuffer.Configuration;
 using DeltaZulu.DurableBuffer.Metrics;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Outputs.Relp;
 
-public sealed class BufferedForwarderSink : IOutputWriter
+public sealed class BufferedRelpSink : IOutputWriter
 {
     private readonly DurableBufferHost<DeliveryRecord> _host;
     private readonly IDeliveryTransport _transport;
@@ -16,7 +17,7 @@ public sealed class BufferedForwarderSink : IOutputWriter
     private long _lastForwarderActivityTicks;
     private int _disposed;
 
-    public BufferedForwarderSink(
+    public BufferedRelpSink(
         DurableBufferOptions options,
         IDeliveryTransport transport,
         CancellationToken cancellationToken = default)
@@ -25,22 +26,22 @@ public sealed class BufferedForwarderSink : IOutputWriter
         _transport = transport;
         _host = new DurableBufferHost<DeliveryRecord>(
             options,
-            new DeliveryRecordSerializer(),
-            new ForwarderChunkSender(_transport));
+            new RelpDeliveryRecordSerializer(),
+            new RelpChunkSender(_transport));
         _activitySubscription = _host.Events.Subscribe(new ActivityTimestampObserver(RecordActivity));
         _host.StartAsync(cancellationToken).AsTask().GetAwaiter().GetResult();
     }
 
-    public string Name => "buffered-forwarder";
+    public string Name => "buffered-relp";
 
-    public ForwarderHealthSnapshot GetHealthSnapshot() => new()
+    public RelpHealthSnapshot GetHealthSnapshot() => new()
     {
         Buffer = _host.Buffer.GetSnapshot(),
         LastForwarderActivityUtc = ReadLastActivity()
     };
 
     public ResourceOutputRecord GetHealthOutputRecord(CollectorObservationMetadata metadata) =>
-        new ForwarderHealthObservation
+        new RelpHealthObservation
         {
             Metadata = metadata,
             Health = GetHealthSnapshot()

@@ -36,13 +36,14 @@ public sealed class ArchitectureTests
             "DeltaZulu.Agent.Kql",
             "DeltaZulu.Agent.Profiles",
             "DeltaZulu.Agent.Outputs.Ndjson",
-            "DeltaZulu.Agent.Forwarder"
+            "DeltaZulu.Agent.Outputs.Relp"
         };
 
         var allowedProjectRefs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "DeltaZulu.Agent.Domain",
             "DeltaZulu.Agent.Application",
+            "DeltaZulu.Agent.Outputs.Ndjson",
             "DeltaZulu.DurableBuffer",
             "DeltaZulu.Relp"
         };

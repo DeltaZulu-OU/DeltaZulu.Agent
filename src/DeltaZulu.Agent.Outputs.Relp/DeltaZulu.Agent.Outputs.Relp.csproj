@@ -11,5 +11,6 @@
     <ProjectReference Include="..\..\external\DeltaZulu.Relp\src\DeltaZulu.Relp\DeltaZulu.Relp.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Application\DeltaZulu.Agent.Application.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Domain\DeltaZulu.Agent.Domain.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Outputs.Ndjson\DeltaZulu.Agent.Outputs.Ndjson.csproj" />
   </ItemGroup>
 </Project>

@@ -6,7 +6,7 @@
     <RootNamespace>DeltaZulu.Demo.Collector</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Agent.Forwarder\DeltaZulu.Agent.Forwarder.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Domain\DeltaZulu.Agent.Domain.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Outputs.Ndjson\DeltaZulu.Agent.Outputs.Ndjson.csproj" />
   </ItemGroup>
 </Project>

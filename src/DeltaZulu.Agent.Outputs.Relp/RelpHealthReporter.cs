@@ -1,21 +1,18 @@
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Core.Observability;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Outputs.Relp;
 
-/// <summary>
-/// Periodically emits forwarder health snapshots as output records into a diagnostic sink.
-/// </summary>
-public sealed class ForwarderHealthReporter : IDisposable
+public sealed class RelpHealthReporter : IDisposable
 {
-    private readonly BufferedForwarderSink _forwarder;
+    private readonly BufferedRelpSink _forwarder;
     private readonly IOutputWriter _diagnosticSink;
     private readonly CollectorObservationMetadata _metadata;
     private readonly Timer _timer;
     private bool _disposed;
 
-    public ForwarderHealthReporter(
-        BufferedForwarderSink forwarder,
+    public RelpHealthReporter(
+        BufferedRelpSink forwarder,
         IOutputWriter diagnosticSink,
         CollectorObservationMetadata metadata,
         TimeSpan interval)

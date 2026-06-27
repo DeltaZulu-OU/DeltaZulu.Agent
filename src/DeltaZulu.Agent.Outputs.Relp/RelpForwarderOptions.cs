@@ -1,6 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Outputs.Relp;
 
 public sealed record RelpEndpoint
 {

@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Forwarder;
+using DeltaZulu.Agent.Outputs.Relp;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -8,8 +8,8 @@ public sealed record ForwarderDaemonConfiguration
 {
     public string Id { get; init; } = "default-agent-daemon";
     public List<ForwarderDaemonSourceConfiguration> Sources { get; init; } = [];
-    public ForwarderBufferConfiguration Buffer { get; init; } = new();
-    public ForwarderRelpConfiguration Relp { get; init; } = new();
+    public RelpBufferConfiguration Buffer { get; init; } = new();
+    public RelpTransportConfiguration Relp { get; init; } = new();
     public ForwarderDaemonDiagnosticsConfiguration Diagnostics { get; init; } = new();
     public ForwarderDaemonOutputConfiguration Output { get; init; } = new();
 }
@@ -64,7 +64,7 @@ public sealed class YamlForwarderDaemonConfigurationLoader
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var prefix = string.IsNullOrWhiteSpace(path) ? "Agent daemon configuration" : $"Agent daemon configuration '{path}'";
-        YamlForwarderConfigurationLoader.Validate(new ForwarderConfiguration
+        YamlRelpOutputConfigurationLoader.Validate(new RelpOutputConfiguration
         {
             Id = configuration.Id,
             Buffer = configuration.Buffer,

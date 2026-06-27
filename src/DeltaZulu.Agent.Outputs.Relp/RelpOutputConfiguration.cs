@@ -2,16 +2,16 @@ using DeltaZulu.DurableBuffer.Configuration;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Outputs.Relp;
 
-public sealed record ForwarderConfiguration
+public sealed record RelpOutputConfiguration
 {
     public string Id { get; init; } = "default-forwarder";
-    public ForwarderBufferConfiguration Buffer { get; init; } = new();
-    public ForwarderRelpConfiguration Relp { get; init; } = new();
+    public RelpBufferConfiguration Buffer { get; init; } = new();
+    public RelpTransportConfiguration Relp { get; init; } = new();
 }
 
-public sealed record ForwarderBufferConfiguration
+public sealed record RelpBufferConfiguration
 {
     public string Path { get; init; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "deltazulu-agent-forwarder");
 
@@ -45,14 +45,14 @@ public sealed record ForwarderBufferConfiguration
     };
 }
 
-public sealed record ForwarderRelpConfiguration
+public sealed record RelpTransportConfiguration
 {
     public bool UseTls { get; init; }
-    public ForwarderTlsConfiguration Tls { get; init; } = new();
+    public RelpTlsConfiguration Tls { get; init; } = new();
     public List<RelpEndpoint> Endpoints { get; init; } = [new RelpEndpoint { Host = "127.0.0.1", Port = 6514 }];
 }
 
-public sealed record ForwarderTlsConfiguration
+public sealed record RelpTlsConfiguration
 {
     public RelpCertificateValidationMode CertificateValidation { get; init; } = RelpCertificateValidationMode.SystemTrust;
     public List<string> AllowedServerCertificateThumbprints { get; init; } = [];
@@ -61,11 +61,11 @@ public sealed record ForwarderTlsConfiguration
     public string? ClientCertificatePassword { get; init; }
 }
 
-public sealed class YamlForwarderConfigurationLoader
+public sealed class YamlRelpOutputConfigurationLoader
 {
     private readonly IDeserializer _deserializer;
 
-    public YamlForwarderConfigurationLoader()
+    public YamlRelpOutputConfigurationLoader()
     {
         _deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -73,7 +73,7 @@ public sealed class YamlForwarderConfigurationLoader
             .Build();
     }
 
-    public ForwarderConfiguration LoadFile(string path)
+    public RelpOutputConfiguration LoadFile(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -81,13 +81,13 @@ public sealed class YamlForwarderConfigurationLoader
         }
 
         using var reader = File.OpenText(path);
-        var configuration = _deserializer.Deserialize<ForwarderConfiguration>(reader)
+        var configuration = _deserializer.Deserialize<RelpOutputConfiguration>(reader)
             ?? throw new InvalidDataException($"Forwarder configuration file '{path}' did not contain a configuration.");
         Validate(configuration, path);
         return configuration;
     }
 
-    public static void Validate(ForwarderConfiguration configuration, string? path = null)
+    public static void Validate(RelpOutputConfiguration configuration, string? path = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var prefix = string.IsNullOrWhiteSpace(path) ? "Forwarder configuration" : $"Forwarder configuration '{path}'";

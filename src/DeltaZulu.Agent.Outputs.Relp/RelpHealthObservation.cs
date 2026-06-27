@@ -1,14 +1,14 @@
 using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 
-namespace DeltaZulu.Agent.Forwarder;
+namespace DeltaZulu.Agent.Outputs.Relp;
 
-public sealed record ForwarderHealthObservation
+public sealed record RelpHealthObservation
 {
     public const string RecordKind = "collector.forwarder.health";
 
     public required CollectorObservationMetadata Metadata { get; init; }
-    public required ForwarderHealthSnapshot Health { get; init; }
+    public required RelpHealthSnapshot Health { get; init; }
 
     public ResourceOutputRecord ToOutputRecord()
     {

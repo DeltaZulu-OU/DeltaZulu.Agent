@@ -8,6 +8,7 @@ using DeltaZulu.Agent.Core.Events;
 using DeltaZulu.Agent.Core.Observability;
 using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.Agent.Inputs.Relp;
+using DeltaZulu.Agent.Outputs.Relp;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
@@ -18,7 +19,7 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ForwarderTests
 {
     [TestMethod]
-    public void BufferedForwarderSink_HealthSnapshot_ReportsBufferAndForwarderCounters()
+    public void BufferedRelpSink_HealthSnapshot_ReportsBufferAndForwarderCounters()
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
@@ -29,7 +30,7 @@ public sealed class ForwarderTests
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
 
-        using var sink = new BufferedForwarderSink(options, transport);
+        using var sink = new BufferedRelpSink(options, transport);
         sink.OnNext(new ResourceOutputRecord {
             Metadata = new Dictionary<string, object?> {
                 ["collectorId"] = "agent-01",
@@ -57,14 +58,14 @@ public sealed class ForwarderTests
             HostId = "host-01"
         });
 
-        Assert.AreEqual(ForwarderHealthObservation.RecordKind, observation.Metadata["recordKind"]);
+        Assert.AreEqual(RelpHealthObservation.RecordKind, observation.Metadata["recordKind"]);
         Assert.AreEqual(1L, observation.Event["recordsAcceptedTotal"]);
         Assert.AreEqual(0L, observation.Event["batchesDeadLetteredTotal"]);
         Assert.IsTrue(observation.Event.ContainsKey("batchesSentTotal"));
     }
 
     [TestMethod]
-    public void BufferedForwarderSink_PermanentFailure_DeadLettersChunk()
+    public void BufferedRelpSink_PermanentFailure_DeadLettersChunk()
     {
         using var directory = new TemporaryDirectory();
         var transport = new RejectingTransport(accepted: false, reason: "permanent error");
@@ -78,7 +79,7 @@ public sealed class ForwarderTests
             MaxRetryAttempts = 2
         };
 
-        using var sink = new BufferedForwarderSink(options, transport);
+        using var sink = new BufferedRelpSink(options, transport);
         sink.OnNext(CreateTestOutputRecord());
         sink.OnCompleted();
 
@@ -92,7 +93,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void BufferedForwarderSink_TransientFailure_SchedulesRetry()
+    public void BufferedRelpSink_TransientFailure_SchedulesRetry()
     {
         using var directory = new TemporaryDirectory();
         long callCount = 0;
@@ -115,7 +116,7 @@ public sealed class ForwarderTests
             MaxRetryAttempts = 5
         };
 
-        using var sink = new BufferedForwarderSink(options, transport);
+        using var sink = new BufferedRelpSink(options, transport);
         sink.OnNext(CreateTestOutputRecord());
         sink.OnCompleted();
 
@@ -147,7 +148,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void DeliveryRecordSerializer_RoundtripsDeliveryId()
+    public void RelpDeliveryRecordSerializer_RoundtripsDeliveryId()
     {
         var record = new DeliveryRecord {
             DeliveryId = "test-delivery-id-abc123",
@@ -160,7 +161,7 @@ public sealed class ForwarderTests
                 Event = new Dictionary<string, object?> { ["Message"] = "hello" }
             }
         };
-        var serializer = new DeliveryRecordSerializer();
+        var serializer = new RelpDeliveryRecordSerializer();
 
         var bytes = serializer.Serialize(record);
         var deserialized = JsonSerializer.Deserialize<DeliveryRecord>(bytes.Span, TestJson.Options);
@@ -170,7 +171,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void ForwarderHealthReporter_EmitHealthSnapshot_WritesToDiagnosticSink()
+    public void RelpHealthReporter_EmitHealthSnapshot_WritesToDiagnosticSink()
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
@@ -181,12 +182,12 @@ public sealed class ForwarderTests
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
 
-        using var forwarderSink = new BufferedForwarderSink(options, transport);
+        using var relpSink = new BufferedRelpSink(options, transport);
         var capturingSink = new CapturingResourceSink();
         var metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" };
 
-        using var reporter = new ForwarderHealthReporter(
-            forwarderSink,
+        using var reporter = new RelpHealthReporter(
+            relpSink,
             capturingSink,
             metadata,
             interval: TimeSpan.FromHours(1));
@@ -195,14 +196,14 @@ public sealed class ForwarderTests
 
         Assert.HasCount(1, capturingSink.Records);
         var record = capturingSink.Records[0];
-        Assert.AreEqual(ForwarderHealthObservation.RecordKind, record.Metadata["recordKind"]);
+        Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("agent-01", record.Metadata["agentId"]);
         Assert.IsTrue(record.Event.ContainsKey("bufferState"));
         Assert.IsTrue(record.Event.ContainsKey("batchesSentTotal"));
     }
 
     [TestMethod]
-    public void ForwarderHealthReporter_AfterDispose_EmitIsNoop()
+    public void RelpHealthReporter_AfterDispose_EmitIsNoop()
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
@@ -213,12 +214,12 @@ public sealed class ForwarderTests
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
 
-        using var forwarderSink = new BufferedForwarderSink(options, transport);
+        using var relpSink = new BufferedRelpSink(options, transport);
         var capturingSink = new CapturingResourceSink();
         var metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" };
 
-        var reporter = new ForwarderHealthReporter(
-            forwarderSink,
+        var reporter = new RelpHealthReporter(
+            relpSink,
             capturingSink,
             metadata,
             interval: TimeSpan.FromHours(1));
@@ -297,10 +298,10 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void DeliveryRecordSerializer_RoundtripsViaJson()
+    public void RelpDeliveryRecordSerializer_RoundtripsViaJson()
     {
         var original = CreateTestDeliveryRecord();
-        var serializer = new DeliveryRecordSerializer();
+        var serializer = new RelpDeliveryRecordSerializer();
 
         var bytes = serializer.Serialize(original);
         var deserialized = JsonSerializer.Deserialize<DeliveryRecord>(bytes.Span, TestJson.Options);
@@ -313,7 +314,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public async Task ForwarderChunkSender_DecodesChunkAndSendsDeliveryBatch()
+    public async Task RelpChunkSender_DecodesChunkAndSendsDeliveryBatch()
     {
         using var directory = new TemporaryDirectory();
         var chunkId = ChunkId.NewChunkId();
@@ -336,7 +337,7 @@ public sealed class ForwarderTests
         await File.WriteAllTextAsync(metadataPath, "{}", TestContext.CancellationToken);
 
         var transport = new CapturingTransport();
-        var sender = new ForwarderChunkSender(transport);
+        var sender = new RelpChunkSender(transport);
         var result = await sender.SendAsync(new StoredChunk {
             Id = chunkId,
             ChunkFilePath = chunkPath,
@@ -359,7 +360,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public async Task ForwarderChunkSender_RecordCountMismatch_ReturnsPermanentFailure()
+    public async Task RelpChunkSender_RecordCountMismatch_ReturnsPermanentFailure()
     {
         using var directory = new TemporaryDirectory();
         var chunkId = ChunkId.NewChunkId();
@@ -372,7 +373,7 @@ public sealed class ForwarderTests
         await File.WriteAllTextAsync(metadataPath, "{}", TestContext.CancellationToken);
 
         var transport = new CapturingTransport();
-        var sender = new ForwarderChunkSender(transport);
+        var sender = new RelpChunkSender(transport);
         var result = await sender.SendAsync(new StoredChunk {
             Id = chunkId,
             ChunkFilePath = chunkPath,
@@ -386,7 +387,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public async Task ForwarderChunkSender_TransientFailure_ReturnsTransientStatus()
+    public async Task RelpChunkSender_TransientFailure_ReturnsTransientStatus()
     {
         using var directory = new TemporaryDirectory();
         var chunkId = ChunkId.NewChunkId();
@@ -399,7 +400,7 @@ public sealed class ForwarderTests
         await File.WriteAllTextAsync(metadataPath, "{}", TestContext.CancellationToken);
 
         var transport = new RejectingTransport(accepted: false, reason: "server busy");
-        var sender = new ForwarderChunkSender(transport);
+        var sender = new RelpChunkSender(transport);
         var result = await sender.SendAsync(new StoredChunk {
             Id = chunkId,
             ChunkFilePath = chunkPath,
@@ -414,7 +415,7 @@ public sealed class ForwarderTests
 
 
     [TestMethod]
-    public void YamlForwarderConfigurationLoader_LoadFile_LoadsBufferAndRelpSettings()
+    public void YamlRelpOutputConfigurationLoader_LoadFile_LoadsBufferAndRelpSettings()
     {
         using var directory = new TemporaryDirectory();
         var configPath = Path.Combine(directory.Path, "forwarder.yaml");
@@ -438,7 +439,7 @@ public sealed class ForwarderTests
                   port: 6515
             """);
 
-        var configuration = new YamlForwarderConfigurationLoader().LoadFile(configPath);
+        var configuration = new YamlRelpOutputConfigurationLoader().LoadFile(configPath);
 
         Assert.AreEqual("test-forwarder", configuration.Id);
         Assert.AreEqual("/tmp/dz-buffer", configuration.Buffer.Path);
@@ -465,7 +466,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void YamlForwarderConfigurationLoader_LoadFile_RejectsInvalidEndpoint()
+    public void YamlRelpOutputConfigurationLoader_LoadFile_RejectsInvalidEndpoint()
     {
         using var directory = new TemporaryDirectory();
         var configPath = Path.Combine(directory.Path, "forwarder.yaml");
@@ -478,12 +479,12 @@ public sealed class ForwarderTests
                   port: 6514
             """);
 
-        Assert.ThrowsExactly<InvalidDataException>(() => new YamlForwarderConfigurationLoader().LoadFile(configPath));
+        Assert.ThrowsExactly<InvalidDataException>(() => new YamlRelpOutputConfigurationLoader().LoadFile(configPath));
     }
 
 
     [TestMethod]
-    public void YamlForwarderConfigurationLoader_LoadFile_RejectsThumbprintValidationWithoutThumbprints()
+    public void YamlRelpOutputConfigurationLoader_LoadFile_RejectsThumbprintValidationWithoutThumbprints()
     {
         using var directory = new TemporaryDirectory();
         var configPath = Path.Combine(directory.Path, "forwarder.yaml");
@@ -497,7 +498,7 @@ public sealed class ForwarderTests
                   port: 6514
             """);
 
-        Assert.ThrowsExactly<InvalidDataException>(() => new YamlForwarderConfigurationLoader().LoadFile(configPath));
+        Assert.ThrowsExactly<InvalidDataException>(() => new YamlRelpOutputConfigurationLoader().LoadFile(configPath));
     }
 
     [TestMethod]
@@ -592,12 +593,12 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void ForwarderHealthObservation_ToOutputRecord_ContainsAllExpectedFields()
+    public void RelpHealthObservation_ToOutputRecord_ContainsAllExpectedFields()
     {
         var now = DateTimeOffset.UtcNow;
-        var observation = new ForwarderHealthObservation {
+        var observation = new RelpHealthObservation {
             Metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" },
-            Health = new ForwarderHealthSnapshot {
+            Health = new RelpHealthSnapshot {
                 Buffer = new BufferSnapshot {
                     State = BufferState.Healthy,
                     DiskBytesUsed = 1024,
@@ -622,7 +623,7 @@ public sealed class ForwarderTests
 
         var record = observation.ToOutputRecord();
 
-        Assert.AreEqual(ForwarderHealthObservation.RecordKind, record.Metadata["recordKind"]);
+        Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("Healthy", record.Event["bufferState"]);
         Assert.AreEqual(100L, record.Event["recordsAcceptedTotal"]);
         Assert.AreEqual(9L, record.Event["chunksDeliveredTotal"]);
