@@ -135,6 +135,19 @@ internal static partial class Program
             "Syslog",
             "RawMessage:string,ReceivedAt:datetime,SourceIpAddress:string,Priority:int,Facility:string,Severity:string,SyslogVersion:string,Timestamp:datetime,Hostname:string,AppName:string,ProcessName:string,ProcId:string,ProcessId:int,MsgId:string,StructuredData:string,Message:string,ExtractedData:dynamic,_metadata:dynamic"),
         new(
+            "input.fifo",
+            "Linux FIFO syslog input",
+            Version,
+            true,
+            "built-in",
+            "linux",
+            "syslog",
+            null,
+            null,
+            null,
+            "Syslog",
+            "RawMessage:string,ReceivedAt:datetime,Priority:int,Facility:string,Severity:string,SyslogVersion:string,Timestamp:datetime,Hostname:string,AppName:string,ProcessName:string,ProcId:string,ProcessId:int,MsgId:string,StructuredData:string,Message:string,ExtractedData:dynamic,_metadata:dynamic"),
+        new(
             "input.csv",
             "CSV file",
             Version,
@@ -221,6 +234,7 @@ internal static partial class Program
         return inputCommand switch {
         "syslog" => new SyslogFileTailInput(plan.InputArgument ?? throw new ArgumentException("syslog profiles require a target <file> argument.")),
         "syslogserver" => new TcpSyslogInput(IPAddress.Parse(plan.Option("--address") ?? "0.0.0.0"), int.Parse(plan.Option("--port") ?? "514")),
+        "fifo" => new FifoSyslogInput(plan.InputArgument ?? throw new ArgumentException("fifo requires a target <path> argument.")),
         "csv" => new CsvFileInput(plan.InputArgument ?? throw new ArgumentException("csv profiles require a target <file.csv> argument.")),
         "auditd" => new AuditdFileInput(plan.InputArgument ?? throw new ArgumentException("auditd profiles require a target <file> argument.")),
 #if WINDOWS
@@ -239,6 +253,7 @@ internal static partial class Program
     {
         "syslog" => "syslog",
         "syslogserver" => "syslogserver",
+        "fifo" => "fifo",
         "csv" => "csv",
         "auditd" => "auditd",
         "eventlog" => "eventlog",
@@ -529,6 +544,7 @@ Usage:
 Inputs:
   syslog <file>             Tail a local syslog-style file for new events.
   syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
+  fifo <path>               Create/read a Linux FIFO for syslog-style log lines.
   csv <file.csv>            Process a CSV file and then exit.
   auditd <file>             Process an auditd log file and then exit.
   eventlog <logname>        Listen for new Windows Event Log events (Windows build).

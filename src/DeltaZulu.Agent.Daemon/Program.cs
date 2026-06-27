@@ -244,6 +244,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         {
             "syslog" => new SyslogFileTailInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for syslog.")),
             "syslogserver" => new TcpSyslogInput(IPAddress.Parse(source.Address ?? "0.0.0.0"), source.Port ?? 514),
+            "fifo" => new FifoSyslogInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for fifo.")),
             "csv" => new CsvFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for csv.")),
             "auditd" => new AuditdFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for auditd.")),
 #if WINDOWS

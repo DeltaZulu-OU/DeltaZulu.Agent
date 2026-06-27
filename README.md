@@ -19,6 +19,7 @@ Usage:
 Inputs:
   syslog <file>             Tail a local syslog-style file for new events.
   syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
+  fifo <path>               Create/read a Linux FIFO for syslog-style log lines.
   csv <file.csv>            Process a CSV file and then exit.
   auditd <file>             Process an auditd log file and then exit.
   eventlog <logname>        Listen for new Windows Event Log events (Windows build).
@@ -47,6 +48,7 @@ Examples:
 dzagentctl syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
 dzagentctl csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
 dzagentctl syslogserver --address 127.0.0.1 --port 5514
+dzagentctl fifo /run/deltazulu/logs.fifo json fifo.ndjson --kql "Source | project ReceivedAt, RawMessage, Message"
 dzdemo-collector --address 127.0.0.1 --port 6514
 ```
 
@@ -144,7 +146,7 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - `dzagentd` is the forwarder-only daemon host configured by `config/dzagentd.yaml`.
 - `DeltaZulu.Buffer` is the durable queue and backpressure layer before RELP dispatch.
 - `DeltaZulu.Agent.Forwarder` owns delivery serialization, buffered forwarding, RELP-neutral transport contracts, RELP.Net transport, endpoint failover groundwork, TLS policy options, and health snapshots.
-- Input families include syslog, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW.
+- Input families include syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW.
 - Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
 - Enrichment, DuckDB, SQL window engines, and edge-side canonical normalization remain out of scope for the agent.

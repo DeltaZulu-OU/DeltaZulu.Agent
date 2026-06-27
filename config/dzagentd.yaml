@@ -27,6 +27,12 @@ sources:
   #   target: /var/log/auth.log
   #   profile: profiles/linux/syslog/sshd.yaml
 
+  # Linux FIFO example. The daemon creates the FIFO when missing, then any local
+  # process can push syslog-style lines with: printf '<13>hello\n' > /run/deltazulu/logs.fifo
+  # - id: local-fifo
+  #   input: fifo
+  #   target: /run/deltazulu/logs.fifo
+
   # Linux auditd file-tail example. Uncomment this block on Linux when auditd is
   # installed and /var/log/audit/audit.log is readable by the daemon user.
   # - id: local-auditd

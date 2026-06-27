@@ -45,4 +45,31 @@ public sealed class SyslogTests
         Assert.AreEqual("plain message without syslog header", evt.Fields["RawMessage"]);
         Assert.AreEqual("plain message without syslog header", evt.Fields["Message"]);
     }
+
+    [TestMethod]
+    public void EnsureFifo_CreatesLinuxNamedPipe()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            Assert.Inconclusive("FIFO input is Linux-only.");
+        }
+
+        var directory = Path.Combine(Path.GetTempPath(), $"deltazulu-fifo-{Guid.NewGuid():N}");
+        var fifoPath = Path.Combine(directory, "logs.fifo");
+        try
+        {
+            FifoSyslogInput.EnsureFifo(fifoPath);
+            FifoSyslogInput.EnsureFifo(fifoPath);
+        }
+        finally
+        {
+            File.Delete(fifoPath);
+
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory);
+            }
+        }
+    }
+
 }

@@ -80,6 +80,7 @@ internal static partial class Program
 
         private static bool IsInput(string value) => value.Equals("syslog", StringComparison.OrdinalIgnoreCase)
             || value.Equals("syslogserver", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("fifo", StringComparison.OrdinalIgnoreCase)
             || value.Equals("csv", StringComparison.OrdinalIgnoreCase)
             || value.Equals("auditd", StringComparison.OrdinalIgnoreCase)
             || value.Equals("eventlog", StringComparison.OrdinalIgnoreCase)
