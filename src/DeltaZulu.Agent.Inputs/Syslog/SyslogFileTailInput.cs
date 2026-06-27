@@ -56,6 +56,6 @@ public sealed class SyslogFileTailInput : ISourceInput
             }
         }, cts.Token);
 
-        return Disposable.Create(() => cts.Cancel());
+        return Disposable.Create(() => { cts.Cancel(); cts.Dispose(); });
     });
 }

@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Domain.Delivery;
@@ -10,6 +9,7 @@ using DeltaZulu.Agent.Domain.Observability;
 using DeltaZulu.Agent.Inputs.Relp;
 using DeltaZulu.Agent.Outputs.Relp;
 using DeltaZulu.Agent.Shared.Ndjson;
+using DeltaZulu.Agent.Shared.Relp;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
@@ -61,8 +61,8 @@ public sealed class ForwarderTests
 
         Assert.AreEqual(RelpHealthObservation.RecordKind, observation.Metadata["recordKind"]);
         Assert.AreEqual(1L, observation.Event["recordsAcceptedTotal"]);
-        Assert.AreEqual(0L, observation.Event["batchesDeadLetteredTotal"]);
-        Assert.IsTrue(observation.Event.ContainsKey("batchesSentTotal"));
+        Assert.AreEqual(0L, observation.Event["chunksDeadLetteredTotal"]);
+        Assert.IsTrue(observation.Event.ContainsKey("chunksSentTotal"));
     }
 
     [TestMethod]
@@ -200,7 +200,7 @@ public sealed class ForwarderTests
         Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("agent-01", record.Metadata["agentId"]);
         Assert.IsTrue(record.Event.ContainsKey("bufferState"));
-        Assert.IsTrue(record.Event.ContainsKey("batchesSentTotal"));
+        Assert.IsTrue(record.Event.ContainsKey("chunksSentTotal"));
     }
 
     [TestMethod]
@@ -625,11 +625,11 @@ public sealed class ForwarderTests
         Assert.AreEqual("Healthy", record.Event["bufferState"]);
         Assert.AreEqual(100L, record.Event["recordsAcceptedTotal"]);
         Assert.AreEqual(9L, record.Event["chunksDeliveredTotal"]);
-        Assert.AreEqual(10L, record.Event["batchesSentTotal"]);
-        Assert.AreEqual(9L, record.Event["batchesAcknowledgedTotal"]);
-        Assert.AreEqual(1L, record.Event["batchesFailedTotal"]);
-        Assert.AreEqual(2L, record.Event["batchesRetryScheduledTotal"]);
-        Assert.AreEqual(0L, record.Event["batchesDeadLetteredTotal"]);
+        Assert.AreEqual(10L, record.Event["chunksSentTotal"]);
+        Assert.AreEqual(9L, record.Event["chunksDeliveredTotal"]);
+        Assert.AreEqual(1L, record.Event["chunksFailedTotal"]);
+        Assert.AreEqual(2L, record.Event["chunksRetryScheduledTotal"]);
+        Assert.AreEqual(0L, record.Event["chunksDeadLetteredTotal"]);
         Assert.AreEqual(now, record.Event["lastForwarderActivityUtc"]);
     }
 
@@ -791,28 +791,27 @@ public sealed class ForwarderTests
 
                 while (!_cts.IsCancellationRequested)
                 {
-                    var frame = await ReadFrameAsync(stream, _cts.Token).ConfigureAwait(false);
-                    if (frame is null)
+                    var maybeFrame = await RelpFrameCodec.ReadFrameAsync(stream, _cts.Token).ConfigureAwait(false);
+                    if (maybeFrame is not { } frame)
                     {
                         return;
                     }
 
-                    var (transactionId, command, payload) = frame.Value;
-                    switch (command)
+                    switch (frame.Command)
                     {
                         case "open":
-                            await WriteResponseAsync(stream, transactionId, "200 OK\nrelp_version=0\ncommands=syslog", _cts.Token).ConfigureAwait(false);
+                            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", _cts.Token).ConfigureAwait(false);
                             break;
                         case "syslog":
-                            _batchSource.TrySetResult(JsonSerializer.Deserialize<DeliveryBatch>(payload.Span, TestJson.Options));
-                            await WriteResponseAsync(stream, transactionId, _acceptSyslog ? "200 OK" : "500 rejected", _cts.Token).ConfigureAwait(false);
+                            _batchSource.TrySetResult(JsonSerializer.Deserialize<DeliveryBatch>(frame.Payload.Span, TestJson.Options));
+                            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, _acceptSyslog ? "200 OK" : "500 rejected", _cts.Token).ConfigureAwait(false);
                             if (!_acceptSyslog)
                             {
                                 return;
                             }
                             break;
                         case "close":
-                            await WriteResponseAsync(stream, transactionId, "200 OK", _cts.Token).ConfigureAwait(false);
+                            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", _cts.Token).ConfigureAwait(false);
                             return;
                     }
                 }
@@ -829,62 +828,6 @@ public sealed class ForwarderTests
             }
         }
 
-        private static async Task<(int TransactionId, string Command, ReadOnlyMemory<byte> Payload)?> ReadFrameAsync(Stream stream, CancellationToken cancellationToken)
-        {
-            var transactionIdText = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false);
-            if (transactionIdText is null)
-            {
-                return null;
-            }
-
-            var command = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidDataException("Missing RELP command.");
-            var lengthText = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidDataException("Missing RELP payload length.");
-            var length = int.Parse(lengthText, System.Globalization.CultureInfo.InvariantCulture);
-            var payload = new byte[length];
-            await stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
-
-            var newline = new byte[1];
-            await stream.ReadExactlyAsync(newline, cancellationToken).ConfigureAwait(false);
-            if (newline[0] != (byte)'\n')
-            {
-                throw new InvalidDataException("Missing RELP frame terminator.");
-            }
-
-            return (int.Parse(transactionIdText, System.Globalization.CultureInfo.InvariantCulture), command, payload);
-        }
-
-        private static async Task<string?> ReadTokenAsync(Stream stream, byte delimiter, CancellationToken cancellationToken)
-        {
-            var buffer = new List<byte>();
-            var one = new byte[1];
-            while (true)
-            {
-                var read = await stream.ReadAsync(one.AsMemory(0, 1), cancellationToken).ConfigureAwait(false);
-                if (read == 0)
-                {
-                    return buffer.Count == 0 ? null : Encoding.ASCII.GetString(buffer.ToArray());
-                }
-
-                if (one[0] == delimiter)
-                {
-                    return Encoding.ASCII.GetString(buffer.ToArray());
-                }
-
-                buffer.Add(one[0]);
-            }
-        }
-
-        private static async Task WriteResponseAsync(Stream stream, int transactionId, string payload, CancellationToken cancellationToken)
-        {
-            var payloadBytes = Encoding.UTF8.GetBytes(payload);
-            var headerBytes = Encoding.ASCII.GetBytes($"{transactionId} rsp {payloadBytes.Length} ");
-            await stream.WriteAsync(headerBytes, cancellationToken).ConfigureAwait(false);
-            await stream.WriteAsync(payloadBytes, cancellationToken).ConfigureAwait(false);
-            await stream.WriteAsync("\n"u8.ToArray(), cancellationToken).ConfigureAwait(false);
-            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private sealed class CapturingResourceSink : IOutputWriter

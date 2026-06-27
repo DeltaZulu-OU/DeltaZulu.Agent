@@ -139,14 +139,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         var runtime = new AgentRuntime(bindings, outputSink, warn: msg =>
             logger.LogWarning("{Warning}", msg));
 
-        return Task.Run(() => runtime.Run(stoppingToken), stoppingToken)
-            .ContinueWith(task =>
-            {
-                if (task.Exception is not null)
-                {
-                    logger.LogError(task.Exception, "Agent daemon runtime failed.");
-                }
-            }, TaskScheduler.Default);
+        return Task.Run(() => runtime.Run(stoppingToken), stoppingToken);
     }
 
     public override void Dispose()

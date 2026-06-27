@@ -89,7 +89,6 @@ public sealed class AgentRuntime
         }
         catch (AggregateException ex)
         {
-            mux.Complete();
             return new AgentRuntimeResult(false, ex.InnerExceptions.Count == 1
                 ? ex.InnerExceptions[0]
                 : ex.Flatten());

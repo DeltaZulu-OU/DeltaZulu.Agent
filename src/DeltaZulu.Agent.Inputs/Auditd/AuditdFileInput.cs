@@ -77,6 +77,6 @@ public sealed class AuditdFileInput : ISourceInput
             }
         }, cts.Token);
 
-        return Disposable.Create(() => cts.Cancel());
+        return Disposable.Create(() => { cts.Cancel(); cts.Dispose(); });
     });
 }

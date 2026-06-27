@@ -10,12 +10,8 @@ public static class AgentScalarFunctions
     private static readonly MemoryCache ProcessNameCache = new("AgentProcessNameCache");
 
     [KqlScalarFunction("ntohs")]
-    public static int NetworkToHostPort(ushort port)
-    {
-        short converted = IPAddress.NetworkToHostOrder((short)port);
-        var binary = Convert.ToString(converted, 2).PadLeft(8, '0');
-        return Convert.ToInt32(binary, 2);
-    }
+    public static int NetworkToHostPort(ushort port) =>
+        (ushort)IPAddress.NetworkToHostOrder((short)port);
 
     [KqlScalarFunction("getprocessname")]
     public static string GetProcessName(uint pid)

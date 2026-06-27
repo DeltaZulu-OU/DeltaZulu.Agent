@@ -9,7 +9,7 @@ public sealed class RelpHealthReporter : IDisposable
     private readonly IOutputWriter _diagnosticSink;
     private readonly CollectorObservationMetadata _metadata;
     private readonly Timer _timer;
-    private bool _disposed;
+    private int _disposed;
 
     public RelpHealthReporter(
         BufferedRelpSink forwarder,
@@ -25,7 +25,7 @@ public sealed class RelpHealthReporter : IDisposable
 
     public void EmitHealthSnapshot()
     {
-        if (_disposed)
+        if (Volatile.Read(ref _disposed) != 0)
         {
             return;
         }
@@ -43,12 +43,10 @@ public sealed class RelpHealthReporter : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
-
-        _disposed = true;
         _timer.Dispose();
         _diagnosticSink.OnCompleted();
         _diagnosticSink.Dispose();

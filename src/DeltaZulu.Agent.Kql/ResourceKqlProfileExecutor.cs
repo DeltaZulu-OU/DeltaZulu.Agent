@@ -21,7 +21,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
     private readonly Lock _gate = new();
     private readonly List<IDisposable> _subscriptions = [];
     private readonly List<string> _temporaryQueryFiles = [];
-    private bool _disposed;
+    private int _disposed;
 
     public IObservable<ResourceOutputRecord> Execute(
         IObservable<SourceEvent> source,
@@ -232,12 +232,10 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
-
-        _disposed = true;
 
         IDisposable[] subscriptions;
         string[] temporaryQueryFiles;

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.Json;
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Domain.Delivery;
@@ -16,33 +17,44 @@ public sealed class RelpChunkSender : IChunkSender
         StoredChunk chunk,
         CancellationToken cancellationToken = default)
     {
-        var chunkBytes = await File.ReadAllBytesAsync(chunk.ChunkFilePath, cancellationToken);
-        var records = new List<DeliveryRecord>();
-        foreach (var recordBytes in ChunkFormat.ReadRecords(chunkBytes))
+        var fileLength = (int)new FileInfo(chunk.ChunkFilePath).Length;
+        var chunkBytes = ArrayPool<byte>.Shared.Rent(fileLength);
+        try
         {
-            var record = JsonSerializer.Deserialize<DeliveryRecord>(recordBytes.ToArray(), RelpOutputJson.Options);
-            if (record is not null)
+            await using var stream = new FileStream(chunk.ChunkFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan);
+            await stream.ReadExactlyAsync(chunkBytes.AsMemory(0, fileLength), cancellationToken).ConfigureAwait(false);
+
+            var records = new List<DeliveryRecord>();
+            foreach (var recordBytes in ChunkFormat.ReadRecords(chunkBytes.AsMemory(0, fileLength)))
             {
-                records.Add(record);
+                var record = JsonSerializer.Deserialize<DeliveryRecord>(recordBytes.Span, RelpOutputJson.Options);
+                if (record is not null)
+                {
+                    records.Add(record);
+                }
             }
+
+            if (records.Count != chunk.Metadata.RecordCount)
+            {
+                return new ChunkSendResult(
+                    ChunkSendStatus.PermanentFailure,
+                    $"Chunk {chunk.Id} expected {chunk.Metadata.RecordCount} records but decoded {records.Count}.");
+            }
+
+            var ack = await _transport.SendAsync(new DeliveryBatch
+            {
+                BatchId = chunk.Id.Value,
+                CreatedAt = chunk.Metadata.SealedUtc ?? chunk.Metadata.CreatedUtc,
+                Records = records
+            }, cancellationToken);
+
+            return ack.Accepted
+                ? new ChunkSendResult(ChunkSendStatus.Success)
+                : new ChunkSendResult(ChunkSendStatus.TransientFailure, ack.Reason ?? "Forwarder batch was not acknowledged.");
         }
-
-        if (records.Count != chunk.Metadata.RecordCount)
+        finally
         {
-            return new ChunkSendResult(
-                ChunkSendStatus.PermanentFailure,
-                $"Chunk {chunk.Id} expected {chunk.Metadata.RecordCount} records but decoded {records.Count}.");
+            ArrayPool<byte>.Shared.Return(chunkBytes);
         }
-
-        var ack = await _transport.SendAsync(new DeliveryBatch
-        {
-            BatchId = chunk.Id.Value,
-            CreatedAt = chunk.Metadata.SealedUtc ?? chunk.Metadata.CreatedUtc,
-            Records = records
-        }, cancellationToken);
-
-        return ack.Accepted
-            ? new ChunkSendResult(ChunkSendStatus.Success)
-            : new ChunkSendResult(ChunkSendStatus.TransientFailure, ack.Reason ?? "Forwarder batch was not acknowledged.");
     }
 }

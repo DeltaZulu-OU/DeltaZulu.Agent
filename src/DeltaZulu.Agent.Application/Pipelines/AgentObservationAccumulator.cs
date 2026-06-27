@@ -8,7 +8,7 @@ public sealed class AgentObservationAccumulator
     private const int MaxDistinctKeys = 10_000;
     private static readonly LogTelemetryKey OverflowKey = new("__overflow__", "__overflow__", null, null);
 
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<LogTelemetryKey, MutableCounts> _counts = [];
 
     public void RecordRead(SourceEvent source) => Increment(LogTelemetryKey.FromSourceEvent(source), counts => counts.ReadCount++);

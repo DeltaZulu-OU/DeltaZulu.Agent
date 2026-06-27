@@ -1,9 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
 using DeltaZulu.Agent.Domain.Delivery;
 using DeltaZulu.Agent.Shared.Ndjson;
+using DeltaZulu.Agent.Shared.Relp;
 
 namespace DeltaZulu.Demo.Collector;
 
@@ -105,27 +105,26 @@ internal sealed class DemoRelpCollector
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            var frame = await ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
-            if (frame is null)
+            var maybeFrame = await RelpFrameCodec.ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
+            if (maybeFrame is not { } frame)
             {
                 return;
             }
 
-            var (transactionId, command, payload) = frame.Value;
-            switch (command)
+            switch (frame.Command)
             {
                 case "open":
-                    await WriteResponseAsync(stream, transactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
+                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
                     break;
                 case "syslog":
-                    await PrintBatchAsync(payload, cancellationToken).ConfigureAwait(false);
-                    await WriteResponseAsync(stream, transactionId, "200 OK", cancellationToken).ConfigureAwait(false);
+                    await PrintBatchAsync(frame.Payload, cancellationToken).ConfigureAwait(false);
+                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
                     break;
                 case "close":
-                    await WriteResponseAsync(stream, transactionId, "200 OK", cancellationToken).ConfigureAwait(false);
+                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
                     return;
                 default:
-                    await WriteResponseAsync(stream, transactionId, $"500 unsupported command {command}", cancellationToken).ConfigureAwait(false);
+                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, $"500 unsupported command {frame.Command}", cancellationToken).ConfigureAwait(false);
                     return;
             }
         }
@@ -149,62 +148,4 @@ internal sealed class DemoRelpCollector
         await _output.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<(int TransactionId, string Command, ReadOnlyMemory<byte> Payload)?> ReadFrameAsync(
-        Stream stream,
-        CancellationToken cancellationToken)
-    {
-        var transactionIdText = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false);
-        if (transactionIdText is null)
-        {
-            return null;
-        }
-
-        var command = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("Missing RELP command.");
-        var lengthText = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("Missing RELP payload length.");
-        var length = int.Parse(lengthText, System.Globalization.CultureInfo.InvariantCulture);
-        var payload = new byte[length];
-        await stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
-
-        var newline = new byte[1];
-        await stream.ReadExactlyAsync(newline, cancellationToken).ConfigureAwait(false);
-        if (newline[0] != (byte)'\n')
-        {
-            throw new InvalidDataException("Missing RELP frame terminator.");
-        }
-
-        return (int.Parse(transactionIdText, System.Globalization.CultureInfo.InvariantCulture), command, payload);
-    }
-
-    private static async Task<string?> ReadTokenAsync(Stream stream, byte delimiter, CancellationToken cancellationToken)
-    {
-        var buffer = new List<byte>();
-        var one = new byte[1];
-        while (true)
-        {
-            var read = await stream.ReadAsync(one.AsMemory(0, 1), cancellationToken).ConfigureAwait(false);
-            if (read == 0)
-            {
-                return buffer.Count == 0 ? null : Encoding.ASCII.GetString(buffer.ToArray());
-            }
-
-            if (one[0] == delimiter)
-            {
-                return Encoding.ASCII.GetString(buffer.ToArray());
-            }
-
-            buffer.Add(one[0]);
-        }
-    }
-
-    private static async Task WriteResponseAsync(Stream stream, int transactionId, string payload, CancellationToken cancellationToken)
-    {
-        var payloadBytes = Encoding.UTF8.GetBytes(payload);
-        var headerBytes = Encoding.ASCII.GetBytes($"{transactionId} rsp {payloadBytes.Length} ");
-        await stream.WriteAsync(headerBytes, cancellationToken).ConfigureAwait(false);
-        await stream.WriteAsync(payloadBytes, cancellationToken).ConfigureAwait(false);
-        await stream.WriteAsync("\n"u8.ToArray(), cancellationToken).ConfigureAwait(false);
-        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-    }
 }

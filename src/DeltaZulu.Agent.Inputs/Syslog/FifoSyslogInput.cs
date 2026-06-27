@@ -74,7 +74,7 @@ public sealed class FifoSyslogInput : ISourceInput
             }
         }, cts.Token);
 
-        return Disposable.Create(() => cts.Cancel());
+        return Disposable.Create(() => { cts.Cancel(); cts.Dispose(); });
     });
 
     public static void EnsureFifo(string path)

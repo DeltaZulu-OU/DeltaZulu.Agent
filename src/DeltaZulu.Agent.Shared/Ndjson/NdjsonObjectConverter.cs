@@ -24,6 +24,14 @@ internal sealed class NdjsonObjectConverter : JsonConverter<object?>
             return;
         }
 
-        JsonSerializer.Serialize(writer, value, value.GetType(), options);
+        var runtimeType = value.GetType();
+        if (runtimeType == typeof(object))
+        {
+            writer.WriteStartObject();
+            writer.WriteEndObject();
+            return;
+        }
+
+        JsonSerializer.Serialize(writer, value, runtimeType, options);
     }
 }

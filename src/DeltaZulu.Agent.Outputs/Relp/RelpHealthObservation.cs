@@ -35,11 +35,9 @@ public sealed record RelpHealthObservation
                 ["recordsDroppedTotal"] = Health.Buffer.RecordsDroppedTotal,
                 ["chunksDeliveredTotal"] = Health.Buffer.ChunksDeliveredTotal,
                 ["chunksDeadLetteredTotal"] = Health.Buffer.ChunksDeadLetteredTotal,
-                ["batchesSentTotal"] = Health.Buffer.ChunksSentTotal,
-                ["batchesAcknowledgedTotal"] = Health.Buffer.ChunksDeliveredTotal,
-                ["batchesFailedTotal"] = Health.Buffer.ChunksFailedTotal,
-                ["batchesRetryScheduledTotal"] = Health.Buffer.ChunksRetryScheduledTotal,
-                ["batchesDeadLetteredTotal"] = Health.Buffer.ChunksDeadLetteredTotal,
+                ["chunksSentTotal"] = Health.Buffer.ChunksSentTotal,
+                ["chunksFailedTotal"] = Health.Buffer.ChunksFailedTotal,
+                ["chunksRetryScheduledTotal"] = Health.Buffer.ChunksRetryScheduledTotal,
                 ["lastForwarderActivityUtc"] = Health.LastForwarderActivityUtc
             }
         };
