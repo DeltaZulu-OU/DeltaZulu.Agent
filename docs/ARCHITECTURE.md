@@ -133,10 +133,16 @@ The forwarder path emits health observations through `ForwarderHealthReporter`, 
 ```yaml
 id: local-agent-daemon
 sources:
-  - id: local-syslog
-    input: syslog
-    target: /var/log/auth.log
-    profile: profiles/linux/syslog/sshd.yaml
+  # Windows Event Log example. Uncomment Linux examples in config/dzagentd.yaml
+  # instead when running the Linux build.
+  - id: local-windows-security
+    input: eventlog
+    target: Security
+    profile: profiles/windows/eventlog/security.yaml
+  # - id: local-syslog
+  #   input: syslog
+  #   target: /var/log/auth.log
+  #   profile: profiles/linux/syslog/sshd.yaml
 buffer:
   path: ./buffer/agentd
 relp:

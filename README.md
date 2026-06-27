@@ -54,7 +54,7 @@ dzdemo-collector --address 127.0.0.1 --port 6514
 
 ## Agent daemon
 
-`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally forwarder-only: it has no inline query, schema listing, table output, JSON export, or other exploration commands. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development and later under Windows Service Control Manager or systemd.
+`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally forwarder-only: it has no inline query, schema listing, table output, JSON export, or other exploration commands. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
 
 ```bash
 dzagentd --config config/dzagentd.yaml
@@ -65,10 +65,16 @@ The daemon configuration owns live input families plus the existing durable buff
 ```yaml
 id: local-agent-daemon
 sources:
-  - id: local-syslog
-    input: syslog
-    target: /var/log/auth.log
-    profile: profiles/linux/syslog/sshd.yaml
+  # Windows Event Log example. Uncomment Linux examples in config/dzagentd.yaml
+  # instead when running the Linux build.
+  - id: local-windows-security
+    input: eventlog
+    target: Security
+    profile: profiles/windows/eventlog/security.yaml
+  # - id: local-syslog
+  #   input: syslog
+  #   target: /var/log/auth.log
+  #   profile: profiles/linux/syslog/sshd.yaml
 buffer:
   path: ./buffer/agentd
 relp:

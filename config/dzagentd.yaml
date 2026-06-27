@@ -1,21 +1,59 @@
+# DeltaZulu Agent daemon sample configuration.
+#
+# Keep one platform-specific source set enabled at a time. Windows inputs require
+# the net10.0-windows build; Linux inputs can be enabled on Linux hosts or in
+# containers where the referenced log files are mounted into the daemon.
 id: local-agent-daemon
+
 sources:
-  - id: local-syslog
-    input: syslog
-    target: /var/log/auth.log
-    profile: profiles/linux/syslog/sshd.yaml
+  # Windows Event Log example. The target is the Windows channel name and the
+  # profile controls the KQL filtering/projection for that channel.
+  - id: local-windows-security
+    input: eventlog
+    target: Security
+    profile: profiles/windows/eventlog/security.yaml
+
+  # Optional Windows Sysmon channel example. Uncomment when Sysmon is installed
+  # and the Operational channel is enabled on the host.
+  # - id: local-windows-sysmon
+  #   input: eventlog
+  #   target: Microsoft-Windows-Sysmon/Operational
+  #   profile: profiles/windows/eventlog/sysmon-operational.yaml
+
+  # Linux syslog file-tail example. Uncomment this block on Linux and make sure
+  # the target log file exists and is readable by the daemon user.
+  # - id: local-syslog
+  #   input: syslog
+  #   target: /var/log/auth.log
+  #   profile: profiles/linux/syslog/sshd.yaml
+
+  # Linux auditd file-tail example. Uncomment this block on Linux when auditd is
+  # installed and /var/log/audit/audit.log is readable by the daemon user.
+  # - id: local-auditd
+  #   input: auditd
+  #   target: /var/log/audit/audit.log
+  #   profile: profiles/linux/auditd/execve.yaml
+
 buffer:
+  # Durable local queue used when the RELP endpoint is unavailable.
   path: ./buffer/agentd
   maxChunkRecords: 100
   maxChunkAgeSeconds: 1
+
 relp:
   useTls: false
   tls:
+    # Use SystemTrust for production TLS validation. Lab-only alternatives are
+    # controlled by ForwarderTlsConfiguration and should not be used in prod.
     certificateValidation: SystemTrust
     allowedServerCertificateThumbprints: []
     certificateExpiryWarningDays: 30
   endpoints:
+    # Local demo collector default. Replace with your production collector host.
     - host: 127.0.0.1
       port: 6514
+
 diagnostics:
+  # Emit daemon/buffer health observations every N seconds. Set to null or remove
+  # this value to disable periodic diagnostics.
   intervalSeconds: 60

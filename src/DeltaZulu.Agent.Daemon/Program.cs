@@ -35,13 +35,12 @@ internal static class Program
         var configPath = ParseConfigPath(args);
         try
         {
-            await Host.CreateDefaultBuilder(args)
-                .UseWindowsService(options => options.ServiceName = "DeltaZulu Agent Daemon")
-                .UseSystemd()
+            await ConfigureHostLifetime(Host.CreateDefaultBuilder(args))
                 .ConfigureServices(services => services.AddHostedService(provider => new ForwarderDaemonService(
                     configPath,
                     provider.GetRequiredService<ILogger<ForwarderDaemonService>>())))
-                .RunConsoleAsync();
+                .Build()
+                .RunAsync();
 
             return 0;
         }
@@ -56,6 +55,21 @@ internal static class Program
             Console.Error.Flush();
             return 1;
         }
+    }
+
+    private static IHostBuilder ConfigureHostLifetime(IHostBuilder builder)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return builder.UseWindowsService(options => options.ServiceName = "DeltaZulu Agent Daemon");
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return builder.UseSystemd();
+        }
+
+        return builder;
     }
 
     private static string ParseConfigPath(string[] args)
@@ -97,7 +111,7 @@ Usage:
   dzagentd --config <dzagentd.yaml>
   dzagentd <dzagentd.yaml>
 
-This executable is service-shaped from the start: it hosts only the DeltaZulu forwarder pipeline and has no query, table, JSON export, or schema commands. It can run interactively during development and is ready to be hosted by Windows Service Control Manager or systemd.
+This executable is service-shaped from the start: it hosts only the DeltaZulu forwarder pipeline and has no query, table, JSON export, or schema commands. It can run interactively during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
 """);
         Console.Out.Flush();
     }
