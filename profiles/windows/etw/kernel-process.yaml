@@ -23,5 +23,6 @@ filter:
   language: kql
   query: |
     Etw
+    | where source =~ "Microsoft-Windows-Kernel-Process"
     | where ProviderName == "Microsoft-Windows-Kernel-Process"
     | project Timestamp, ProviderName, EventId, EventName, Opcode, Task, Keywords, ActivityId, Payload, RawEvent, _metadata

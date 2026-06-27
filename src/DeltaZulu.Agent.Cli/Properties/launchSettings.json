@@ -2,7 +2,7 @@
   "profiles": {
     "DeltaZulu.Agent.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "eventlog forwarder --profile ..\\..\\..\\..\\..\\profiles\\windows\\eventlog\\"
+      "commandLineArgs": "eventlog Security table --profile ..\\..\\..\\..\\..\\profiles\\windows\\eventlog\\"
     }
   }
 }

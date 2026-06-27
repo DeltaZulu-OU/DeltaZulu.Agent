@@ -45,21 +45,37 @@ public sealed class AgentRuntime
             writer,
             _observations);
 
-        using var subscription = pipeline.Start(cancellationToken);
-        completed.Wait(cancellationToken);
+        try
+        {
+            using var subscription = pipeline.Start(cancellationToken);
+            completed.Wait(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return HandleSingleBindingFailure(binding, ex);
+        }
 
         if (writer.Error is not null)
         {
-            if (!binding.Profile.Mandatory)
-            {
-                _warn?.Invoke($"profile '{binding.Profile.Id}' failed and will be skipped because mandatory is false: {writer.Error.Message}");
-                return new AgentRuntimeResult(true);
-            }
-
-            return new AgentRuntimeResult(false, writer.Error);
+            return HandleSingleBindingFailure(binding, writer.Error);
         }
 
         return new AgentRuntimeResult(true);
+    }
+
+    private AgentRuntimeResult HandleSingleBindingFailure(ProfileBinding binding, Exception exception)
+    {
+        if (!binding.Profile.Mandatory)
+        {
+            _warn?.Invoke($"profile '{binding.Profile.Id}' failed and will be skipped because mandatory is false: {exception.Message}");
+            return new AgentRuntimeResult(true);
+        }
+
+        return new AgentRuntimeResult(false, exception);
     }
 
     private AgentRuntimeResult RunMultiple(CancellationToken cancellationToken)

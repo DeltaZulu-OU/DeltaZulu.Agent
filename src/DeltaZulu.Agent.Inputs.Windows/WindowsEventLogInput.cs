@@ -89,7 +89,7 @@ public sealed class WindowsEventLogInput : ISourceInput
                     newestRecordId = Math.Max(newestRecordId, recordId);
                 }
 
-                observer.OnNext(WindowsSourceEventMapper.FromDictionary(ToDictionary(record), "WindowsEventLog", Name, nameof(WindowsEventLogInput)));
+                observer.OnNext(WindowsSourceEventMapper.FromDictionary(ToDictionary(record), "WindowsEventLog", logName, nameof(WindowsEventLogInput)));
             }
         }
 

@@ -98,6 +98,7 @@ public sealed class KqlTests
         var row = DictionaryCoercion.ToKqlDictionary(source.ToKqlRow());
 
         Assert.AreEqual(4688, row["EventId"]);
+        Assert.AreEqual("Security", row["source"]);
 
         var eventData = AssertDictionary(row["EventData"]);
         Assert.AreEqual("S-1-5-21-test", eventData["TargetUserSid"]);
@@ -132,6 +133,8 @@ public sealed class KqlTests
 
         var row = DictionaryCoercion.ToKqlDictionary(source.ToKqlRow());
 
+        Assert.AreEqual("audit.log", row["source"]);
+
         var syscall = AssertDictionary(row["SYSCALL"]);
         Assert.AreEqual("execve", syscall["SYSCALL"]);
 
@@ -139,6 +142,18 @@ public sealed class KqlTests
         var argv = execve["ARGV"] as string[];
         Assert.IsNotNull(argv);
         CollectionAssert.AreEqual(new[] { "/usr/bin/curl", "-s", "https://example.com" }, argv);
+    }
+
+    [TestMethod]
+    public void SourceEventToKqlRow_PreservesExistingSourceField()
+    {
+        var source = new SourceEvent(
+            new ResourceMetadata { SourceName = "Security" },
+            new Dictionary<string, object?> { ["source"] = "ExplicitSource" });
+
+        var row = DictionaryCoercion.ToKqlDictionary(source.ToKqlRow());
+
+        Assert.AreEqual("ExplicitSource", row["source"]);
     }
 
     private static ResourceProfile CreatePassThroughProfile() => new()

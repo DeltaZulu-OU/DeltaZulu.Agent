@@ -92,6 +92,29 @@ public sealed class ObservabilityTests
         Assert.AreEqual(0, count.ForwardFailedCount);
     }
 
+
+    [TestMethod]
+    public void AgentObservationAccumulator_AggregatesOverflowKeys()
+    {
+        var observations = new AgentObservationAccumulator();
+
+        for (var i = 0; i <= 10_000; i++)
+        {
+            observations.RecordRead(CreateWindowsEvent(i, $"provider-{i}"));
+        }
+
+        var counts = observations.SnapshotPipelineCounts(new CollectorObservationMetadata
+        {
+            AgentId = "agent",
+            HostId = "host",
+            ProfileId = "profile"
+        });
+
+        var overflow = counts.Single(count => count.LogKey.SourceType == "__overflow__");
+        Assert.AreEqual(10_000, counts.Count);
+        Assert.AreEqual(2, overflow.ReadCount);
+    }
+
     private static SourceEvent CreateWindowsEvent(int eventId, string provider) => new(
         new ResourceMetadata
         {

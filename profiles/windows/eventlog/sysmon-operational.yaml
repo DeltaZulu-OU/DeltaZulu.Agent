@@ -20,3 +20,9 @@ output:
   metadataEnvelope: true
   eventEnvelope: true
   onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Microsoft-Windows-Sysmon/Operational"
+    | project *

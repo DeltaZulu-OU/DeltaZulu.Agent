@@ -31,12 +31,17 @@ public sealed class CompletionTrackingWriter : IOutputWriter
 
     public void OnCompleted()
     {
-        if (_completeInner)
+        try
         {
-            _inner.OnCompleted();
+            if (_completeInner)
+            {
+                _inner.OnCompleted();
+            }
         }
-
-        _completed.Set();
+        finally
+        {
+            _completed.Set();
+        }
     }
 
     public void OnError(Exception error)
@@ -45,11 +50,18 @@ public sealed class CompletionTrackingWriter : IOutputWriter
         {
             Error ??= error;
         }
-        if (_completeInner)
+
+        try
         {
-            _inner.OnError(error);
+            if (_completeInner)
+            {
+                _inner.OnError(error);
+            }
         }
-        _completed.Set();
+        finally
+        {
+            _completed.Set();
+        }
     }
 
     public void OnNext(ResourceOutputRecord value) => _inner.OnNext(value);

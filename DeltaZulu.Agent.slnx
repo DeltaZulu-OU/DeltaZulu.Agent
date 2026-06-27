@@ -2,6 +2,7 @@
   <Project Path="external/RELP.Net/src/Relp/Relp.csproj" />
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
   <Project Path="src/DeltaZulu.Agent.Application/DeltaZulu.Agent.Application.csproj" />
+  <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
   <Project Path="src/DeltaZulu.Agent.Domain/DeltaZulu.Agent.Domain.csproj" />
   <Project Path="src/DeltaZulu.Demo.Collector/DeltaZulu.Demo.Collector.csproj" />
   <Project Path="src/DeltaZulu.Agent.Forwarder/DeltaZulu.Agent.Forwarder.csproj" />

@@ -52,6 +52,32 @@ public sealed class ApplicationTests
         Assert.AreSame(exception, writer.Error);
     }
 
+
+    [TestMethod]
+    public void CompletionTrackingWriter_SignalsCompletionWhenInnerOnCompletedThrows()
+    {
+        using var completed = new ManualResetEventSlim(false);
+        var inner = new ThrowingSink(throwOnCompleted: true);
+        using var writer = new CompletionTrackingWriter(inner, completed);
+
+        Assert.ThrowsExactly<InvalidOperationException>(writer.OnCompleted);
+        Assert.IsTrue(completed.IsSet);
+    }
+
+    [TestMethod]
+    public void CompletionTrackingWriter_SignalsCompletionWhenInnerOnErrorThrows()
+    {
+        using var completed = new ManualResetEventSlim(false);
+        var inner = new ThrowingSink(throwOnError: true);
+        using var writer = new CompletionTrackingWriter(inner, completed);
+        var exception = new InvalidOperationException("test error");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => writer.OnError(exception));
+
+        Assert.IsTrue(completed.IsSet);
+        Assert.AreSame(exception, writer.Error);
+    }
+
     [TestMethod]
     public void CompletionTrackingWriter_ForwardsRecordsToInner()
     {
@@ -204,6 +230,36 @@ public sealed class ApplicationTests
 
         public string Name => "test";
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => _events.ToObservable();
+    }
+
+
+    private sealed class ThrowingSink : IOutputWriter
+    {
+        private readonly bool _throwOnCompleted;
+        private readonly bool _throwOnError;
+
+        public ThrowingSink(bool throwOnCompleted = false, bool throwOnError = false)
+        {
+            (_throwOnCompleted, _throwOnError) = (throwOnCompleted, throwOnError);
+        }
+
+        public string Name => "throwing";
+        public void OnNext(ResourceOutputRecord value) { }
+        public void OnError(Exception error)
+        {
+            if (_throwOnError)
+            {
+                throw new InvalidOperationException("inner error failed");
+            }
+        }
+        public void OnCompleted()
+        {
+            if (_throwOnCompleted)
+            {
+                throw new InvalidOperationException("inner completion failed");
+            }
+        }
+        public void Dispose() { }
     }
 
     private sealed class RecordingSink : IOutputWriter

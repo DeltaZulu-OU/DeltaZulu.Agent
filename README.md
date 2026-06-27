@@ -2,19 +2,19 @@
 
 Agent is inspired by RealTimeKql, but it is a new DeltaZulu implementation. It is a daemon-consumable .NET library for resource-native event filtering and field selection using KQL-style YAML profiles.
 
-This package is not a daemon, installer, SIEM, or server-side normalization engine. It now includes a thin CLI host for local exploration; a future daemon can host the same libraries and wire them to local syslog, Windows Event Log, ETW, auditd plugin input, files, and output sinks.
+This package is not an installer, SIEM, or server-side normalization engine. It includes a thin CLI host for local exploration and a separate forwarder-only daemon host for service deployment.
 
 
 ## Command line tool
 
-DeltaZulu now includes a small `dzagent`-style console host in `src/DeltaZulu.Agent.Cli`.
+DeltaZulu now includes a small `dzagentctl`-style console host in `src/DeltaZulu.Agent.Cli`.
 It is intentionally thin: the executable wires the existing input libraries, KQL profile executor, pipeline helper, and NDJSON output sinks together so local event exploration has the same resource-profile behavior as daemon hosts.
 
 ```text
 Usage:
-  dzagent <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
-  dzagent <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
-  dzagent schemas [<profiles-dir>] [table|json]
+  dzagentctl <input> [<arg>] [<output> [<arg>]] [--profile <profile.yaml>]
+  dzagentctl <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
+  dzagentctl schemas [<profiles-dir>] [table|json]
 
 Inputs:
   syslog <file>             Tail a local syslog-style file for new events.
@@ -29,7 +29,6 @@ Inputs:
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
   table                     Print a compact console table.
-  forwarder [config.yaml]   Buffer filtered records locally and send them to a RELP collector.
 
 
 Options:
@@ -40,31 +39,39 @@ Options:
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
   --port <port>             syslogserver TCP port.
-  --forwarder-config <file> YAML forwarder config path (default config/forwarder.yaml).
 ```
 
 Examples:
 
 ```bash
-dzagent syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
-dzagent csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
-dzagent syslogserver --address 127.0.0.1 --port 5514
+dzagentctl syslog /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
+dzagentctl csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
+dzagentctl syslogserver --address 127.0.0.1 --port 5514
 dzdemo-collector --address 127.0.0.1 --port 6514
-dzagent syslog /var/log/auth.log forwarder config/forwarder.yaml
-dzagent syslog /var/log/auth.log forwarder --forwarder-config config/forwarder.yaml
 ```
 
 
-Forwarder output is configured from YAML rather than inline transport flags. If no path is supplied after `forwarder` and `--forwarder-config` is omitted, the CLI loads `config/forwarder.yaml`. The schema mirrors the profile style by keeping named sections for local buffering and the RELP transport:
+
+## Agent daemon
+
+`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally forwarder-only: it has no inline query, schema listing, table output, JSON export, or other exploration commands. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development and later under Windows Service Control Manager or systemd.
+
+```bash
+dzagentd --config config/dzagentd.yaml
+```
+
+The daemon configuration owns live input families plus the existing durable buffer and RELP transport settings. Source events expose a KQL `source` column derived from the native source name, so Event Log, auditd, and ETW profiles select channels/providers in KQL (for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`) instead of adding ad-hoc daemon query flags. Each source may reference a checked-in YAML profile; omitted profiles pass source events through to the forwarder envelope.
 
 ```yaml
-id: local-relp-forwarder
+id: local-agent-daemon
+sources:
+  - id: local-syslog
+    input: syslog
+    target: /var/log/auth.log
+    profile: profiles/linux/syslog/sshd.yaml
 buffer:
-  path: ./buffer/forwarder
-  maxChunkRecords: 100
-  maxChunkAgeSeconds: 1
+  path: ./buffer/agentd
 relp:
-  useTls: false
   endpoints:
     - host: 127.0.0.1
       port: 6514
@@ -72,30 +79,28 @@ relp:
 
 ## Demo collector
 
-The agent CLI does not run as a collector/server. For local forwarder validation,
-use the separate `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`.
+For local forwarder validation, use the separate `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`.
 It accepts RELP `syslog` frames, prints decoded DeltaZulu delivery batches, and
 acknowledges them with RELP `rsp 200` responses.
 
 ```bash
 dzdemo-collector --address 127.0.0.1 --port 6514
-dzagent syslog /var/log/auth.log forwarder config/forwarder.yaml
 ```
 
 Windows process creation examples:
 
 ```bash
 # Sysmon process creation, Event ID 1, to console NDJSON.
-dzagent eventlog sysmon --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagentctl eventlog sysmon --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
 # Sysmon process creation, Event ID 1, to a compact console table.
-dzagent eventlog sysmon table --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagentctl eventlog sysmon table --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
 # Windows Security process creation, Event ID 4688, to console NDJSON.
-dzagent eventlog Security --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagentctl eventlog Security --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 
 # Windows Security process creation, Event ID 4688, to a file sink.
-dzagent eventlog Security json security-4688.ndjson --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+dzagentctl eventlog Security json security-4688.ndjson --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
 ```
 
 `eventlog sysmon` expands to `Microsoft-Windows-Sysmon/Operational`. If that log is not present, install Sysmon or choose another available Windows Event Log channel before querying Event ID 1.
@@ -104,7 +109,7 @@ The CLI validates requested Windows Event Log resources before starting KQL. Pro
 Without a profile, source events pass through unchanged into the standard DeltaZulu NDJSON envelope.
 With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Kql`.
 With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to another sink with the existing output parameters such as `json out.ndjson` or `table`.
-CLI options such as `--kql` can appear before or after the input command; for example, `dzagent --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
+CLI options such as `--kql` can appear before or after the input command; for example, `dzagentctl --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
 
 Profiles may include an optional host condition. The first supported condition type is `wmi`, which runs a WQL query and enables the profile only when the query returns at least one row. This is useful for Windows resource profiles that should only run on a specific server role, such as domain controllers:
 
@@ -140,11 +145,13 @@ See [docs/BUFFER_ARCHITECTURE.md](docs/BUFFER_ARCHITECTURE.md) for full design d
 
 ```text
 src/
-  DeltaZulu.Agent.Core/
+  DeltaZulu.Agent.Application/
+  DeltaZulu.Agent.Domain/
   DeltaZulu.Agent.Profiles/
   DeltaZulu.Agent.Kql/
   DeltaZulu.Agent.Outputs.Ndjson/
   DeltaZulu.Agent.Forwarder/
+  DeltaZulu.Agent.Daemon/
   DeltaZulu.Demo.Collector/
   DeltaZulu.Agent.Inputs.Syslog/
   DeltaZulu.Agent.Inputs.Files/

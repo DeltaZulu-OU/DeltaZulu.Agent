@@ -59,7 +59,7 @@ internal static class Program
 Usage:
   dzdemo-collector [--address <ip>] [--port <port>]
 
-Receives RELP syslog frames from dzagent forwarder output, prints decoded
+Receives RELP syslog frames from dzagentd, prints decoded
 DeltaZulu delivery batches, and replies with RELP rsp 200 acknowledgements.
 """);
 }

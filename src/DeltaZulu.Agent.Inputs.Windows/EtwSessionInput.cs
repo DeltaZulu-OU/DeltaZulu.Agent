@@ -25,6 +25,12 @@ public sealed class EtwSessionInput : ISourceInput
         }
 
         return Tx.Windows.EtwTdhObservable.FromSession(_sessionName)
-            .Select(x => WindowsSourceEventMapper.FromDictionary(x.AsDictionary().AsReadOnly(), "WindowsEtw", Name, nameof(EtwSessionInput)));
+            .Select(x => {
+                var fields = x.AsDictionary().AsReadOnly();
+                var sourceName = fields.TryGetValue("ProviderName", out var providerName) && providerName is not null
+                    ? providerName.ToString() ?? Name
+                    : Name;
+                return WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", sourceName, nameof(EtwSessionInput));
+            });
     }
 }

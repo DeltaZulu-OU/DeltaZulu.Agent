@@ -12,6 +12,11 @@ public sealed record SourceEvent(
             row[field.Key] = field.Value;
         }
 
+        if (!row.ContainsKey("source") && !string.IsNullOrWhiteSpace(Metadata.SourceName))
+        {
+            row["source"] = Metadata.SourceName;
+        }
+
         row["_metadata"] = Metadata.ToDictionary();
         return row;
     }

@@ -139,6 +139,40 @@ public sealed class AgentRuntimeTests
         Assert.Contains("solo", warnings[0]);
     }
 
+
+    [TestMethod]
+    public void SingleBinding_NonMandatory_StartupExceptionDoesNotFailRuntime()
+    {
+        var badInput = new ThrowingOpenInput();
+        var sink = new RecordingSink();
+        var executor = new PassthroughExecutor();
+        var warnings = new List<string>();
+        var binding = new ProfileBinding(badInput, CreateProfile("solo", mandatory: false), executor);
+
+        var runtime = new AgentRuntime([binding], sink, warn: warnings.Add);
+        var result = runtime.Run(TestContext.CancellationToken);
+
+        Assert.IsTrue(result.Success);
+        Assert.IsNull(result.Error);
+        Assert.HasCount(1, warnings);
+        Assert.Contains("solo", warnings[0]);
+    }
+
+    [TestMethod]
+    public void SingleBinding_Mandatory_StartupExceptionFailsRuntime()
+    {
+        var badInput = new ThrowingOpenInput();
+        var sink = new RecordingSink();
+        var executor = new PassthroughExecutor();
+        var binding = new ProfileBinding(badInput, CreateProfile("solo", mandatory: true), executor);
+
+        var runtime = new AgentRuntime([binding], sink);
+        var result = runtime.Run(TestContext.CancellationToken);
+
+        Assert.IsFalse(result.Success);
+        Assert.IsNotNull(result.Error);
+    }
+
     [TestMethod]
     public void Cancellation_PropagatesAllProfiles()
     {
@@ -192,6 +226,14 @@ public sealed class AgentRuntimeTests
         public string Name => "failing";
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) =>
             Observable.Throw<SourceEvent>(new InvalidOperationException("input failed"));
+    }
+
+
+    private sealed class ThrowingOpenInput : ISourceInput
+    {
+        public string Name => "throwing";
+        public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("input open failed");
     }
 
     private sealed class PassthroughExecutor : IProfileExecutor

@@ -6,6 +6,7 @@ namespace DeltaZulu.Agent.Application.Pipelines;
 public sealed class AgentObservationAccumulator
 {
     private const int MaxDistinctKeys = 10_000;
+    private static readonly LogTelemetryKey OverflowKey = new("__overflow__", "__overflow__", null, null);
 
     private readonly object _gate = new();
     private readonly Dictionary<LogTelemetryKey, MutableCounts> _counts = [];
@@ -36,13 +37,20 @@ public sealed class AgentObservationAccumulator
         {
             if (!_counts.TryGetValue(key, out var counts))
             {
-                if (_counts.Count >= MaxDistinctKeys)
+                if (_counts.Count >= MaxDistinctKeys - 1 && key != OverflowKey)
                 {
-                    return;
+                    key = OverflowKey;
+                    if (!_counts.TryGetValue(key, out counts))
+                    {
+                        counts = new MutableCounts();
+                        _counts[key] = counts;
+                    }
                 }
-
-                counts = new MutableCounts();
-                _counts[key] = counts;
+                else
+                {
+                    counts = new MutableCounts();
+                    _counts[key] = counts;
+                }
             }
 
             increment(counts);

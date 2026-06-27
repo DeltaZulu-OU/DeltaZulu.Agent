@@ -24,6 +24,7 @@ filter:
   language: kql
   query: |
     EventLog
+    | where source =~ "Security"
     // Wazuh default suppressed events. These events are noisy, but may need to be re-enabled for some detection use cases.
     // 4656(S, F): A handle to an object was requested.
     // 4658(S): The handle to an object was closed.

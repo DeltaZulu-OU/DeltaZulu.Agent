@@ -1,7 +1,5 @@
 using DeltaZulu.Agent.Application.Abstractions;
 using DeltaZulu.Agent.Application.Runtime;
-using DeltaZulu.Agent.Core.Observability;
-using DeltaZulu.Agent.Forwarder;
 using DeltaZulu.Agent.Inputs.Auditd;
 using DeltaZulu.Agent.Inputs.Files;
 using DeltaZulu.Agent.Inputs.Syslog;
@@ -10,7 +8,6 @@ using DeltaZulu.Agent.Outputs.Ndjson;
 using DeltaZulu.Agent.Profiles;
 using System.Text.Json;
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
 
 #if WINDOWS
 using DeltaZulu.Agent.Inputs.Windows;
@@ -58,7 +55,6 @@ internal static partial class Program
             };
 
             using var sink = CreateSink(plan);
-            using var healthReporter = CreateHealthReporter(plan, sink);
 
             var bindings = CreateBindings(plan);
             try
@@ -69,8 +65,6 @@ internal static partial class Program
                     Console.Error.Flush();
                 });
                 var result = runtime.Run(cts.Token);
-
-                healthReporter?.EmitHealthSnapshot();
 
                 if (!result.Success)
                 {
@@ -165,7 +159,7 @@ internal static partial class Program
             null,
             null,
             "Auditd",
-            "ID:string,RawEvent:dynamic,SYSCALL:dynamic,EXECVE:dynamic,PATH:dynamic,SOCKADDR:dynamic,CWD:dynamic,PROCTITLE:dynamic,_metadata:dynamic"),
+            "source:string,ID:string,RawEvent:dynamic,SYSCALL:dynamic,EXECVE:dynamic,PATH:dynamic,SOCKADDR:dynamic,CWD:dynamic,PROCTITLE:dynamic,_metadata:dynamic"),
         new(
             "input.windows.eventlog",
             "Windows Event Log",
@@ -178,7 +172,7 @@ internal static partial class Program
             null,
             null,
             "EventLog",
-            "ProviderName:string,EventId:int,Channel:string,RecordId:long,Level:string,Keywords:string,MachineName:string,TimeCreated:datetime,EventData:dynamic,Message:string,RawEvent:dynamic,_metadata:dynamic"),
+            "source:string,ProviderName:string,EventId:int,Channel:string,RecordId:long,Level:string,Keywords:string,MachineName:string,TimeCreated:datetime,EventData:dynamic,Message:string,RawEvent:dynamic,_metadata:dynamic"),
         new(
             "input.windows.etw",
             "Windows ETW/ETL",
@@ -191,7 +185,7 @@ internal static partial class Program
             null,
             null,
             "Etw",
-            "ProviderName:string,EventName:string,EventId:int,OpcodeName:string,TaskName:string,Timestamp:datetime,ProcessId:int,ThreadId:int,Payload:dynamic,_metadata:dynamic")
+            "source:string,ProviderName:string,EventName:string,EventId:int,OpcodeName:string,TaskName:string,Timestamp:datetime,ProcessId:int,ThreadId:int,Payload:dynamic,_metadata:dynamic")
     ];
 
     private static ResourceProfile CreateInlineProfile(CliPlan plan, string query) => new() {
@@ -430,106 +424,8 @@ internal static partial class Program
     private static IOutputWriter CreateSink(CliPlan plan) => plan.OutputCommand switch {
         "json" => string.IsNullOrWhiteSpace(plan.OutputArgument) ? new ConsoleNdjsonSink() : new NdjsonFileSink(plan.OutputArgument),
         "table" => new ConsoleTableSink(),
-        "forwarder" => CreateForwarderSink(plan),
         _ => throw new ArgumentException($"unknown output command '{plan.OutputCommand}'")
     };
-
-    private const string DefaultForwarderConfigPath = "forwarder.yaml";
-
-    private static IOutputWriter CreateForwarderSink(CliPlan plan)
-    {
-        RejectForwarderInlineOptions(plan);
-
-        var configPath = plan.OutputArgument
-            ?? plan.Option("--forwarder-config")
-            ?? DefaultForwarderConfigPath;
-        var configuration = new YamlForwarderConfigurationLoader().LoadFile(configPath);
-        var endpoints = configuration.Relp.Endpoints;
-        var primaryEndpoint = endpoints[0];
-
-        return new BufferedForwarderSink(configuration.Buffer.ToBufferOptions(), new RelpForwarderTransport(new RelpForwarderOptions
-        {
-            Host = primaryEndpoint.Host,
-            Port = primaryEndpoint.Port,
-            Endpoints = endpoints,
-            UseTls = configuration.Relp.UseTls,
-            ClientCertificates = LoadClientCertificates(configuration.Relp.Tls),
-            CertificateValidation = configuration.Relp.Tls.CertificateValidation,
-            AllowedServerCertificateThumbprints = configuration.Relp.Tls.AllowedServerCertificateThumbprints,
-            CertificateExpiryWarningDays = configuration.Relp.Tls.CertificateExpiryWarningDays
-        }));
-    }
-
-    private static X509CertificateCollection? LoadClientCertificates(ForwarderTlsConfiguration tls)
-    {
-        if (string.IsNullOrWhiteSpace(tls.ClientCertificatePath))
-        {
-            return null;
-        }
-
-        var certificates = new X509CertificateCollection
-        {
-            string.IsNullOrEmpty(tls.ClientCertificatePassword)
-                ? X509CertificateLoader.LoadCertificateFromFile(tls.ClientCertificatePath)
-                : X509CertificateLoader.LoadPkcs12FromFile(tls.ClientCertificatePath, tls.ClientCertificatePassword)
-        };
-
-        return certificates;
-    }
-
-    private static void RejectForwarderInlineOptions(CliPlan plan)
-    {
-        string[] inlineOptions = [
-            "--forwarder-host",
-            "--forwarder-address",
-            "--forwarder-port",
-            "--forwarder-endpoints",
-            "--forwarder-tls",
-            "--forwarder-buffer",
-            "--forwarder-chunk-records",
-            "--forwarder-chunk-age-seconds"
-        ];
-
-        foreach (var option in inlineOptions)
-        {
-            if (plan.HasOption(option))
-            {
-                throw new ArgumentException($"{option} is no longer accepted for forwarder output. Use a YAML file with --forwarder-config <path> or pass the config path after 'forwarder'.");
-            }
-        }
-    }
-
-    private static ForwarderHealthReporter? CreateHealthReporter(CliPlan plan, IOutputWriter sink)
-    {
-        if (sink is not BufferedForwarderSink forwarderSink)
-        {
-            return null;
-        }
-
-        var intervalRaw = plan.Option("--diagnostic-interval");
-        if (intervalRaw is null)
-        {
-            return null;
-        }
-
-        var intervalSeconds = double.Parse(intervalRaw, System.Globalization.CultureInfo.InvariantCulture);
-        var diagnosticFile = plan.Option("--diagnostic-file");
-        IOutputWriter diagnosticSink = string.IsNullOrWhiteSpace(diagnosticFile)
-            ? new ConsoleNdjsonSink()
-            : new NdjsonFileSink(diagnosticFile);
-
-        var metadata = new CollectorObservationMetadata
-        {
-            AgentId = plan.Option("--agent-id") ?? Environment.MachineName,
-            HostId = Environment.MachineName
-        };
-
-        return new ForwarderHealthReporter(
-            forwarderSink,
-            diagnosticSink,
-            metadata,
-            TimeSpan.FromSeconds(intervalSeconds));
-    }
 
     private static bool IsHelp(string value) => value is "-h" or "--help" or "help";
 
@@ -620,9 +516,9 @@ internal static partial class Program
     {
         Console.WriteLine("""
 Usage:
-  dzagent [<input>] [<target>] [<output> [<arg>]] [--profile <profile.yaml|profiles-dir>]
-  dzagent <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
-  dzagent schemas [<profiles-dir>] [table|json]
+  dzagentctl [<input>] [<target>] [<output> [<arg>]] [--profile <profile.yaml|profiles-dir>]
+  dzagentctl <input> [<arg>] [<output> [<arg>]] --kql <query> [--table <name>] [--schema <columns>]
+  dzagentctl schemas [<profiles-dir>] [table|json]
 
 Inputs:
   syslog <file>             Tail a local syslog-style file for new events.
@@ -637,7 +533,6 @@ Inputs:
 Outputs:
   json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
   table                    Print a compact console table.
-  forwarder [config.yaml]   Buffer filtered records locally and send them to a RELP collector.
 
 Options:
   --profile <path>          Apply one profile, or every YAML profile under a directory.
@@ -648,20 +543,15 @@ Options:
   --resource-id <id>        Resource id to stamp on --kql output metadata.
   --address <ip>            syslogserver bind address.
   --port <port>             syslogserver TCP port.
-  --forwarder-config <file>      YAML forwarder config path (default config/forwarder.yaml).
-  --diagnostic-interval <seconds> Emit forwarder health snapshots at this interval (forwarder output only).
-  --diagnostic-file <file>        Write health snapshots to this NDJSON file instead of stdout.
-  --agent-id <id>                 Agent identifier stamped on health snapshot metadata.
 
 Examples:
-  dzagent /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
-  dzagent /var/log/auth.log json out.ndjson --profile profiles/linux/syslog
-  dzagent csv events.csv json out.ndjson --kql "EventLog | where RawMessage has 'sudo'"
-  dzagent eventlog table --profile profiles/windows/eventlog
-  dzagent eventlog sysmon --kql "EventLog | where EventId == 1"
-  dzagent eventlog Security --kql "EventLog | where EventId == 4688"
-  dzagent schemas profiles json
-  dzagent syslog /var/log/auth.log forwarder config/forwarder.yaml
+  dzagentctl /var/log/auth.log table --profile profiles/linux/syslog/sshd.yaml
+  dzagentctl /var/log/auth.log json out.ndjson --profile profiles/linux/syslog
+  dzagentctl csv events.csv json out.ndjson --kql "EventLog | where RawMessage has 'sudo'"
+  dzagentctl eventlog table --profile profiles/windows/eventlog
+  dzagentctl eventlog sysmon --kql "EventLog | where EventId == 1"
+  dzagentctl eventlog Security --kql "EventLog | where EventId == 4688"
+  dzagentctl schemas profiles json
 """);
         Console.Out.Flush();
     }

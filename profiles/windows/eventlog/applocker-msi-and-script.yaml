@@ -23,5 +23,6 @@ filter:
   language: kql
   query: |
     EventLog
+    | where source =~ "Microsoft-Windows-AppLocker/MSI and Script"
     | where EventId in (8006, 8007)
     | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata

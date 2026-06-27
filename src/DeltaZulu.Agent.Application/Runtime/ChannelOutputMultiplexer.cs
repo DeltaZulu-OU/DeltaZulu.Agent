@@ -41,17 +41,23 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
 
     public void OnNext(ResourceOutputRecord value)
     {
-        var message = SinkMessage.Next(value);
-        if (!_channel.Writer.TryWrite(message))
-        {
-            _channel.Writer.WriteAsync(message).AsTask().GetAwaiter().GetResult();
-        }
+        WriteMessage(SinkMessage.Next(value));
     }
 
     public void OnError(Exception error)
     {
         CaptureError(error);
-        _channel.Writer.TryWrite(SinkMessage.Error(error));
+        if (!TryWriteMessage(SinkMessage.Error(error)))
+        {
+            try
+            {
+                _inner.OnError(error);
+            }
+            catch (Exception ex)
+            {
+                CaptureError(ex);
+            }
+        }
     }
 
     public void OnCompleted()
@@ -71,14 +77,47 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
         }
 
         _channel.Writer.TryComplete();
-        if (!_reader.Wait(DrainTimeout))
+        if (_reader.Wait(DrainTimeout))
+        {
+            _inner.OnCompleted();
+        }
+        else
         {
             CaptureError(new TimeoutException($"Channel drain did not complete within {DrainTimeout.TotalSeconds}s."));
         }
-        _inner.OnCompleted();
     }
 
     public void Dispose() => Complete();
+
+    private void WriteMessage(SinkMessage message)
+    {
+        if (!TryWriteMessage(message))
+        {
+            throw new InvalidOperationException("Cannot write to a completed output multiplexer.");
+        }
+    }
+
+    private bool TryWriteMessage(SinkMessage message)
+    {
+        if (_channel.Writer.TryWrite(message))
+        {
+            return true;
+        }
+
+        try
+        {
+            _channel.Writer.WriteAsync(message).AsTask().GetAwaiter().GetResult();
+            return true;
+        }
+        catch (ChannelClosedException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
 
     private async Task ReadMessages()
     {

@@ -1,0 +1,21 @@
+id: local-agent-daemon
+sources:
+  - id: local-syslog
+    input: syslog
+    target: /var/log/auth.log
+    profile: profiles/linux/syslog/sshd.yaml
+buffer:
+  path: ./buffer/agentd
+  maxChunkRecords: 100
+  maxChunkAgeSeconds: 1
+relp:
+  useTls: false
+  tls:
+    certificateValidation: SystemTrust
+    allowedServerCertificateThumbprints: []
+    certificateExpiryWarningDays: 30
+  endpoints:
+    - host: 127.0.0.1
+      port: 6514
+diagnostics:
+  intervalSeconds: 60

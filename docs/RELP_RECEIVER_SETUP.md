@@ -2,7 +2,7 @@
 
 DeltaZulu.Agent forwards filtered resource records through `DeltaZulu.Buffer` and a RELP transport adapter. The agent is a RELP client/forwarder; it is not a syslog daemon or production receiver. Use a dedicated receiver such as rsyslog or syslog-ng at the network edge and route accepted payloads into the downstream collector pipeline.
 
-These examples are operational starting points for lab validation. Validate plain RELP first, then enable TLS with a certificate policy that matches `config/forwarder.yaml`.
+These examples are operational starting points for lab validation. Validate plain RELP first, then enable TLS with a certificate policy that matches `config/dzagentd.yaml`.
 
 ## Ports and payload model
 
