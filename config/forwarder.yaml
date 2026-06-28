@@ -12,6 +12,8 @@ relp:
     certificateValidation: SystemTrust
     allowedServerCertificateThumbprints: []
     certificateExpiryWarningDays: 30
+    # Disable during development to keep configured cert paths without presenting mTLS client identity.
+    clientCertificateEnabled: true
     # clientCertificatePath: /path/to/client.pfx
     # clientCertificatePassword: changeit
   endpoints:

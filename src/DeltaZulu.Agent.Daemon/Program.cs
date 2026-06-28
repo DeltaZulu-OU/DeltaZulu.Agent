@@ -1,5 +1,4 @@
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
 using DeltaZulu.Agent.Pipeline.Abstractions;
 using DeltaZulu.Agent.Runtime;
 using DeltaZulu.Agent.Pipeline.Observability;
@@ -11,6 +10,7 @@ using DeltaZulu.Agent.Inputs.Syslog;
 using DeltaZulu.Agent.Kql;
 using DeltaZulu.Agent.Outputs.Ndjson;
 using DeltaZulu.Agent.Outputs.Relp;
+using DeltaZulu.Agent.Tunnel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -282,7 +282,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             Port = primaryEndpoint.Port,
             Endpoints = endpoints,
             UseTls = configuration.Relp.UseTls,
-            ClientCertificates = LoadClientCertificates(configuration.Relp.Tls),
+            TunnelCertificateProvider = CreateTunnelCertificateProvider(configuration.Relp.Tls),
             CertificateValidation = configuration.Relp.Tls.CertificateValidation,
             AllowedServerCertificateThumbprints = configuration.Relp.Tls.AllowedServerCertificateThumbprints,
             CertificateExpiryWarningDays = configuration.Relp.Tls.CertificateExpiryWarningDays
@@ -307,18 +307,13 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             TimeSpan.FromSeconds(intervalSeconds)));
     }
 
-    private static X509CertificateCollection? LoadClientCertificates(RelpTlsConfiguration tls)
-    {
-        if (string.IsNullOrWhiteSpace(tls.ClientCertificatePath))
-        {
-            return null;
-        }
-
-        return
-        [
-            string.IsNullOrEmpty(tls.ClientCertificatePassword)
-                ? X509CertificateLoader.LoadCertificateFromFile(tls.ClientCertificatePath)
-                : X509CertificateLoader.LoadPkcs12FromFile(tls.ClientCertificatePath, tls.ClientCertificatePassword)
-        ];
-    }
+    private static ITunnelCertificateProvider? CreateTunnelCertificateProvider(RelpTlsConfiguration tls) =>
+        !tls.ClientCertificateEnabled || string.IsNullOrWhiteSpace(tls.ClientCertificatePath)
+            ? null
+            : new FileTunnelCertificateProvider(new TunnelCertificateOptions
+            {
+                Enabled = tls.ClientCertificateEnabled,
+                CertificatePath = tls.ClientCertificatePath,
+                CertificatePassword = tls.ClientCertificatePassword
+            });
 }

@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using DeltaZulu.Agent.Tunnel;
 
 namespace DeltaZulu.Agent.Outputs.Relp;
 
@@ -24,6 +25,7 @@ public sealed record RelpForwarderOptions
     public IReadOnlyList<RelpEndpoint>? Endpoints { get; init; }
     public bool UseTls { get; init; }
     public X509CertificateCollection? ClientCertificates { get; init; }
+    public ITunnelCertificateProvider? TunnelCertificateProvider { get; init; }
     public RelpCertificateValidationMode CertificateValidation { get; init; } = RelpCertificateValidationMode.SystemTrust;
     public IReadOnlyList<string> AllowedServerCertificateThumbprints { get; init; } = [];
     public int CertificateExpiryWarningDays { get; init; } = 30;

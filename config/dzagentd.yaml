@@ -65,6 +65,8 @@ relp:
     certificateValidation: SystemTrust
     allowedServerCertificateThumbprints: []
     certificateExpiryWarningDays: 30
+    # Disable during development to keep configured cert paths without presenting mTLS client identity.
+    clientCertificateEnabled: true
   endpoints:
     # Local demo collector default. Replace with your production collector host.
     - host: 127.0.0.1

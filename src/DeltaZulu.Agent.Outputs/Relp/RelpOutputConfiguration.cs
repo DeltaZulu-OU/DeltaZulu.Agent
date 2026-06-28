@@ -57,6 +57,7 @@ public sealed record RelpTlsConfiguration
     public RelpCertificateValidationMode CertificateValidation { get; init; } = RelpCertificateValidationMode.SystemTrust;
     public List<string> AllowedServerCertificateThumbprints { get; init; } = [];
     public int CertificateExpiryWarningDays { get; init; } = 30;
+    public bool ClientCertificateEnabled { get; init; } = true;
     public string? ClientCertificatePath { get; init; }
     public string? ClientCertificatePassword { get; init; }
 }
@@ -153,7 +154,8 @@ public sealed class YamlRelpOutputConfigurationLoader
             throw new InvalidDataException($"{prefix} must set relp.tls.certificateExpiryWarningDays to zero or greater.");
         }
 
-        if (!string.IsNullOrWhiteSpace(configuration.Relp.Tls.ClientCertificatePath)
+        if (configuration.Relp.Tls.ClientCertificateEnabled
+            && !string.IsNullOrWhiteSpace(configuration.Relp.Tls.ClientCertificatePath)
             && !File.Exists(configuration.Relp.Tls.ClientCertificatePath))
         {
             throw new InvalidDataException($"{prefix} relp.tls.clientCertificatePath does not exist: {configuration.Relp.Tls.ClientCertificatePath}");

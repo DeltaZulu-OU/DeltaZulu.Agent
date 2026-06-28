@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using DeltaZulu.Agent.Pipeline.Abstractions;
 using DeltaZulu.Agent.Pipeline.Delivery;
 using DeltaZulu.Agent.Pipeline.MessagePack;
@@ -115,12 +116,36 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
             endpoint.Host,
             endpoint.Port,
             _options.UseTls,
-            _options.ClientCertificates);
+            await GetClientCertificatesAsync(cancellationToken).ConfigureAwait(false));
         await _connection.ConnectAsync(cancellationToken).ConfigureAwait(false);
 
         _session = new RelpSession(_connection);
         await _session.OpenAsync(cancellationToken).ConfigureAwait(false);
         return _session;
+    }
+
+    private async ValueTask<X509CertificateCollection?> GetClientCertificatesAsync(CancellationToken cancellationToken)
+    {
+        var staticCertificates = _options.ClientCertificates;
+        if (!_options.UseTls || _options.TunnelCertificateProvider is null)
+        {
+            return staticCertificates;
+        }
+
+        var lease = await _options.TunnelCertificateProvider.GetCurrentCertificateAsync(cancellationToken).ConfigureAwait(false);
+        if (lease is null)
+        {
+            return staticCertificates;
+        }
+
+        var certificates = new X509CertificateCollection();
+        if (staticCertificates is not null)
+        {
+            certificates.AddRange(staticCertificates);
+        }
+
+        certificates.Add(lease.Certificate);
+        return certificates;
     }
 
     private RelpEndpoint CurrentEndpoint

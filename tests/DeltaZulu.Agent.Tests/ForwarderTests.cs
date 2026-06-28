@@ -434,6 +434,8 @@ public sealed class ForwarderTests
                 allowedServerCertificateThumbprints:
                   - 00112233445566778899AABBCCDDEEFF00112233
                 certificateExpiryWarningDays: 14
+                clientCertificateEnabled: false
+                clientCertificatePath: /tmp/missing-dev-client-cert.pfx
               endpoints:
                 - host: relp-a.example
                   port: 6514
@@ -451,6 +453,8 @@ public sealed class ForwarderTests
         Assert.AreEqual(RelpCertificateValidationMode.Thumbprint, configuration.Relp.Tls.CertificateValidation);
         Assert.HasCount(1, configuration.Relp.Tls.AllowedServerCertificateThumbprints);
         Assert.AreEqual(14, configuration.Relp.Tls.CertificateExpiryWarningDays);
+        Assert.IsFalse(configuration.Relp.Tls.ClientCertificateEnabled);
+        Assert.AreEqual("/tmp/missing-dev-client-cert.pfx", configuration.Relp.Tls.ClientCertificatePath);
         Assert.HasCount(2, configuration.Relp.Endpoints);
         Assert.AreEqual("relp-b.example", configuration.Relp.Endpoints[1].Host);
         Assert.AreEqual(6515, configuration.Relp.Endpoints[1].Port);

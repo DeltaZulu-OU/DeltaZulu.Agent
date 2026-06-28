@@ -7,6 +7,7 @@
   <Project Path="src/DeltaZulu.Agent.Kql/DeltaZulu.Agent.Kql.csproj" />
   <Project Path="src/DeltaZulu.Agent.Pipeline/DeltaZulu.Agent.Pipeline.csproj" />
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
+  <Project Path="src/DeltaZulu.Agent.Tunnel/DeltaZulu.Agent.Tunnel.csproj" />
   <Project Path="src/DeltaZulu.Agent.Outputs/DeltaZulu.Agent.Outputs.csproj" />
   <Project Path="src/DeltaZulu.Demo.Collector/DeltaZulu.Demo.Collector.csproj" />
   <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />

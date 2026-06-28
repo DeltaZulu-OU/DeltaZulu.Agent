@@ -10,5 +10,6 @@
     <ProjectReference Include="..\..\external\DeltaZulu.DurableBuffer\src\DeltaZulu.DurableBuffer\DeltaZulu.DurableBuffer.csproj" />
     <ProjectReference Include="..\..\external\DeltaZulu.Relp\src\DeltaZulu.Relp\DeltaZulu.Relp.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Pipeline\DeltaZulu.Agent.Pipeline.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Tunnel\DeltaZulu.Agent.Tunnel.csproj" />
   </ItemGroup>
 </Project>
