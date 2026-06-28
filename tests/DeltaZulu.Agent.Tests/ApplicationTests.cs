@@ -1,7 +1,6 @@
 using System.Reactive.Linq;
+using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Agent.Pipeline;
-using DeltaZulu.Agent.Runtime;
 using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Agent.Tests;
@@ -104,7 +103,7 @@ public sealed class ApplicationTests
 
         Assert.IsTrue(completed.IsSet);
         Assert.AreSame(exception, writer.Error);
-        Assert.AreEqual(0, inner.Errors.Count);
+        Assert.IsEmpty(inner.Errors);
     }
 
     [TestMethod]

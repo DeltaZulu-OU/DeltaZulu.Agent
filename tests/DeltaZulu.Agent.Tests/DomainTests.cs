@@ -25,7 +25,7 @@ public sealed class DomainTests
     [TestMethod]
     public void Pipeline_Types_Are_In_Pipeline_Assembly()
     {
-        const string domainAssemblyName = "DeltaZulu.Agent.Pipeline";
+        const string domainAssemblyName = "DeltaZulu.Pipeline.Core";
 
         Assert.AreEqual(domainAssemblyName, typeof(SourceEvent).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(ResourceMetadata).Assembly.GetName().Name);

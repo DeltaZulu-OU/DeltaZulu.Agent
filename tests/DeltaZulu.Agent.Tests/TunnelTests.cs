@@ -10,10 +10,10 @@ public sealed class TunnelTests
     [TestMethod]
     public async Task FileTunnelCertificateProvider_LoadsPkcs12ClientCertificate()
     {
-        using var directory = new TemporaryDirectory();
-        var path = Path.Combine(directory.Path, "agent.pfx");
+        var directory = Directory.CreateTempSubdirectory();
+        var path = Path.Combine(directory.FullName, "agent.pfx");
         using var certificate = CreateClientCertificate();
-        await File.WriteAllBytesAsync(path, certificate.Export(X509ContentType.Pkcs12, "secret"));
+        await File.WriteAllBytesAsync(path, certificate.Export(X509ContentType.Pkcs12, "secret"), TestContext.CancellationToken);
 
         var provider = new FileTunnelCertificateProvider(new TunnelCertificateOptions
         {
@@ -22,13 +22,13 @@ public sealed class TunnelTests
             RenewalWindowDays = 14
         });
 
-        var lease = await provider.GetCurrentCertificateAsync();
+        var lease = await provider.GetCurrentCertificateAsync(TestContext.CancellationToken);
 
         Assert.IsNotNull(lease);
         using var loaded = lease.Certificate;
         Assert.IsTrue(loaded.HasPrivateKey);
-        Assert.IsTrue(lease.ExpiresAt > DateTimeOffset.UtcNow);
-        Assert.IsTrue(lease.RenewAfter <= lease.ExpiresAt);
+        Assert.IsGreaterThan(DateTimeOffset.UtcNow, lease.ExpiresAt);
+        Assert.IsLessThanOrEqualTo(lease.ExpiresAt, lease.RenewAfter);
     }
 
     [TestMethod]
@@ -40,7 +40,7 @@ public sealed class TunnelTests
             CertificatePath = "/tmp/missing-dev-client-cert.pfx"
         });
 
-        var lease = await provider.GetCurrentCertificateAsync();
+        var lease = await provider.GetCurrentCertificateAsync(TestContext.CancellationToken);
 
         Assert.IsNull(lease);
     }
@@ -56,10 +56,10 @@ public sealed class TunnelTests
             Endpoints = [new TunnelEndpoint { Host = "ingest.example.com", Port = 443 }]
         };
 
-        var certificates = await options.GetClientCertificatesAsync();
+        var certificates = await options.GetClientCertificatesAsync(TestContext.CancellationToken);
 
         Assert.IsNotNull(certificates);
-        Assert.AreEqual(1, certificates.Count);
+        Assert.HasCount(1, certificates);
     }
 
     private static X509Certificate2 CreateClientCertificate()
@@ -84,4 +84,6 @@ public sealed class TunnelTests
                 new DateTimeOffset(certificate.NotAfter.ToUniversalTime(), TimeSpan.Zero),
                 DateTimeOffset.UtcNow.AddDays(30)));
     }
+
+    public TestContext TestContext { get; set; }
 }

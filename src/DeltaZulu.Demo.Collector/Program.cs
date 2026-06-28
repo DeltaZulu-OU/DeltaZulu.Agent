@@ -47,7 +47,7 @@ internal static class Program
             var result = runtime.Run(cts.Token);
             if (!result.Success)
             {
-                Console.Error.WriteLine(result.Exception);
+                Console.Error.WriteLine(result.Error);
                 return 1;
             }
 

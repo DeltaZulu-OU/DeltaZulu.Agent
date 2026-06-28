@@ -11,7 +11,10 @@ public sealed class RelpChunkSender : IChunkSender
 {
     private readonly IDeliveryTransport _transport;
 
-    public RelpChunkSender(IDeliveryTransport transport) => _transport = transport;
+    public RelpChunkSender(IDeliveryTransport transport)
+    {
+        _transport = transport;
+    }
 
     public async ValueTask<ChunkSendResult> SendAsync(
         StoredChunk chunk,

@@ -20,7 +20,7 @@ public sealed class MessagePackTests
 
         Assert.IsNotNull(decoded);
         Assert.AreEqual(batch.BatchId, decoded.BatchId);
-        Assert.AreEqual(1, decoded.Records.Count);
+        Assert.HasCount(1, decoded.Records);
         Assert.AreEqual("agent-a", decoded.Records[0].AgentId);
         Assert.AreEqual("value", decoded.Records[0].Record.Event["field"]?.ToString());
     }

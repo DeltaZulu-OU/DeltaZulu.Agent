@@ -140,7 +140,7 @@ public sealed class GoldenFixtureTests
         {
             File.WriteAllText(tmpPath, "Count,Rate,Active,Label\n42,3.14,true,test\n0,0.0,false,other\n");
 
-            var input = new Inputs.Files.CsvFileInput(tmpPath, "test-csv");
+            var input = new Pipeline.Inputs.Files.CsvFileInput(tmpPath, "test-csv");
             var records = new List<ResourceOutputRecord>();
             using var completed = new ManualResetEventSlim(false);
 
@@ -174,7 +174,7 @@ public sealed class GoldenFixtureTests
         {
             File.WriteAllText(tmpPath, "EventId,Source,Message\n4688,Security,\"Process created: cmd.exe\"\n4624,Security,\"Logon success\"\n");
 
-            var input = new Inputs.Files.CsvFileInput(tmpPath, "test-csv");
+            var input = new Pipeline.Inputs.Files.CsvFileInput(tmpPath, "test-csv");
             var records = new List<ResourceOutputRecord>();
             using var completed = new ManualResetEventSlim(false);
 

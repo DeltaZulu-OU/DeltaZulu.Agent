@@ -11,6 +11,7 @@ using System.Reactive.Linq;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using MessagePack;
 
 namespace DeltaZulu.Pipeline.Inputs.Relp;
 
@@ -143,7 +144,7 @@ public sealed class RelpInput : ISourceInput
 
             return true;
         }
-        catch (MessagePack.MessagePackSerializationException)
+        catch (MessagePackSerializationException)
         {
             return false;
         }

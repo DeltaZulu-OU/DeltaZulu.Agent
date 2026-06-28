@@ -202,7 +202,7 @@ public sealed class AgentRuntimeTests
         var runtime = new AgentRuntime([binding], sink);
 
         var runTask = Task.Run(() => runtime.Run(TestContext.CancellationToken));
-        Assert.IsTrue(input.Opened.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(input.Opened.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
         source.OnNext(CreateEvent("before"));
         Assert.IsTrue(SpinWait.SpinUntil(() => sink.Records.Count == 1, TimeSpan.FromSeconds(5)));
 
@@ -210,7 +210,7 @@ public sealed class AgentRuntimeTests
         source.OnNext(CreateEvent("after"));
         source.OnCompleted();
 
-        Assert.IsTrue(runTask.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(runTask.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
         Assert.IsTrue(runTask.Result.Success);
         Assert.HasCount(2, sink.Records);
         Assert.AreEqual("initial", sink.Records[0].Metadata["profileId"]);
@@ -230,22 +230,22 @@ public sealed class AgentRuntimeTests
         var runtime = new AgentRuntime([binding], sink);
 
         var runTask = Task.Run(() => runtime.Run(TestContext.CancellationToken));
-        Assert.IsTrue(input.Opened.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(input.Opened.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
 
-        var firstWrite = Task.Run(() => source.OnNext(CreateEvent("before")));
-        Assert.IsTrue(executor.FirstEventStarted.Wait(TimeSpan.FromSeconds(5)));
+        var firstWrite = Task.Run(() => source.OnNext(CreateEvent("before")), TestContext.CancellationToken);
+        Assert.IsTrue(executor.FirstEventStarted.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
 
-        var reloadTask = Task.Run(() => reloads.NotifyProfileChanged(CreateProfile("replacement")));
-        Assert.IsFalse(reloadTask.Wait(TimeSpan.FromMilliseconds(100)));
+        var reloadTask = Task.Run(() => reloads.NotifyProfileChanged(CreateProfile("replacement")), TestContext.CancellationToken);
+        Assert.IsFalse(reloadTask.Wait(TimeSpan.FromMilliseconds(100), TestContext.CancellationToken));
 
         executor.ReleaseFirstEvent.Set();
-        Assert.IsTrue(firstWrite.Wait(TimeSpan.FromSeconds(5)));
-        Assert.IsTrue(reloadTask.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(firstWrite.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
+        Assert.IsTrue(reloadTask.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
 
         source.OnNext(CreateEvent("after"));
         source.OnCompleted();
 
-        Assert.IsTrue(runTask.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(runTask.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
         Assert.IsTrue(runTask.Result.Success);
         Assert.HasCount(2, sink.Records);
         Assert.AreEqual("initial", sink.Records[0].Metadata["profileId"]);

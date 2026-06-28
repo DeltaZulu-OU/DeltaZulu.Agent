@@ -1,6 +1,6 @@
 using System.Reactive.Linq;
+using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Agent.Pipeline;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Observability;
 
@@ -111,7 +111,7 @@ public sealed class ObservabilityTests
         });
 
         var overflow = counts.Single(count => count.LogKey.SourceType == "__overflow__");
-        Assert.AreEqual(10_000, counts.Count);
+        Assert.HasCount(10_000, counts);
         Assert.AreEqual(2, overflow.ReadCount);
     }
 
