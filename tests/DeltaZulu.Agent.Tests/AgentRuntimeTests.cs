@@ -285,11 +285,12 @@ public sealed class AgentRuntimeTests
         public string Name => "observable";
         public ManualResetEventSlim Opened { get; } = new(false);
 
-        public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default)
-        {
-            Opened.Set();
-            return _source;
-        }
+        public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) =>
+            Observable.Create<SourceEvent>(observer => {
+                var subscription = _source.Subscribe(observer);
+                Opened.Set();
+                return subscription;
+            });
     }
 
     private sealed class TestInput : ISourceInput

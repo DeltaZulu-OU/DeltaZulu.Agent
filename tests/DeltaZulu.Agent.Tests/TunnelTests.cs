@@ -72,7 +72,10 @@ public sealed class TunnelTests
             new Oid("1.3.6.1.5.5.7.3.2")
         ], critical: false));
         var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddDays(90));
-        return new X509Certificate2(certificate.Export(X509ContentType.Pkcs12));
+        return X509CertificateLoader.LoadPkcs12(
+            certificate.Export(X509ContentType.Pkcs12),
+            password: null,
+            X509KeyStorageFlags.Exportable);
     }
 
     private sealed class StaticTunnelCertificateProvider(X509Certificate2 certificate) : ITunnelCertificateProvider
