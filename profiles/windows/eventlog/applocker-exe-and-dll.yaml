@@ -25,4 +25,3 @@ filter:
     EventLog
     | where source =~ "Microsoft-Windows-AppLocker/EXE and DLL"
     | where EventId in (8003, 8004)
-    | project TimeCreated, Channel, ProviderName, EventId, RecordId, Level, Keywords, EventData, Message, RawEvent, _metadata

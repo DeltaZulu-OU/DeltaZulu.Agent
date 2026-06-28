@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where Message has "pam_" or Message has_any ("authentication failure", "session opened", "session closed")
-    | project Timestamp, Hostname, Facility, Severity, ProcessName, ProcessId, Message, ExtractedData, RawMessage, _metadata

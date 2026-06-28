@@ -31,4 +31,3 @@ filter:
     EventLog
     | where source =~ "auditd"
     | where SYSCALL.SYSCALL == "execve" or SYSCALL.syscall == 59
-    | project ID, SYSCALL, EXECVE, CWD, PATH, PROCTITLE, RawEvent, _metadata

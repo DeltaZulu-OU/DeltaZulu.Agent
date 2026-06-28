@@ -25,4 +25,3 @@ filter:
     EventLog
     | where ProcessName == "sshd" or AppName == "sshd"
     | where Message has_any ("Failed password", "Accepted password", "Accepted publickey", "Invalid user", "Disconnected from", "Connection closed by")
-    | project Timestamp, Hostname, Facility, Severity, ProcessName, ProcessId, AppName, ProcId, Message, ExtractedData, RawMessage, _metadata
