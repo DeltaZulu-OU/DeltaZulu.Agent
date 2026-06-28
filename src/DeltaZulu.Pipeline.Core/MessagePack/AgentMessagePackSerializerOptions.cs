@@ -12,6 +12,8 @@ public static class AgentMessagePackSerializerOptions
     /// Creates the default cross-boundary MessagePack serializer options for DeltaZulu Agent payloads.
     /// </summary>
     public static MessagePackSerializerOptions CreateDefault() => MessagePackSerializerOptions.Standard
-        .WithResolver(ContractlessStandardResolver.Instance)
+        .WithResolver(CompositeResolver.Create(
+            PrimitiveObjectResolver.Instance,
+            ContractlessStandardResolver.Instance))
         .WithSecurity(MessagePackSecurity.UntrustedData);
 }

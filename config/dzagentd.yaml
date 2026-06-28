@@ -1,55 +1,24 @@
 # DeltaZulu Agent daemon sample configuration.
 #
-# Keep one platform-specific source set enabled at a time. Windows inputs require
-# the net10.0-windows build; Linux inputs can be enabled on Linux hosts or in
-# containers where the referenced log files are mounted into the daemon.
+# The daemon gets its runnable pipeline from resource profiles. Point
+# profilesPath at the profile directory delivered by policy; each enabled
+# profile's resource block selects the input resource and its filter block
+# supplies the KQL filter/projection.
 id: local-agent-daemon
+profilesPath: profiles
 
-sources:
-  # Windows Event Log example. The target is the Windows channel name and the
-  # profile controls the KQL filtering/projection for that channel.
-  - id: local-windows-security
-    input: eventlog
-    target: Security
-    profile: profiles/windows/eventlog/security.yaml
-
-  # Optional Windows Sysmon channel example. Uncomment when Sysmon is installed
-  # and the Operational channel is enabled on the host.
-  # - id: local-windows-sysmon
-  #   input: eventlog
-  #   target: Microsoft-Windows-Sysmon/Operational
-  #   profile: profiles/windows/eventlog/sysmon-operational.yaml
-
-  # Linux syslog file-tail example. Uncomment this block on Linux and make sure
-  # the target log file exists and is readable by the daemon user.
-  # - id: local-syslog
-  #   input: syslog
-  #   target: /var/log/auth.log
-  #   profile: profiles/linux/syslog/sshd.yaml
-
-  # Linux FIFO example. The daemon creates the FIFO when missing, then any local
-  # process can push syslog-style lines with: printf '<13>hello\n' > /run/deltazulu/logs.fifo
-  # - id: local-fifo
-  #   input: fifo
-  #   target: /run/deltazulu/logs.fifo
-
-  # Linux auditd file-tail example. Uncomment this block on Linux when auditd is
-  # installed and /var/log/audit/audit.log is readable by the daemon user.
-  # - id: local-auditd
-  #   input: auditd
-  #   target: /var/log/audit/audit.log
-  #   profile: profiles/linux/auditd/execve.yaml
-
-  # RELP collector input example. Use this in a second dzagentd instance with
-  # output.mode: console to replace dzdemo-collector for local validation.
-  # - id: local-relp-collector
-  #   input: relp
-  #   address: 0.0.0.0
-  #   port: 6514
-  #   useTls: false
-  #   # For RELP-over-TLS, set useTls: true and provide a server certificate.
-  #   # serverCertificatePath: /etc/deltazulu/collector.pfx
-  #   # serverCertificatePassword: change-me
+pipeline:
+  input:
+    mode: profiles
+  filter:
+    mode: profiles
+  output:
+    # Forwarding encodes DeliveryBatch payloads with MessagePack and sends them
+    # over RELP. Use console or file for local profile/output validation.
+    mode: forward
+    encoding: messagepack
+    transport: relp
+    # file: ./collector.ndjson
 
 buffer:
   # Durable local queue used when the RELP endpoint is unavailable.
@@ -71,12 +40,6 @@ relp:
     # Local demo collector default. Replace with your production collector host.
     - host: 127.0.0.1
       port: 6514
-
-output:
-  # relp forwards to relp.endpoints. Use console or file for collector-style
-  # validation instances that receive RELP and print decoded records.
-  mode: relp
-  # file: ./collector.ndjson
 
 diagnostics:
   # Emit daemon/buffer health observations every N seconds. Set to null or remove

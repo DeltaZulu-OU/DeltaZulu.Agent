@@ -19,6 +19,7 @@ public sealed class ResourceCondition
 {
     public string Type { get; set; } = string.Empty;
     public string Query { get; set; } = string.Empty;
+    public bool Mandatory { get; set; } = true;
     public string? ScopePath { get; set; }
 }
 
@@ -28,6 +29,7 @@ public sealed class ResourceDescriptor
     public string Family { get; set; } = string.Empty;
     public string? Service { get; set; }
     public string? Channel { get; set; }
+    public string? Session { get; set; }
     public string? Provider { get; set; }
     public List<string> RecordTypes { get; set; } = [];
 }

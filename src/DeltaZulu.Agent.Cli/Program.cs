@@ -383,11 +383,23 @@ internal static partial class Program
             return result;
         }
 
-        Console.Error.WriteLine($"warning: profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}");
+        var message = $"profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}";
+        if (profile.Condition.Mandatory)
+        {
+            throw new InvalidOperationException(message, error);
+        }
+
+        Console.Error.WriteLine($"warning: {message}");
         Console.Error.Flush();
         return false;
 #else
-        Console.Error.WriteLine($"warning: profile '{profile.Id}' WMI condition skipped because this build does not include Windows WMI support.");
+        var message = $"profile '{profile.Id}' WMI condition skipped because this build does not include Windows WMI support.";
+        if (profile.Condition.Mandatory)
+        {
+            throw new PlatformNotSupportedException(message);
+        }
+
+        Console.Error.WriteLine($"warning: {message}");
         Console.Error.Flush();
         return false;
 #endif

@@ -14,7 +14,27 @@ public sealed class MessagePackPayloadSerializer
         _options = options ?? AgentMessagePackSerializerOptions.CreateDefault();
     }
 
-    public byte[] Serialize<T>(T value) => MessagePackSerializer.Serialize(value, _options);
+    public byte[] Serialize<T>(T value)
+    {
+        try
+        {
+            return MessagePackSerializer.Serialize(MessagePackValueNormalizer.Normalize(value), _options);
+        }
+        catch (MessagePackSerializationException ex)
+        {
+            throw new MessagePackSerializationException($"Failed to MessagePack serialize {typeof(T).FullName}: {ex.Message}", ex);
+        }
+    }
 
-    public T? Deserialize<T>(ReadOnlyMemory<byte> payload) => MessagePackSerializer.Deserialize<T>(payload, _options);
+    public T? Deserialize<T>(ReadOnlyMemory<byte> payload)
+    {
+        try
+        {
+            return MessagePackSerializer.Deserialize<T>(payload, _options);
+        }
+        catch (MessagePackSerializationException ex)
+        {
+            throw new MessagePackSerializationException($"Failed to MessagePack deserialize {typeof(T).FullName} from {payload.Length} bytes: {ex.Message}", ex);
+        }
+    }
 }

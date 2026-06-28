@@ -115,6 +115,36 @@ public sealed class WindowsEventLogInput : ISourceInput
         return false;
     }
 
+    public static bool TryValidateLogReadable(string requestedLogName, out string logName, out string? errorMessage)
+    {
+        if (!TryResolveLogName(requestedLogName, out logName, out errorMessage))
+        {
+            return false;
+        }
+
+        try
+        {
+            var query = new EventLogQuery(logName, PathType.LogName)
+            {
+                ReverseDirection = true
+            };
+            using var reader = new EventLogReader(query);
+            using var record = reader.ReadEvent();
+            errorMessage = null;
+            return true;
+        }
+        catch (EventLogException ex)
+        {
+            errorMessage = $"Unable to read Windows Event Log '{logName}': {ex.Message}";
+            return false;
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            errorMessage = $"Unable to read Windows Event Log '{logName}': {ex.Message}";
+            return false;
+        }
+    }
+
     public static bool TryResolveLogName(string requestedLogName, out string logName, out string? errorMessage)
     {
         var requested = ExpandLogAlias(requestedLogName);

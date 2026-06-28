@@ -57,7 +57,7 @@ dzdemo-collector --address 127.0.0.1 --port 6514
 
 ## Daemon operating modes
 
-`dzagentd` can run as either side of the local RELP smoke test by changing configuration. A forwarding instance reads local inputs, applies profiles, and writes to RELP. A collector-style instance enables an `input: relp` source backed by `DeltaZulu.Agent.Inputs/Relp` and sets `output.mode: console` or `output.mode: file`. The `dzdemo-collector` executable follows the same model: it starts a standard pipeline instance with MessagePack RELP input, a no-filter pass-through profile, and console NDJSON output.
+`dzagentd` runs the forwarding side of the local RELP smoke test: it discovers enabled resource profiles from `profilesPath`, reads each profile's resource input, applies the profile KQL filter, encodes delivery batches with MessagePack, and sends them over RELP. Use the dedicated `dzdemo-collector` executable for the receiving side of local validation.
 
 The current coordination contract is configuration files plus process supervision. The buffer is the durable handoff and retry state for RELP output, so named pipes, a local database, or other IPC are not required for the initial split. Add IPC only when live reload or command/control operations require runtime mutation without restarting the daemon.
 
@@ -65,31 +65,30 @@ The current coordination contract is configuration files plus process supervisio
 # Forwarding instance
 dzagentd --config config/dzagentd.yaml
 
-# Collector-style instance; use a config with sources[].input: relp and output.mode: console
-dzagentd --config config/dzagentd-collector.yaml
+# Receiving side for local validation
+dzdemo-collector --port 6514
 ```
 
-`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally non-exploratory: it has no inline query, schema listing, table output, JSON export, or other ad-hoc exploration commands. Its production role is forwarding; its collector-style mode is for local validation and controlled lab receiver tests. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
+`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally non-exploratory: it has no inline query, schema listing, table output, JSON export, or other ad-hoc exploration commands. Its production role is forwarding; use `dzdemo-collector` for local receiver validation and controlled lab receiver tests. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
 
 ```bash
 dzagentd --config config/dzagentd.yaml
 ```
 
-The daemon configuration owns live input families plus the existing durable buffer and RELP transport settings. Source events expose a KQL `source` column derived from the native source name, so Event Log, auditd, and ETW profiles select channels/providers in KQL (for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`) instead of adding ad-hoc daemon query flags. Each source may reference a checked-in YAML profile; omitted profiles pass source events through to the forwarder envelope.
+The daemon configuration points at a resource profile directory and owns only pipeline transport/runtime settings. Enabled profiles under `profilesPath` define the input resource (`resource.family`, `resource.channel`, `resource.session`, `resource.provider`) and the KQL filter/projection, so daemon YAML no longer duplicates a separate `sources` list. Forwarding is explicitly configured as `pipeline.output.encoding: messagepack` over `pipeline.output.transport: relp`.
 
 ```yaml
 id: local-agent-daemon
-sources:
-  # Windows Event Log example. Uncomment Linux examples in config/dzagentd.yaml
-  # instead when running the Linux build.
-  - id: local-windows-security
-    input: eventlog
-    target: Security
-    profile: profiles/windows/eventlog/security.yaml
-  # - id: local-syslog
-  #   input: syslog
-  #   target: /var/log/auth.log
-  #   profile: profiles/linux/syslog/sshd.yaml
+profilesPath: profiles
+pipeline:
+  input:
+    mode: profiles
+  filter:
+    mode: profiles
+  output:
+    mode: forward
+    encoding: messagepack
+    transport: relp
 buffer:
   path: ./buffer/agentd
 relp:
@@ -111,7 +110,7 @@ For local RELP validation, the pipeline-backed demo collector still defaults to 
 
 ## Demo collector
 
-For local forwarder validation, use the pipeline-backed `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`. It is a standard runtime pipeline instance with a MessagePack RELP input, no filter, and console NDJSON output; RELP acknowledgements are handled by the shared RELP input adapter.
+For local forwarder validation, use the pipeline-backed `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`. It is a standard runtime pipeline instance with a MessagePack RELP input, no KQL filter, and console NDJSON output; RELP acknowledgements are handled by the shared RELP input adapter.
 
 ```bash
 dzdemo-collector --address 127.0.0.1 --port 6514
@@ -138,12 +137,13 @@ With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes i
 With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to a file sink with `json out.ndjson`.
 CLI options such as `--kql` can appear before or after the input command; for example, `dzagentctl --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
 
-Profiles may include an optional host condition. The first supported condition type is `wmi`, which runs a WQL query and enables the profile only when the query returns at least one row. This is useful for Windows resource profiles that should only run on a specific server role, such as domain controllers:
+Profiles may include an optional host condition; both `dzagentctl` and `dzagentd` honor it when deciding whether a profile should run on the current host. The first supported condition type is `wmi`, which runs a WQL query and enables the profile only when the query returns at least one row. Set `condition.mandatory: false` when an unavailable WMI provider should skip the profile with a warning instead of failing startup. This is useful for Windows resource profiles that should only run on a specific server role, such as domain controllers:
 
 ```yaml
 condition:
   type: wmi
   query: select * from Win32_OperatingSystem where ProductType=2
+  mandatory: false
 ```
 
 The `schemas` command always lists built-in input resource schemas, so it works before any profile files exist. If the `profiles` directory (or another directory passed on the command line) exists, profile schemas are appended to the same output. Pass optional `table` or `json` format when you need to discover the resource ids, input tables, and schema strings available on the host while deciding which profile files still need to be created or tuned.

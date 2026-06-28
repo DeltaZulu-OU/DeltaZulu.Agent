@@ -39,8 +39,9 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
         _ = ScalarFunctionsRegistered.Value;
 
         return Observable.Create<ResourceOutputRecord>(observer => {
-            var queryPath = CreateTemporaryQueryFile(profile);
-            var tableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
+            const string observableName = "Source";
+            var inputTableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? observableName : profile.Input.Table;
+            var queryPath = CreateTemporaryQueryFile(profile, observableName, inputTableName);
             var disposables = new CompositeDisposable();
             var errorSignaled = 0;
             ResourceMetadata? capturedMetadata = null;
@@ -68,7 +69,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                 var hub = KqlNodeHub.FromFiles(
                     kqlRows,
                     kqlOutput => OnKqlOutput(kqlOutput, profile, observer, capturedMetadata),
-                    tableName,
+                    observableName,
                     queryPath);
 
                 foreach (var failedQuery in hub._node.FailedKqlQueryList)
@@ -139,7 +140,9 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
     /// <summary>
     /// Normalizes Kusto syntax aliases that are not accepted by Microsoft.Rx.Kql.
     /// </summary>
-    public static string NormalizeQueryForRxKql(string query)
+    public static string NormalizeQueryForRxKql(string query) => NormalizeQueryForRxKql(query, inputTableName: null, observableName: null);
+
+    public static string NormalizeQueryForRxKql(string query, string? inputTableName, string? observableName)
     {
         ArgumentNullException.ThrowIfNull(query);
 
@@ -178,13 +181,24 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                 continue;
             }
 
-            if (!inSingleQuotedString
-                && !inDoubleQuotedString
-                && IsKeywordAt(query, i, notInAlias))
+            if (!inSingleQuotedString && !inDoubleQuotedString)
             {
-                normalized.Append("!in");
-                i += notInAlias.Length - 1;
-                continue;
+                if (!string.IsNullOrWhiteSpace(inputTableName)
+                    && !string.IsNullOrWhiteSpace(observableName)
+                    && !inputTableName.Equals(observableName, StringComparison.OrdinalIgnoreCase)
+                    && IsKeywordAt(query, i, inputTableName))
+                {
+                    normalized.Append(observableName);
+                    i += inputTableName.Length - 1;
+                    continue;
+                }
+
+                if (IsKeywordAt(query, i, notInAlias))
+                {
+                    normalized.Append("!in");
+                    i += notInAlias.Length - 1;
+                    continue;
+                }
             }
 
             normalized.Append(current);
@@ -215,14 +229,14 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
     private static bool IsKqlIdentifierCharacter(char value) => char.IsLetterOrDigit(value) || value == '_';
 
-    private string CreateTemporaryQueryFile(ResourceProfile profile)
+    private string CreateTemporaryQueryFile(ResourceProfile profile, string observableName, string inputTableName)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agent-{profile.Id}-{Guid.NewGuid():N}.kql");
         var query = string.IsNullOrWhiteSpace(profile.Filter.Query)
-            ? profile.Input.Table
+            ? inputTableName
             : profile.Filter.Query;
 
-        File.WriteAllText(path, NormalizeQueryForRxKql(query));
+        File.WriteAllText(path, NormalizeQueryForRxKql(query, inputTableName, observableName));
         lock (_gate)
         {
             _temporaryQueryFiles.Add(path);

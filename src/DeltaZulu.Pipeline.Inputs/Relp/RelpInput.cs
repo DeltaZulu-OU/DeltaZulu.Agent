@@ -105,8 +105,8 @@ public sealed class RelpInput : ISourceInput
                 continue;
             }
 
-            var accepted = PublishPayload(frame.Payload, observer);
-            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : "500 invalid payload", cancellationToken).ConfigureAwait(false);
+            var accepted = PublishPayload(frame.Payload, observer, out var errorMessage);
+            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : $"500 {errorMessage}", cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -127,13 +127,16 @@ public sealed class RelpInput : ISourceInput
         return ssl;
     }
 
-    private bool PublishPayload(ReadOnlyMemory<byte> payload, IObserver<SourceEvent> observer)
+    private bool PublishPayload(ReadOnlyMemory<byte> payload, IObserver<SourceEvent> observer, out string errorMessage)
     {
         try
         {
             var batch = _serializer.Deserialize<DeliveryBatch>(payload);
             if (batch is null)
             {
+                errorMessage = "invalid MessagePack DeliveryBatch: payload decoded to null";
+                Console.Error.WriteLine($"RELP input rejected {payload.Length} byte payload: {errorMessage}.");
+                Console.Error.Flush();
                 return false;
             }
 
@@ -142,13 +145,19 @@ public sealed class RelpInput : ISourceInput
                 observer.OnNext(ToSourceEvent(record));
             }
 
+            errorMessage = string.Empty;
             return true;
         }
-        catch (MessagePackSerializationException)
+        catch (MessagePackSerializationException ex)
         {
+            errorMessage = $"invalid MessagePack DeliveryBatch: {SanitizeErrorMessage(ex.Message)}";
+            Console.Error.WriteLine($"RELP input rejected {payload.Length} byte payload: {errorMessage}");
+            Console.Error.Flush();
             return false;
         }
     }
+
+    private static string SanitizeErrorMessage(string message) => message.Replace('\r', ' ').Replace('\n', ' ');
 
     private SourceEvent ToSourceEvent(DeliveryRecord deliveryRecord)
     {

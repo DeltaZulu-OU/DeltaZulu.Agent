@@ -76,6 +76,16 @@ public sealed class KqlTests
     }
 
     [TestMethod]
+    public void NormalizeQueryForRxKql_RewritesInputTableToSourceObservableOutsideStrings()
+    {
+        const string query = "EventLog | where source =~ 'EventLog' | project EventId, EventLogValue";
+
+        var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query, "EventLog", "Source");
+
+        Assert.AreEqual("Source | where source =~ 'EventLog' | project EventId, EventLogValue", result);
+    }
+
+    [TestMethod]
     public void SourceEventToKqlRow_ExposesNestedWindowsEventDataAndMetadata()
     {
         var source = new SourceEvent(

@@ -31,12 +31,14 @@ public sealed class ProfileTests
         profile.Condition = new ResourceCondition
         {
             Type = "wmi",
-            Query = "select * from Win32_OperatingSystem where ProductType=2"
+            Query = "select * from Win32_OperatingSystem where ProductType=2",
+            Mandatory = false
         };
 
         var errors = new ResourceProfileValidator().Validate(profile);
 
         Assert.IsEmpty(errors);
+        Assert.IsFalse(profile.Condition.Mandatory);
     }
 
     [TestMethod]

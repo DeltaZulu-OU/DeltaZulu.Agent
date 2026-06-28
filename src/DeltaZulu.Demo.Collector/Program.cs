@@ -1,8 +1,9 @@
 using System.Net;
 using DeltaZulu.Pipeline.Inputs.Relp;
-using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
 using DeltaZulu.Pipeline.Core.Profiles;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Agent.Runtime;
 
 namespace DeltaZulu.Demo.Collector;
@@ -26,7 +27,7 @@ internal static class Program
             cts.Cancel();
         };
 
-        using var executor = new ResourceKqlProfileExecutor();
+        using var executor = new DemoCollectorPassthroughExecutor();
         using var sink = new ConsoleNdjsonSink();
         var runtime = new AgentRuntime(
             [new ProfileBinding(
@@ -113,6 +114,21 @@ Usage:
   dzdemo-collector [--address <ip>] [--port <port>]
 
 Runs the standard DeltaZulu pipeline with a MessagePack RELP input,
-a pass-through profile with no filter, and console NDJSON output.
+a pass-through profile with no KQL filter, and console NDJSON output.
 """);
+}
+
+internal sealed class DemoCollectorPassthroughExecutor : IProfileExecutor
+{
+    public IObservable<ResourceOutputRecord> Execute(
+        IObservable<SourceEvent> source,
+        ResourceProfile profile,
+        CancellationToken cancellationToken = default) =>
+        System.Reactive.Linq.Observable.Select(
+            source,
+            sourceEvent => ResourceOutputRecord.FromSource(sourceEvent, profile.Id, profile.Version));
+
+    public void Dispose()
+    {
+    }
 }

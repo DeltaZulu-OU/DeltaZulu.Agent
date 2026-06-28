@@ -70,7 +70,7 @@ flowchart LR
     I --> J[Receiver ACK / retry / dead-letter]
 ```
 
-Source events expose a KQL `source` column from the native source name. Daemon profiles use that column to select channels or providers, for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`.
+Source events expose a KQL `source` column from the native source name. Daemon profiles use that column to select channels or providers; ETW profiles use `resource.session` for the live session name and `resource.provider` for filtering/identity, for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`.
 
 ## Output and delivery envelopes
 
@@ -121,7 +121,7 @@ Windows Event Log records expose named XML `EventData` values both under the dyn
 
 ## Daemon roles and coordination
 
-`dzagentd` is the service boundary for both endpoint forwarding and collector-style validation. With local sources and `output.mode: relp`, it runs the normal input/filter/RELP path. With a `relp` source from `DeltaZulu.Agent.Inputs/Relp` and `output.mode: console` or `file`, a second instance accepts RELP or RELP-over-TLS and prints or stores decoded records. The demo collector uses that same pipeline shape in code: RELP MessagePack input, no filtering, and console output. The merged `DeltaZulu.Agent.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Agent.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Agent.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Agent.Pipeline/Ndjson` under the `DeltaZulu.Agent.Pipeline.Ndjson` namespace so inputs and outputs do not depend on each other.
+`dzagentd` is the forwarding service boundary. It discovers enabled resource profiles from `profilesPath`, uses each profile's `resource` block as the input declaration, applies the profile KQL filter/projection, then encodes delivery batches with MessagePack and sends them over RELP when `pipeline.output.mode: forward`. The demo collector remains the lab receiver: RELP MessagePack input, no KQL filtering, and console output. The merged `DeltaZulu.Agent.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Agent.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Agent.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Agent.Pipeline/Ndjson` under the `DeltaZulu.Agent.Pipeline.Ndjson` namespace so inputs and outputs do not depend on each other.
 
 Coordination remains configuration-file based for the current split. The forwarder output path already owns durable queue state in `DeltaZulu.DurableBuffer`, while daemon configuration owns source/profile/output selection; no synchronous request/response decisions are required on the hot path. Named pipes or another IPC channel should only be introduced later for live reconfiguration, administrative health queries, or explicit control-plane commands that cannot be expressed safely by replacing configuration and restarting the supervised daemon process.
 
@@ -133,21 +133,20 @@ The forwarder path emits health observations through `ForwarderHealthReporter`, 
 
 ## Configuration model
 
-`dzagentd` uses a single YAML file for agent identity, sources, buffer settings, RELP endpoints/TLS policy, and diagnostics:
+`dzagentd` uses a single YAML file for agent identity, the profile directory, pipeline output encoding/transport, buffer settings, RELP endpoints/TLS policy, and diagnostics:
 
 ```yaml
 id: local-agent-daemon
-sources:
-  # Windows Event Log example. Uncomment Linux examples in config/dzagentd.yaml
-  # instead when running the Linux build.
-  - id: local-windows-security
-    input: eventlog
-    target: Security
-    profile: profiles/windows/eventlog/security.yaml
-  # - id: local-syslog
-  #   input: syslog
-  #   target: /var/log/auth.log
-  #   profile: profiles/linux/syslog/sshd.yaml
+profilesPath: profiles
+pipeline:
+  input:
+    mode: profiles
+  filter:
+    mode: profiles
+  output:
+    mode: forward
+    encoding: messagepack
+    transport: relp
 buffer:
   path: ./buffer/agentd
 relp:

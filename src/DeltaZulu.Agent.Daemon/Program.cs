@@ -153,11 +153,27 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
     private IReadOnlyList<ProfileBinding> CreateBindings(ForwarderDaemonConfiguration configuration)
     {
-        var bindings = new List<ProfileBinding>(configuration.Sources.Count);
-        foreach (var source in configuration.Sources)
+        var loadResult = new YamlResourceProfileLoader().LoadDirectory(configuration.ProfilesPath);
+        foreach (var warning in loadResult.Warnings)
         {
-            var profile = LoadProfile(source);
-            if (ShouldSkipDisabledWindowsEventLog(source, profile, out var warning))
+            logger.LogWarning("{Warning}", warning);
+        }
+
+        if (loadResult.Errors.Count > 0)
+        {
+            throw new InvalidDataException($"Failed to load daemon profiles from '{configuration.ProfilesPath}': {string.Join("; ", loadResult.Errors)}");
+        }
+
+        var profiles = loadResult.Profiles
+            .Where(profile => profile.Enabled)
+            .Where(IsProfileForCurrentPlatform)
+            .Where(IsProfileConditionSatisfied)
+            .ToList();
+
+        var bindings = new List<ProfileBinding>(profiles.Count);
+        foreach (var profile in profiles)
+        {
+            if (ShouldSkipUnavailableWindowsEventLog(profile, out var warning))
             {
                 logger.LogWarning("{Warning}", warning);
                 continue;
@@ -165,110 +181,141 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
             var executor = new ResourceKqlProfileExecutor();
             _disposables.Add(executor);
-            logger.LogInformation("Configured forwarder source {SourceId} ({Input}) for daemon {AgentId}.", source.Id, source.Input, configuration.Id);
-            bindings.Add(new ProfileBinding(CreateInput(source, profile), profile, executor));
+            logger.LogInformation("Configured profile {ProfileId} ({Family}) for daemon {AgentId}.", profile.Id, profile.Resource.Family, configuration.Id);
+            bindings.Add(new ProfileBinding(CreateInput(profile), profile, executor));
         }
 
         if (bindings.Count == 0)
         {
-            logger.LogWarning("Agent daemon {AgentId} has no runnable sources after filtering unavailable resources.", configuration.Id);
+            logger.LogWarning("Agent daemon {AgentId} has no runnable profiles after filtering unavailable resources.", configuration.Id);
         }
 
         return bindings;
     }
 
 #if WINDOWS
-    private static bool ShouldSkipDisabledWindowsEventLog(ForwarderDaemonSourceConfiguration source, ResourceProfile? profile, out string warning)
+    private static bool ShouldSkipUnavailableWindowsEventLog(ResourceProfile profile, out string warning)
     {
         warning = string.Empty;
-        if (!source.Input.Equals("eventlog", StringComparison.OrdinalIgnoreCase))
+        if (!profile.Resource.Family.Equals("eventlog", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        var target = source.Target ?? profile?.Resource.Channel;
+        var target = profile.Resource.Channel;
         if (string.IsNullOrWhiteSpace(target))
         {
             return false;
         }
 
-        if (WindowsEventLogInput.TryResolveLogName(target, out _, out var errorMessage))
+        if (WindowsEventLogInput.TryValidateLogReadable(target, out _, out var errorMessage))
         {
             return false;
         }
 
-        if (!WindowsEventLogInput.IsDisabledChannelError(errorMessage))
-        {
-            return false;
-        }
-
-        warning = $"Skipping daemon source '{source.Id}' because {errorMessage}";
+        warning = $"Skipping daemon profile '{profile.Id}' because {errorMessage}";
         return true;
     }
 #else
-    private static bool ShouldSkipDisabledWindowsEventLog(ForwarderDaemonSourceConfiguration source, ResourceProfile? profile, out string warning)
+    private static bool ShouldSkipUnavailableWindowsEventLog(ResourceProfile profile, out string warning)
     {
         warning = string.Empty;
         return false;
     }
 #endif
 
-    private static ResourceProfile LoadProfile(ForwarderDaemonSourceConfiguration source)
+    private bool IsProfileConditionSatisfied(ResourceProfile profile)
     {
-        if (string.IsNullOrWhiteSpace(source.Profile))
+        if (profile.Condition is null)
         {
-            return new ResourceProfile
-            {
-                SchemaVersion = 1,
-                Id = $"{source.Id}.passthrough",
-                Name = $"{source.Id} passthrough",
-                Version = "1.0.0",
-                Resource = new ResourceDescriptor { Family = source.Input },
-                Input = new ResourceInputContract { Table = "Source" },
-                Output = new ResourceOutputContract { Format = "ndjson", PreserveOriginalFieldNames = true }
-            };
+            return true;
         }
 
-        var profile = new YamlResourceProfileLoader().LoadFile(source.Profile);
-        return profile.Enabled ? profile : throw new InvalidDataException($"Agent daemon source '{source.Id}' references disabled profile '{profile.Id}'.");
+        if (!profile.Condition.Type.Equals("wmi", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+#if WINDOWS
+        var scopePath = string.IsNullOrWhiteSpace(profile.Condition.ScopePath)
+            ? @"\\.\root\cimv2"
+            : profile.Condition.ScopePath;
+
+        if (WmiCondition.TryExists(profile.Condition.Query, out var result, out var error, scopePath))
+        {
+            if (!result)
+            {
+                logger.LogInformation("Skipping daemon profile {ProfileId} because its WMI condition returned no rows.", profile.Id);
+            }
+
+            return result;
+        }
+
+        var message = $"profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}";
+        if (profile.Condition.Mandatory)
+        {
+            throw new InvalidOperationException(message, error);
+        }
+
+        logger.LogWarning("Skipping daemon profile {ProfileId} because its optional WMI condition could not be evaluated: {Error}", profile.Id, error?.Message ?? "unknown error");
+        return false;
+#else
+        var message = $"profile '{profile.Id}' WMI condition requires the Windows build.";
+        if (profile.Condition.Mandatory)
+        {
+            throw new PlatformNotSupportedException(message);
+        }
+
+        logger.LogWarning("Skipping daemon profile {ProfileId} because its optional WMI condition requires the Windows build.", profile.Id);
+        return false;
+#endif
     }
 
-    private static ISourceInput CreateInput(ForwarderDaemonSourceConfiguration source, ResourceProfile? profile)
+    private static bool IsProfileForCurrentPlatform(ResourceProfile profile)
     {
-        var input = source.Input.ToLowerInvariant();
-        var target = source.Target ?? profile?.Resource.Channel;
-        return input switch
+        if (string.IsNullOrWhiteSpace(profile.Resource.Platform))
         {
-            "syslog" => new SyslogFileTailInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for syslog.")),
-            "syslogserver" => new TcpSyslogInput(IPAddress.Parse(source.Address ?? "0.0.0.0"), source.Port ?? 514),
-            "relp" or "relpserver" => new RelpInput(new RelpInputConfiguration
-            {
-                Address = source.Address ?? "0.0.0.0",
-                Port = source.Port ?? 2514,
-                UseTls = source.UseTls ?? false,
-                ServerCertificatePath = source.ServerCertificatePath,
-                ServerCertificatePassword = source.ServerCertificatePassword
-            }, source.Id),
-            "fifo" => new FifoSyslogInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for fifo.")),
-            "csv" => new CsvFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for csv.")),
-            "auditd" => new AuditdFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for auditd.")),
+            return true;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return profile.Resource.Platform.Equals("windows", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return profile.Resource.Platform.Equals("linux", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return profile.Resource.Platform.Equals("portable", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ISourceInput CreateInput(ResourceProfile profile)
+    {
+        var family = profile.Resource.Family.ToLowerInvariant();
+        return family switch
+        {
+            "syslog" => new SyslogFileTailInput("/var/log/auth.log", profile.Id),
+            "auditd" => new AuditdFileInput("/var/log/audit/audit.log", profile.Id),
 #if WINDOWS
-            "eventlog" => new WindowsEventLogInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target or profile resource.channel for eventlog.")),
-            "evtx" => new EvtxFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for evtx.")),
-            "etl" => new EtlFileInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for etl.")),
-            "etw" => new EtwSessionInput(target ?? throw new ArgumentException($"source '{source.Id}' requires target for etw.")),
+            "eventlog" => new WindowsEventLogInput(profile.Resource.Channel ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.channel for eventlog.")),
+            "etl" => new EtlFileInput(profile.Resource.Channel ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.channel for etl.")),
+            "etw" => new EtwSessionInput(
+                profile.Resource.Session ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.session for etw."),
+                profile.Resource.Provider ?? profile.Id),
 #else
-            "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{input} is available from the net10.0-windows build."),
+            "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{family} is available from the net10.0-windows build."),
 #endif
-            _ => throw new ArgumentException($"source '{source.Id}' has unknown input '{source.Input}'.")
+            _ => throw new ArgumentException($"profile '{profile.Id}' has unknown resource.family '{profile.Resource.Family}'.")
         };
     }
 
     private static IOutputWriter CreateOutputSink(ForwarderDaemonConfiguration configuration) =>
-        configuration.Output.Mode.ToLowerInvariant() switch
+        configuration.Pipeline.Output.Mode.ToLowerInvariant() switch
         {
             "console" => new ConsoleNdjsonSink(),
-            "file" => new NdjsonFileSink(configuration.Output.File!),
+            "file" => new NdjsonFileSink(configuration.Pipeline.Output.File!),
             _ => CreateRelpSink(configuration)
         };
 

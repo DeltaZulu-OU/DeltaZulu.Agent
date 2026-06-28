@@ -26,6 +26,57 @@ public sealed class MessagePackTests
     }
 
     [TestMethod]
+    public void MessagePackPayloadSerializer_PreservesObjectDictionaryPrimitiveValues()
+    {
+        var serializer = new MessagePackPayloadSerializer();
+        var batch = CreateBatch();
+        var record = batch.Records[0] with
+        {
+            Record = batch.Records[0].Record with
+            {
+                Metadata = new Dictionary<string, object?>
+                {
+                    ["collectorId"] = "agent-a",
+                    ["sourceType"] = "WindowsEventLog",
+                    ["ingestedAt"] = DateTimeOffset.Parse("2026-06-27T00:00:02Z"),
+                    ["rawPreserved"] = true
+                },
+                Event = new Dictionary<string, object?>
+                {
+                    ["ProviderName"] = "Microsoft-Windows-Security-Auditing",
+                    ["EventId"] = 4688,
+                    ["RecordId"] = 11320633L,
+                    ["TimeCreated"] = DateTimeOffset.Parse("2026-06-27T00:00:03Z"),
+                    ["EventData"] = new Dictionary<string, object?>
+                    {
+                        ["SubjectUserName"] = "demo-user",
+                        ["NewProcessId"] = 1234,
+                        ["UnsupportedObject"] = new Version(1, 2, 3)
+                    }
+                }
+            }
+        };
+
+        batch = batch with { Records = [record] };
+
+        var payload = serializer.Serialize(batch);
+        var decoded = serializer.Deserialize<DeliveryBatch>(payload);
+
+        Assert.IsNotNull(decoded);
+        var decodedRecord = decoded.Records[0].Record;
+        Assert.AreEqual("agent-a", decodedRecord.Metadata["collectorId"]);
+        Assert.AreEqual("Microsoft-Windows-Security-Auditing", decodedRecord.Event["ProviderName"]);
+        Assert.AreEqual(4688, Convert.ToInt32(decodedRecord.Event["EventId"]));
+        Assert.AreEqual(11320633L, Convert.ToInt64(decodedRecord.Event["RecordId"]));
+
+        Assert.IsInstanceOfType(decodedRecord.Event["EventData"], typeof(IReadOnlyDictionary<object, object?>));
+        var eventData = (IReadOnlyDictionary<object, object?>)decodedRecord.Event["EventData"]!;
+        Assert.AreEqual("demo-user", eventData["SubjectUserName"]);
+        Assert.AreEqual(1234, Convert.ToInt32(eventData["NewProcessId"]));
+        Assert.AreEqual("1.2.3", eventData["UnsupportedObject"]);
+    }
+
+    [TestMethod]
     public void MessagePackInputAndOutputFolders_ShareCodecWithoutReferencingEachOther()
     {
         var encoder = new MessagePackDeliveryBatchEncoder();
