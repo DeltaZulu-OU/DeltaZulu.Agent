@@ -1,8 +1,8 @@
 using System.Net;
-using DeltaZulu.Agent.Inputs.Relp;
-using DeltaZulu.Agent.Kql;
-using DeltaZulu.Agent.Outputs.Ndjson;
-using DeltaZulu.Agent.Pipeline.Profiles;
+using DeltaZulu.Pipeline.Inputs.Relp;
+using DeltaZulu.Pipeline.Kql;
+using DeltaZulu.Pipeline.Outputs.Ndjson;
+using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Agent.Runtime;
 
 namespace DeltaZulu.Demo.Collector;

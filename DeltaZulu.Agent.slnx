@@ -3,12 +3,12 @@
   <Project Path="external/DeltaZulu.Relp/src/DeltaZulu.Relp/DeltaZulu.Relp.csproj" />
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
-  <Project Path="src/DeltaZulu.Agent.Inputs/DeltaZulu.Agent.Inputs.csproj" />
-  <Project Path="src/DeltaZulu.Agent.Kql/DeltaZulu.Agent.Kql.csproj" />
-  <Project Path="src/DeltaZulu.Agent.Pipeline/DeltaZulu.Agent.Pipeline.csproj" />
+  <Project Path="src/DeltaZulu.Pipeline.Inputs/DeltaZulu.Pipeline.Inputs.csproj" />
+  <Project Path="src/DeltaZulu.Pipeline.Kql/DeltaZulu.Pipeline.Kql.csproj" />
+  <Project Path="src/DeltaZulu.Pipeline.Core/DeltaZulu.Pipeline.Core.csproj" />
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
   <Project Path="src/DeltaZulu.Agent.Tunnel/DeltaZulu.Agent.Tunnel.csproj" />
-  <Project Path="src/DeltaZulu.Agent.Outputs/DeltaZulu.Agent.Outputs.csproj" />
+  <Project Path="src/DeltaZulu.Pipeline.Outputs/DeltaZulu.Pipeline.Outputs.csproj" />
   <Project Path="src/DeltaZulu.Demo.Collector/DeltaZulu.Demo.Collector.csproj" />
   <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
 </Solution>

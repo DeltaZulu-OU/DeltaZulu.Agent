@@ -1,17 +1,17 @@
 using System.Net;
 using System.Text.Json;
-using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Agent.Runtime;
-using DeltaZulu.Agent.Pipeline.Profiles;
-using DeltaZulu.Agent.Inputs.Auditd;
-using DeltaZulu.Agent.Inputs.Files;
-using DeltaZulu.Agent.Inputs.Syslog;
-using DeltaZulu.Agent.Kql;
-using DeltaZulu.Agent.Outputs.Ndjson;
-using DeltaZulu.Agent.Pipeline.Ndjson;
+using DeltaZulu.Pipeline.Core.Profiles;
+using DeltaZulu.Pipeline.Inputs.Auditd;
+using DeltaZulu.Pipeline.Inputs.Files;
+using DeltaZulu.Pipeline.Inputs.Syslog;
+using DeltaZulu.Pipeline.Kql;
+using DeltaZulu.Pipeline.Outputs.Ndjson;
+using DeltaZulu.Pipeline.Core.Ndjson;
 
 #if WINDOWS
-using DeltaZulu.Agent.Inputs.Windows;
+using DeltaZulu.Pipeline.Inputs.Windows;
 #endif
 
 namespace DeltaZulu.Agent.Cli;

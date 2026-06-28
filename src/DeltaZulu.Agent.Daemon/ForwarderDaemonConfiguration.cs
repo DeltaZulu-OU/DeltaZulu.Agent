@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Outputs.Relp;
+using DeltaZulu.Pipeline.Outputs.Relp;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 

@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Pipeline.Profiles;
+using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Tests;
 

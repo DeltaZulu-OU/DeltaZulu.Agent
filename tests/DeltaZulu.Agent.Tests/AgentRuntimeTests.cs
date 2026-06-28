@@ -1,9 +1,9 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Agent.Runtime;
-using DeltaZulu.Agent.Pipeline.Events;
-using DeltaZulu.Agent.Pipeline.Profiles;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Tests;
 

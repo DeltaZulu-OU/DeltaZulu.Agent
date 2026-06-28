@@ -1,7 +1,7 @@
-using DeltaZulu.Agent.Pipeline.Observability;
-using DeltaZulu.Agent.Pipeline.Delivery;
-using DeltaZulu.Agent.Pipeline.Events;
-using DeltaZulu.Agent.Pipeline.Profiles;
+using DeltaZulu.Pipeline.Core.Observability;
+using DeltaZulu.Pipeline.Core.Delivery;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Tests;
 

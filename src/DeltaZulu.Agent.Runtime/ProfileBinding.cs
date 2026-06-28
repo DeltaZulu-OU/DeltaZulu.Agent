@@ -1,5 +1,5 @@
-using DeltaZulu.Agent.Pipeline.Abstractions;
-using DeltaZulu.Agent.Pipeline.Profiles;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Runtime;
 

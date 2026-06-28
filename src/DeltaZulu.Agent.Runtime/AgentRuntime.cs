@@ -1,7 +1,7 @@
 using System.Runtime.ExceptionServices;
-using DeltaZulu.Agent.Pipeline.Abstractions;
+using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Agent.Pipeline;
-using DeltaZulu.Agent.Pipeline.Events;
+using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Agent.Runtime;
 

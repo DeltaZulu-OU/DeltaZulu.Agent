@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Inputs.Syslog;
+using DeltaZulu.Pipeline.Inputs.Syslog;
 
 namespace DeltaZulu.Agent.Tests;
 

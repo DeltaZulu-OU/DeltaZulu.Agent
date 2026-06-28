@@ -1,7 +1,7 @@
 using System.Reactive.Linq;
-using DeltaZulu.Agent.Pipeline.Abstractions;
-using DeltaZulu.Agent.Pipeline.Events;
-using DeltaZulu.Agent.Pipeline.Profiles;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Runtime;
 

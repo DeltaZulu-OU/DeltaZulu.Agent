@@ -1,6 +1,6 @@
 using System.Reflection;
 using DeltaZulu.Agent.Pipeline;
-using DeltaZulu.Agent.Pipeline.Events;
+using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Agent.Tests;
 

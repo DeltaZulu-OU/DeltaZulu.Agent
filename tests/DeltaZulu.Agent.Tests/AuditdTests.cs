@@ -1,4 +1,4 @@
-using DeltaZulu.Agent.Inputs.Auditd;
+using DeltaZulu.Pipeline.Inputs.Auditd;
 
 namespace DeltaZulu.Agent.Tests;
 
