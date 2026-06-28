@@ -1,7 +1,7 @@
 using System.Net.Sockets;
-using System.Text.Json;
 using DeltaZulu.Agent.Pipeline.Abstractions;
 using DeltaZulu.Agent.Pipeline.Delivery;
+using DeltaZulu.Agent.Pipeline.MessagePack;
 using DeltaZulu.Relp;
 
 namespace DeltaZulu.Agent.Outputs.Relp;
@@ -11,6 +11,7 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
     private static readonly TimeSpan SessionCloseTimeout = TimeSpan.FromSeconds(5);
 
     private readonly RelpForwarderOptions _options;
+    private readonly MessagePackPayloadSerializer _serializer = new();
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
     private RelpConnection? _connection;
     private RelpSession? _session;
@@ -39,7 +40,7 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
             try
             {
                 var session = await GetOrOpenSessionAsync(cancellationToken).ConfigureAwait(false);
-                var payload = JsonSerializer.SerializeToUtf8Bytes(batch, RelpOutputJson.Options);
+                var payload = _serializer.Serialize(batch);
                 await session.SendMessageAsync(payload, cancellationToken).ConfigureAwait(false);
 
                 return new DeliveryAck {

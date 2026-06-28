@@ -11,7 +11,7 @@ These examples are operational starting points for lab validation. Validate plai
 | Plain RELP | `2514` or lab-only `6514` | `relp.useTls: false` | RELP over TCP; protect with host firewall or private network. |
 | RELP/TLS | `6514` | `relp.useTls: true` | Receiver presents a certificate trusted by system trust or the configured thumbprint allow-list. |
 
-The forwarded RELP message body is a JSON `DeliveryBatch` envelope, not a normalized syslog event. Keep the receiver rule simple: accept RELP, write the raw message unchanged, and let downstream systems decode the delivery envelope.
+The forwarded RELP message body is a MessagePack `DeliveryBatch` envelope, not a normalized syslog event. Keep the receiver rule simple: accept RELP, write the raw binary message unchanged, and let downstream systems decode the delivery envelope with the shared DeltaZulu MessagePack codec.
 
 ## rsyslog plain RELP lab receiver
 
@@ -136,11 +136,11 @@ log {
    - `Thumbprint` for lab or pinned deployments where the receiver certificate thumbprint is explicitly allowed.
    - `Disabled` only for isolated diagnostics; do not use it for production traffic.
 4. Keep a persistent `buffer.path` on durable local storage.
-5. Run the demo collector smoke test before using a production receiver, then run the receiver with a small host-neutral syslog fixture and confirm the output file receives JSON delivery batches.
+5. Run the demo collector smoke test before using a production receiver, then run the receiver with a small host-neutral syslog fixture and confirm the output file receives MessagePack delivery batches.
 
 ## Validation notes
 
 - Receiver snippets should preserve the RELP message body without parsing or rewriting it.
 - Restrict listener firewall rules to known agent hosts.
 - Monitor agent diagnostics for accepted, sent, acknowledged, retried, dead-lettered, rejected, and oldest-buffered-age counters.
-- Keep the demo collector limited to local validation; production receivers should be separately operated and monitored.
+- Keep the pipeline-backed demo collector limited to local validation; production receivers should be separately operated and monitored.

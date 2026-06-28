@@ -7,7 +7,7 @@ Inputs collect.
 Parsers expose resource-native fields.
 Profiles filter and select with KQL.
 The runtime preserves delivery identity.
-Outputs write NDJSON or enqueue durable delivery records.
+Outputs write NDJSON or enqueue durable delivery records that are forwarded as MessagePack `DeliveryBatch` payloads over RELP.
 The server performs semantic normalization.
 ```
 
@@ -21,7 +21,7 @@ DeltaZulu.Agent currently has three executable hosts:
 | --- | --- | --- |
 | `dzagentctl` | `src/DeltaZulu.Agent.Cli` | Thin exploration CLI for schemas, inline KQL, profile testing, and NDJSON console/file export. |
 | `dzagentd` | `src/DeltaZulu.Agent.Daemon` | YAML-configured daemon host. Production role is RELP forwarding; collector-style mode is for local validation and controlled lab tests. |
-| `dzdemo-collector` | `src/DeltaZulu.Demo.Collector` | Local validation receiver that accepts RELP frames, prints decoded batches, and ACKs with `rsp 200`. |
+| `dzdemo-collector` | `src/DeltaZulu.Demo.Collector` | Local validation pipeline wrapper with MessagePack RELP input, a no-filter pass-through profile, and console NDJSON output. |
 
 `dzagentctl` is intentionally convenient for development. `dzagentd` is intentionally smaller: it has no inline query mode, schema listing, table renderer, or ad-hoc export command. Daemon source selection belongs in YAML and resource profiles.
 
@@ -101,7 +101,7 @@ Terminal NDJSON output is one JSON object per line:
 }
 ```
 
-Forwarding wraps filtered resource output in RELP-neutral delivery records before buffering. `DeliveryId` is generated per delivery envelope and is separate from the event-sourced `RecordId`, giving the server stable at-least-once deduplication material when crashes or network failures cause resend.
+Forwarding wraps filtered resource output in RELP-neutral delivery records before buffering; sealed batches are encoded as MessagePack before the RELP transport sends them. `DeliveryId` is generated per delivery envelope and is separate from the event-sourced `RecordId`, giving the server stable at-least-once deduplication material when crashes or network failures cause resend.
 
 The KQL executor preserves source metadata outside user-controlled projections. If a profile omits `_metadata`, the runtime injects fallback delivery identity fields so collector/source/profile context is not accidentally dropped before forwarding.
 
@@ -121,7 +121,7 @@ Windows Event Log records expose named XML `EventData` values both under the dyn
 
 ## Daemon roles and coordination
 
-`dzagentd` is the service boundary for endpoint forwarding plus local collector-style validation. With local sources and `output.mode: relp`, it runs the normal input/filter/RELP path. With a `relp` source from `DeltaZulu.Agent.Inputs/Relp` and `output.mode: console` or `file`, a second instance accepts RELP or RELP-over-TLS and prints or stores decoded records, providing a daemon-based alternative to the separate demo collector while keeping production forwarding and validation receiver roles in separate configurations. The merged `DeltaZulu.Agent.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Agent.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Agent.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Agent.Pipeline/Ndjson` under the `DeltaZulu.Agent.Pipeline.Ndjson` namespace so inputs and outputs do not depend on each other.
+`dzagentd` is the service boundary for both endpoint forwarding and collector-style validation. With local sources and `output.mode: relp`, it runs the normal input/filter/RELP path. With a `relp` source from `DeltaZulu.Agent.Inputs/Relp` and `output.mode: console` or `file`, a second instance accepts RELP or RELP-over-TLS and prints or stores decoded records. The demo collector uses that same pipeline shape in code: RELP MessagePack input, no filtering, and console output. The merged `DeltaZulu.Agent.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Agent.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Agent.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Agent.Pipeline/Ndjson` under the `DeltaZulu.Agent.Pipeline.Ndjson` namespace so inputs and outputs do not depend on each other.
 
 Coordination remains configuration-file based for the current split. The forwarder output path already owns durable queue state in `DeltaZulu.DurableBuffer`, while daemon configuration owns source/profile/output selection; no synchronous request/response decisions are required on the hot path. Named pipes or another IPC channel should only be introduced later for live reconfiguration, administrative health queries, or explicit control-plane commands that cannot be expressed safely by replacing configuration and restarting the supervised daemon process.
 
@@ -172,7 +172,7 @@ The agent is transitioning from a monolithic streaming ETL binary into a modular
 
 Inventory collectors follow a scan-and-report pattern with their own scheduling, separate from the reactive streaming pipeline. They produce discrete state snapshots, not continuous event streams. The server populates inventory tables from these reports, and the data is also exposed locally as KQL-queryable tables for IOC enrichment.
 
-The `dzagentctl` CLI and `dzdemo-collector` remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration. See [`ROADMAP.md`](ROADMAP.md) for the extraction plan, migration sequence, and service roadmaps.
+The `dzagentctl` CLI and pipeline-backed `dzdemo-collector` remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration. See [`ROADMAP.md`](ROADMAP.md) for the extraction plan, migration sequence, and service roadmaps.
 
 ## Enrichment
 

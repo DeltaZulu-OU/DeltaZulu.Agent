@@ -1,7 +1,7 @@
 using DeltaZulu.Agent.Pipeline.Abstractions;
 using DeltaZulu.Agent.Pipeline.Delivery;
 using DeltaZulu.Agent.Pipeline.Events;
-using DeltaZulu.Agent.Pipeline.Ndjson;
+using DeltaZulu.Agent.Pipeline.MessagePack;
 using DeltaZulu.Agent.Pipeline.Relp;
 using System.Net;
 using System.Net.Security;
@@ -26,8 +26,7 @@ public sealed record RelpInputConfiguration
 
 public sealed class RelpInput : ISourceInput
 {
-    private static readonly JsonSerializerOptions JsonOptions = NdjsonSerializerOptions.CreateDefault();
-
+    private readonly MessagePackPayloadSerializer _serializer = new();
     private readonly RelpInputConfiguration _configuration;
     private readonly X509Certificate2? _serverCertificate;
 
@@ -131,7 +130,7 @@ public sealed class RelpInput : ISourceInput
     {
         try
         {
-            var batch = JsonSerializer.Deserialize<DeliveryBatch>(payload.Span, JsonOptions);
+            var batch = _serializer.Deserialize<DeliveryBatch>(payload);
             if (batch is null)
             {
                 return false;
@@ -144,7 +143,7 @@ public sealed class RelpInput : ISourceInput
 
             return true;
         }
-        catch (JsonException)
+        catch (MessagePack.MessagePackSerializationException)
         {
             return false;
         }

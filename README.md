@@ -1,8 +1,8 @@
   # DeltaZulu Agent
 
-DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records through `DeltaZulu.DurableBuffer` and a DeltaZulu.Relp-backed transport adapter.
+DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records as MessagePack `DeliveryBatch` payloads through `DeltaZulu.DurableBuffer` and a RELP.Net-backed transport adapter.
 
-This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a `dzagentd` daemon host for service deployment, and a separate `dzdemo-collector` receiver for local RELP validation.
+This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a separate `dzagentd` daemon host for service deployment, and a `dzdemo-collector` pipeline wrapper for local RELP validation.
 
 
 ## Command line tool
@@ -57,7 +57,7 @@ dzdemo-collector --address 127.0.0.1 --port 6514
 
 ## Daemon operating modes
 
-`dzagentd` can run as either side of the local RELP smoke test by changing configuration. A forwarding instance reads local inputs, applies profiles, and writes to RELP. A collector-style instance enables an `input: relp` source backed by `DeltaZulu.Agent.Inputs/Relp` and sets `output.mode: console` or `output.mode: file`, so the same daemon binary can replace the separate demo collector for validation.
+`dzagentd` can run as either side of the local RELP smoke test by changing configuration. A forwarding instance reads local inputs, applies profiles, and writes to RELP. A collector-style instance enables an `input: relp` source backed by `DeltaZulu.Agent.Inputs/Relp` and sets `output.mode: console` or `output.mode: file`. The `dzdemo-collector` executable follows the same model: it starts a standard pipeline instance with MessagePack RELP input, a no-filter pass-through profile, and console NDJSON output.
 
 The current coordination contract is configuration files plus process supervision. The buffer is the durable handoff and retry state for RELP output, so named pipes, a local database, or other IPC are not required for the initial split. Add IPC only when live reload or command/control operations require runtime mutation without restarting the daemon.
 
@@ -105,13 +105,11 @@ Use TCP/443 as the only agent egress port for production client/server communica
 
 If RELP-over-TLS and future C2/control-plane traffic must share the same public address and port, terminate both protocols behind a TLS-aware edge proxy on 443 and route by SNI or ALPN rather than opening additional listener ports. For example, publish `relp-ingest.example.com:443` for RELP-over-TLS and `agent-api.example.com:443` for C2/HTTPS, both resolving to the same edge. The edge can then forward RELP traffic to the RELP receiver and C2 traffic to the control-plane service on private backend ports. Do not multiplex cleartext protocols on 443; keep TLS mandatory at the edge and restrict outbound firewall rules to destination TCP/443.
 
-For local RELP validation, the demo collector still defaults to 6514 so developers can run it without privileged port binding; production deployments should override the collector or edge listener to 443.
+For local RELP validation, the pipeline-backed demo collector still defaults to 6514 so developers can run it without privileged port binding; production deployments should override the collector or edge listener to 443.
 
 ## Demo collector
 
-For local forwarder validation, use the separate `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`.
-It accepts RELP `syslog` frames, prints decoded DeltaZulu delivery batches, and
-acknowledges them with RELP `rsp 200` responses.
+For local forwarder validation, use the pipeline-backed `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`. It is a standard runtime pipeline instance with a MessagePack RELP input, no filter, and console NDJSON output; RELP acknowledgements are handled by the shared RELP input adapter.
 
 ```bash
 dzdemo-collector --address 127.0.0.1 --port 6514

@@ -10,6 +10,7 @@ using DeltaZulu.Agent.Inputs.Relp;
 using DeltaZulu.Agent.Outputs.Relp;
 using DeltaZulu.Agent.Pipeline.Ndjson;
 using DeltaZulu.Agent.Pipeline.Relp;
+using DeltaZulu.Agent.Pipeline.MessagePack;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
@@ -803,7 +804,7 @@ public sealed class ForwarderTests
                             await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", _cts.Token).ConfigureAwait(false);
                             break;
                         case "syslog":
-                            _batchSource.TrySetResult(JsonSerializer.Deserialize<DeliveryBatch>(frame.Payload.Span, TestJson.Options));
+                            _batchSource.TrySetResult(new MessagePackPayloadSerializer().Deserialize<DeliveryBatch>(frame.Payload));
                             await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, _acceptSyslog ? "200 OK" : "500 rejected", _cts.Token).ConfigureAwait(false);
                             if (!_acceptSyslog)
                             {

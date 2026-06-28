@@ -6,6 +6,10 @@
     <RootNamespace>DeltaZulu.Demo.Collector</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\DeltaZulu.Agent.Inputs\DeltaZulu.Agent.Inputs.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Kql\DeltaZulu.Agent.Kql.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Outputs\DeltaZulu.Agent.Outputs.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Pipeline\DeltaZulu.Agent.Pipeline.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
   </ItemGroup>
 </Project>
