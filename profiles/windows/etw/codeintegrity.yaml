@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: windows.etw.codeintegrity
+name: Microsoft Code Integrity ETW policy events
+version: 1.0.0
+enabled: true
+mandatory: true
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-CodeIntegrity
+  provider: Microsoft-Windows-CodeIntegrity
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Etw
+    | where ProviderName =~ "Microsoft-Windows-CodeIntegrity"
+    | where EventId in (3023, 3036, 3076, 3077)

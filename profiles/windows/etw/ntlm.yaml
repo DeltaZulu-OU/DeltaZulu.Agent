@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: windows.etw.ntlm
+name: Microsoft NTLM ETW authentication auditing
+version: 1.0.0
+enabled: true
+mandatory: true
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-NTLM
+  provider: Microsoft-Windows-NTLM
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Etw
+    | where ProviderName =~ "Microsoft-Windows-NTLM"
+    | where EventId in (8001)

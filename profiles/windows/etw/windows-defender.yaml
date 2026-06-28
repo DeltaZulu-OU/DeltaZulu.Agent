@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: windows.etw.windows-defender
+name: Microsoft Windows Defender ETW operational events
+version: 1.0.0
+enabled: true
+mandatory: true
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-Defender
+  provider: Microsoft-Windows-Defender
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Etw
+    | where ProviderName =~ "Microsoft-Windows-Defender"
+    | where EventId in (5000, 5001, 1116, 1117)

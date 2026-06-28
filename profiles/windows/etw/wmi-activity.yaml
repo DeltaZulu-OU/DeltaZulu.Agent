@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: windows.etw.wmi-activity
+name: Microsoft WMI Activity ETW operations
+version: 1.0.0
+enabled: true
+mandatory: true
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-WMI-Activity
+  provider: Microsoft-Windows-WMI-Activity
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Etw
+    | where ProviderName =~ "Microsoft-Windows-WMI-Activity"
+    | where EventId in (11, 22)

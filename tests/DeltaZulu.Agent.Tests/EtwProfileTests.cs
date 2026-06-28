@@ -134,6 +134,8 @@ public sealed class EtwProfileTests
         {
             Platform = "windows",
             Family = "etw",
+            Mode = "managed",
+            Session = "DeltaZulu-Kernel-Process",
             Provider = "Microsoft-Windows-Kernel-Process"
         },
         Input = new ResourceInputContract
@@ -156,8 +158,7 @@ public sealed class EtwProfileTests
     private static ResourceProfile CreateKernelProcessProfile() => CreateProfileWithQuery(
         """
         Etw
-        | where source =~ "Microsoft-Windows-Kernel-Process"
-        | where ProviderName == "Microsoft-Windows-Kernel-Process"
+        | where ProviderName =~ "Microsoft-Windows-Kernel-Process"
         """);
 
     private static SourceEvent CreateMockEtwEvent() =>
