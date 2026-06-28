@@ -227,7 +227,7 @@ internal static partial class Program
             null,
             null,
             "Etw",
-            "source:string,ProviderName:string,EventName:string,EventId:int,OpcodeName:string,TaskName:string,Timestamp:datetime,ProcessId:int,ThreadId:int,Payload:dynamic,_metadata:dynamic")
+            "source:string,Payload:dynamic,_metadata:dynamic")
     ];
 
     private static ResourceProfile CreateInlineProfile(CliPlan plan, string query) => new() {

@@ -31,6 +31,7 @@ public sealed class ResourceDescriptor
     public string? Channel { get; set; }
     public string? Session { get; set; }
     public string? Provider { get; set; }
+    public string Mode { get; set; } = "attach";
     public List<string> RecordTypes { get; set; } = [];
 }
 

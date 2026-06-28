@@ -313,15 +313,25 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 #if WINDOWS
             "eventlog" => new WindowsEventLogInput(profile.Resource.Channel ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.channel for eventlog.")),
             "etl" => new EtlFileInput(profile.Resource.Channel ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.channel for etl.")),
-            "etw" => new EtwSessionInput(
-                profile.Resource.Session ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.session for etw."),
-                profile.Resource.Provider ?? profile.Id),
+            "etw" => CreateEtwInput(profile),
 #else
             "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{family} is available from the net10.0-windows build."),
 #endif
             _ => throw new ArgumentException($"profile '{profile.Id}' has unknown resource.family '{profile.Resource.Family}'.")
         };
     }
+
+#if WINDOWS
+    private static ISourceInput CreateEtwInput(ResourceProfile profile)
+    {
+        var session = profile.Resource.Session ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.session for etw.");
+        return profile.Resource.Mode.Equals("managed", StringComparison.OrdinalIgnoreCase)
+            ? new ManagedEtwSessionInput(
+                session,
+                profile.Resource.Provider ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.provider for managed etw."))
+            : new EtwSessionInput(session);
+    }
+#endif
 
     private static IOutputWriter CreateOutputSink(ForwarderDaemonConfiguration configuration) =>
         configuration.Pipeline.Output.Mode.ToLowerInvariant() switch

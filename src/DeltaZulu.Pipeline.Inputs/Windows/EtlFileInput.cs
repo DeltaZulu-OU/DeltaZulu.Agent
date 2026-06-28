@@ -23,6 +23,6 @@ public sealed class EtlFileInput : ISourceInput
         }
 
         return Tx.Windows.EtwTdhObservable.FromFiles(_path)
-            .Select(x => WindowsSourceEventMapper.FromDictionary(x.AsDictionary().AsReadOnly(), "WindowsEtw", Name, nameof(EtlFileInput)));
+            .Select(x => WindowsSourceEventMapper.FromDictionary(EtwTdhEventFields.Materialize(x), "WindowsEtw", Name, nameof(EtlFileInput)));
     }
 }

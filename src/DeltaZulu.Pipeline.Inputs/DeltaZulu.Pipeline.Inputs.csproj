@@ -20,6 +20,7 @@
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Management" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.21" />
     <PackageReference Include="Tx.Windows" Version="3.0.6" />
     <PackageReference Include="Tx.Windows.Logs" Version="3.0.3" />
   </ItemGroup>

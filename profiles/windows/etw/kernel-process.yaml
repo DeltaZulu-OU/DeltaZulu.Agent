@@ -7,7 +7,8 @@ mandatory: true
 resource:
   platform: windows
   family: etw
-  session: NT Kernel Logger
+  mode: managed
+  session: DeltaZulu-Kernel-Process
   provider: Microsoft-Windows-Kernel-Process
 input:
   table: Etw
@@ -24,5 +25,4 @@ filter:
   language: kql
   query: |
     Etw
-    | where source =~ "Microsoft-Windows-Kernel-Process"
-    | where ProviderName == "Microsoft-Windows-Kernel-Process"
+    | where ProviderName =~ "Microsoft-Windows-Kernel-Process"
