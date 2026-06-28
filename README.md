@@ -1,8 +1,8 @@
   # DeltaZulu Agent
 
-DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records through `DeltaZulu.DurableBuffer` and a RELP.Net-backed transport adapter.
+DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records through `DeltaZulu.DurableBuffer` and a DeltaZulu.Relp-backed transport adapter.
 
-This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a separate `dzagentd` forwarder-only daemon host for service deployment, and a `dzdemo-collector` receiver for local RELP validation.
+This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a `dzagentd` daemon host for service deployment, and a separate `dzdemo-collector` receiver for local RELP validation.
 
 
 ## Command line tool
@@ -55,7 +55,7 @@ dzdemo-collector --address 127.0.0.1 --port 6514
 
 ## Agent daemon
 
-## Daemon as forwarder or collector
+## Daemon operating modes
 
 `dzagentd` can run as either side of the local RELP smoke test by changing configuration. A forwarding instance reads local inputs, applies profiles, and writes to RELP. A collector-style instance enables an `input: relp` source backed by `DeltaZulu.Agent.Inputs/Relp` and sets `output.mode: console` or `output.mode: file`, so the same daemon binary can replace the separate demo collector for validation.
 
@@ -69,7 +69,7 @@ dzagentd --config config/dzagentd.yaml
 dzagentd --config config/dzagentd-collector.yaml
 ```
 
-`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally forwarder-only: it has no inline query, schema listing, table output, JSON export, or other exploration commands. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
+`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally non-exploratory: it has no inline query, schema listing, table output, JSON export, or other ad-hoc exploration commands. Its production role is forwarding; its collector-style mode is for local validation and controlled lab receiver tests. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
 
 ```bash
 dzagentd --config config/dzagentd.yaml
@@ -153,9 +153,9 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - `DeltaZulu.Agent.Pipeline` contains ETL pipeline contracts, source events, resource outputs, profile models/loaders/validators, delivery envelopes, observation records, RELP frame helpers, NDJSON options, MessagePack payload wrappers, completion tracking, and output multiplexing.
 - `DeltaZulu.Agent.Runtime` contains daemon/CLI orchestration primitives such as the shared runtime and profile binding used by both hosts.
 - `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, and NDJSON output.
-- `dzagentd` is the forwarder-only daemon host configured by `config/dzagentd.yaml`.
+- `dzagentd` is the YAML-configured daemon host. Its production role is forwarding, and its collector-style configuration is reserved for local validation or controlled lab tests.
 - `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
-- `DeltaZulu.Agent.Outputs` owns NDJSON sinks plus RELP buffered forwarding, RELP-neutral transport contracts, RELP.Net transport, endpoint failover groundwork, TLS policy options, and health snapshots. Optional MessagePack output support is isolated under `DeltaZulu.Agent.Outputs/MessagePack`.
+- `DeltaZulu.Agent.Outputs` owns NDJSON sinks plus RELP buffered forwarding, RELP-neutral transport contracts, DeltaZulu.Relp transport, endpoint failover groundwork, TLS policy options, and health snapshots. Optional MessagePack output support is isolated under `DeltaZulu.Agent.Outputs/MessagePack`.
 - Input families include syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW. Optional MessagePack input support is isolated under `DeltaZulu.Agent.Inputs/MessagePack`.
 - Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
@@ -189,7 +189,7 @@ src/
     Files/
     Auditd/
     Windows/
-  DeltaZulu.DurableBuffer/
+  DeltaZulu.DurableBuffer/  (git submodule)
 tests/
   DeltaZulu.Agent.Tests/
   DeltaZulu.DurableBuffer.Tests/
@@ -198,18 +198,20 @@ profiles/
   windows/
 docs/
 external/
-  RELP.Net/  (git submodule)
+  DeltaZulu.Relp/  (git submodule)
 ```
 
 ## Git submodules
 
-This repository tracks RELP.Net as a Git submodule at `external/RELP.Net`.
-Because Git does not initialize newly added submodules during a normal `git fetch`
-or `git pull`, run the submodule initialization command after pulling this
-change if `external/RELP.Net` appears as an empty directory:
+This repository tracks two direct git submodules:
+
+- `external/DeltaZulu.Relp` for the RELP protocol implementation used by the agent transport adapter.
+- `external/DeltaZulu.DurableBuffer` for durable queueing, retry, backpressure, and dead-letter behavior.
+
+Because Git does not initialize newly added submodules during a normal `git fetch` or `git pull`, run submodule initialization after pulling changes if either external directory appears empty:
 
 ```bash
-git submodule update --init --recursive external/RELP.Net
+git submodule update --init --recursive external/DeltaZulu.Relp external/DeltaZulu.DurableBuffer
 ```
 
 For a fresh clone, clone with submodules enabled:
@@ -218,11 +220,10 @@ For a fresh clone, clone with submodules enabled:
 git clone --recurse-submodules <repo-url>
 ```
 
-To update the RELP.Net submodule to the latest commit from its tracked branch,
-use:
+To update the submodules to the latest commits from their tracked branches, use:
 
 ```bash
-git submodule update --remote external/RELP.Net
+git submodule update --remote external/DeltaZulu.Relp external/DeltaZulu.DurableBuffer
 ```
 
 ## Documentation

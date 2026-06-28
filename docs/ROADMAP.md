@@ -1,13 +1,37 @@
 # Roadmap
 
-DeltaZulu.Agent has moved from the initial library-and-buffer spike into a working split-host architecture: `dzagentctl` for exploration, `dzagentd` for forwarder-only daemon operation, and `dzdemo-collector` for local RELP validation. This document is the single planning, status, and validation reference for the agent docs. The architecture details live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+DeltaZulu.Agent has moved from the initial library-and-buffer spike into a working split-host architecture: `dzagentctl` for exploration, `dzagentd` for YAML-configured daemon operation, and `dzdemo-collector` for local RELP validation. This document is the single planning, status, and validation reference for the agent docs. The architecture details live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+
+## Documentation consistency assessment
+
+This roadmap now treats documentation alignment as the first planning step before feature expansion. The assessment asked "why" repeatedly and resolved the answers from the current repository shape and docs:
+
+| Question | Answer from the docs/repo | Alignment decision |
+| --- | --- | --- |
+| Why did docs call `dzagentd` forwarder-only while also describing a collector-style daemon configuration? | `ARCHITECTURE.md` and `README.md` both describe `sources[].input: relp` with console/file output for validation. | Use "production forwarding role" for `dzagentd`; reserve collector-style mode for local validation and controlled labs. |
+| Why did docs mention `RELP.Net` and `external/RELP.Net`? | The current `.gitmodules` declares `external/DeltaZulu.Relp` and `external/DeltaZulu.DurableBuffer`; `src/DeltaZulu.Agent.Outputs` references `DeltaZulu.Relp`. | Refer to the transport dependency as `DeltaZulu.Relp` and initialize both direct submodules. |
+| Why did the roadmap list Domain/Application/Core projects? | Current project files use `DeltaZulu.Agent.Pipeline` and `DeltaZulu.Agent.Runtime`; no `DeltaZulu.Agent.Core` project is present. | Describe the implemented split by actual project names. |
+| Why is pipeline extraction still P0 when stabilization also remains P0? | Extraction changes repository boundaries and can destabilize forwarding; stabilization protects the working data path. | Gate extraction behind explicit readiness tasks and keep forwarding stabilization first in execution order. |
+| Why are roadmap bullets ambiguous? | Several sections mix desired outcomes with implementation steps. | Convert near-term work into checkable tasks with ownership, prerequisites, and acceptance criteria. |
+
+### Documentation alignment tasks
+
+- [ ] Keep `README.md`, `ARCHITECTURE.md`, and this roadmap synchronized whenever host roles, submodules, or project boundaries change.
+  - Instruction: update all three files in the same change when modifying daemon role language or dependency names.
+  - Acceptance: outside this assessment table, `rg "RELP.Net|external/RELP.Net|DeltaZulu.Agent.Core|Domain, Application" README.md docs` returns no active-plan references.
+- [ ] Keep local validation instructions tied to actual repository paths.
+  - Instruction: validate submodule paths against `.gitmodules` before changing setup commands.
+  - Acceptance: every documented `git submodule update` path exists in `.gitmodules`.
+- [ ] Keep roadmap tasks executable.
+  - Instruction: every P0/P1 roadmap section that requests implementation must include a concrete task list or acceptance criteria.
+  - Acceptance: no P0 item is phrased only as an aspiration such as "harden", "improve", or "support" without a testable completion signal.
 
 ## Current implementation snapshot
 
 Implemented foundation:
 
-- .NET 10 solution split across Domain, Application, Profiles, KQL, Outputs, Forwarder, Daemon, CLI, input adapters, and Buffer projects.
-- `DeltaZulu.Agent.Core` compatibility type-forwarding shim for older references.
+- .NET 10 solution split across Pipeline, Runtime, KQL, Outputs, Daemon, CLI, input adapters, Demo Collector, and external Buffer/RELP submodule projects.
 - `System.Reactive` based input/runtime flow without custom observable infrastructure.
 - Resource-profile YAML model, loader, validation, WMI host conditions, and KQL execution seam using `Microsoft.Rx.Kql`.
 - NDJSON file/console sinks for the exploration CLI.
@@ -18,10 +42,10 @@ Implemented foundation:
 - Windows Event Log named XML `EventData` extraction as nested payload fields and top-level convenience fields.
 - Sample Linux, Windows Event Log, auditd, and ETW profiles.
 - Shared application runtime that binds inputs, optional profiles, and outputs.
-- Split hosts: `dzagentctl` for exploration, `dzagentd` for forwarder-only daemon operation, and `dzdemo-collector` for local RELP validation.
+- Split hosts: `dzagentctl` for exploration, `dzagentd` for YAML-configured daemon operation, and `dzdemo-collector` for local RELP validation.
 - YAML daemon configuration in `config/dzagentd.yaml` for sources, buffer, RELP endpoints/TLS policy, and diagnostics.
 - `DeltaZulu.DurableBuffer` durable chunk storage, checksums, atomic file transitions, retry, backpressure, recovery, metrics, and dead-letter support.
-- RELP-neutral delivery records, batches, ACKs, transport port, buffered forwarder sink, RELP.Net adapter, ordered endpoint failover groundwork, and forwarder health snapshots.
+- RELP-neutral delivery records, batches, ACKs, transport port, buffered forwarder sink, DeltaZulu.Relp adapter, ordered endpoint failover groundwork, and forwarder health snapshots.
 - Stable `DeliveryId` per delivery envelope for at-least-once server deduplication.
 - Metadata fallback injection so user KQL projections cannot accidentally remove delivery identity.
 - Host-neutral tests for domain/application behavior, profile loading, KQL seams, syslog, auditd, CSV, NDJSON, forwarder behavior, observability, and buffer behavior.
@@ -54,7 +78,7 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 
 - RELP-neutral `DeliveryRecord`, `DeliveryBatch`, `DeliveryAck`, and transport boundary.
 - Buffered forwarder path using `DeltaZulu.DurableBuffer` as the durability/backpressure layer.
-- RELP.Net-backed transport adapter hidden behind the transport boundary.
+- DeltaZulu.Relp-backed transport adapter hidden behind the transport boundary.
 - Separate `dzdemo-collector` executable for local validation.
 - Stable delivery IDs and metadata preservation across KQL projections.
 - Forwarder health observations.
@@ -62,19 +86,38 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 
 ## P0: Stabilize daemon forwarding
 
-- Keep `dzagentd` focused on long-running forwarding only: configured sources, optional profiles, durable enqueue, RELP dispatch, and diagnostics.
-- Exercise daemon smoke tests against `dzdemo-collector` for successful send, retry, permanent failure, dead-letter, and restart-recovery scenarios.
-- Preserve delivery metadata outside user-controlled KQL projections and verify forwarded records keep agent/source/profile identity.
-- Tie any future source checkpoint advancement to durable enqueue rather than network ACK.
-- Keep operator examples aligned with `config/dzagentd.yaml` and documented cleanup expectations for local buffer directories.
+Goal: protect the working production forwarding path before starting extraction or agent-management services.
+
+- [ ] Keep `dzagentd` focused on configured long-running daemon work: sources, optional profiles, durable enqueue, RELP dispatch, diagnostics, and lab-only collector-style validation.
+  - Instruction: do not add inline query, schema listing, table rendering, or ad-hoc export commands to `dzagentd`; keep those in `dzagentctl`.
+  - Acceptance: README and architecture host-role text continue to separate CLI exploration from daemon configuration.
+- [ ] Exercise daemon smoke tests against `dzdemo-collector`.
+  - Instruction: cover successful send, retry, permanent failure, dead-letter, and restart-recovery scenarios.
+  - Acceptance: a documented smoke-test transcript identifies the daemon config, collector command, observed ACK/retry/dead-letter behavior, and cleanup commands.
+- [ ] Preserve delivery metadata outside user-controlled KQL projections.
+  - Instruction: any change to KQL projection, runtime binding, or delivery serialization must verify agent/source/profile identity survives when `_metadata` is omitted by the query.
+  - Acceptance: host-neutral tests prove forwarded records retain collector id, source type/name, profile id/version, and stable delivery id material.
+- [ ] Tie future source checkpoint advancement to durable enqueue rather than network ACK.
+  - Instruction: checkpoint only after the source event has been represented in durable buffer state; do not wait for RELP ACK before source advancement.
+  - Acceptance: design notes and tests distinguish source checkpointing from transport acknowledgement.
+- [ ] Keep operator examples aligned with `config/dzagentd.yaml`.
+  - Instruction: update examples in README and this roadmap whenever daemon config keys or default buffer paths change.
+  - Acceptance: smoke-test examples run from a clean checkout and include commands to remove temporary logs, configs, and buffer directories.
 
 ## P0: Validation and compatibility
 
-- Re-run restore, build, and tests whenever SDK versions, dependencies, Windows input adapters, KQL behavior, daemon configuration, or forwarder transport behavior change.
-- Keep host-neutral unit and fixture tests fast and deterministic.
-- Validate Windows Event Log, EVTX, ETL, and ETW behavior on Windows hosts when changing Windows adapters or profiles.
-- Keep monitoring `Microsoft.Rx.Kql`, `Tx.Windows`, and `RELP.Net` compatibility with .NET 10.
-- Add targeted golden fixtures only when they protect a real regression or newly supported source behavior.
+- [ ] Re-run restore, build, and tests whenever SDK versions, dependencies, Windows input adapters, KQL behavior, daemon configuration, or forwarder transport behavior change.
+  - Acceptance: PR notes list the exact restore/build/test commands and distinguish host-neutral checks from Windows-only checks.
+- [ ] Keep host-neutral unit and fixture tests fast and deterministic.
+  - Instruction: prefer literal fixtures, temporary directories, and in-memory transports over live host services.
+  - Acceptance: Linux/macOS validation does not require auditd, journald, Windows Event Log, EVTX, ETL, or ETW availability.
+- [ ] Validate Windows Event Log, EVTX, ETL, and ETW behavior on Windows hosts when changing Windows adapters or profiles.
+  - Acceptance: Windows validation notes identify the host, available logs/providers, and any optional resources skipped.
+- [ ] Monitor `Microsoft.Rx.Kql`, `Tx.Windows`, and `DeltaZulu.Relp` compatibility with .NET 10.
+  - Instruction: when upgrading any of these dependencies, add one focused compatibility note or regression test for the changed surface.
+  - Acceptance: dependency changes do not merge with only transitive build success as evidence.
+- [ ] Add targeted golden fixtures only when they protect a real regression or newly supported source behavior.
+  - Acceptance: each new fixture states the source behavior or regression it locks down.
 
 ### Project-by-project test focus
 
@@ -94,11 +137,11 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 
 Run validation from the repository root on a host with the .NET 10 SDK installed. The repository targets `net10.0` and includes Windows-only inputs that target `net10.0-windows`, so Linux/macOS validation should cover host-neutral projects while Windows validation should additionally cover Event Log, EVTX, ETL, and ETW behavior.
 
-Confirm the SDK and initialize the RELP.Net submodule when needed:
+Confirm the SDK and initialize direct submodules when needed:
 
 ```bash
 dotnet --list-sdks
-git submodule update --init --recursive external/RELP.Net
+git submodule update --init --recursive external/DeltaZulu.Relp external/DeltaZulu.DurableBuffer
 ```
 
 Run host-neutral validation on any .NET 10-capable host:
@@ -153,9 +196,9 @@ rm -rf ./buffer/agentd-smoke
 
 The demo collector is only a local validation receiver. It is not a production collector, daemon, SIEM, or syslog daemon replacement.
 
-## P0: Pipeline extraction
+## P0: Pipeline extraction readiness
 
-Extract the streaming ETL engine into a standalone `DeltaZulu.Pipeline` repository and wire it as a git submodule under `external/DeltaZulu.Pipeline`.
+Do not start extraction until daemon forwarding stabilization tasks are passing and the repository-boundary decision is re-confirmed. Extract the streaming ETL engine into a standalone `DeltaZulu.Pipeline` repository and wire it as a git submodule under `external/DeltaZulu.Pipeline`.
 
 ### Projects to extract
 
@@ -175,7 +218,7 @@ The pipeline repository owns its own submodule references to `DeltaZulu.DurableB
 
 ### What stays in the agent
 
-- `DeltaZulu.Agent.Daemon`: Refactored from a forwarder-only daemon into the orchestrator/watchdog. Supervises the pipeline, policy service, metrics service, and inventory service as managed hosted services.
+- `DeltaZulu.Agent.Daemon`: Refactored from a production-forwarding daemon into the orchestrator/watchdog. Supervises the pipeline, policy service, metrics service, and inventory service as managed hosted services.
 - `DeltaZulu.Agent.Cli`: Exploration CLI. References the pipeline submodule for input/profile/KQL operations.
 - `DeltaZulu.Demo.Collector`: Local RELP validation receiver.
 - New agent-level projects for policy, metrics, and inventory services.
@@ -183,6 +226,14 @@ The pipeline repository owns its own submodule references to `DeltaZulu.DurableB
 ### Test split
 
 Pipeline-specific unit tests (domain, inputs, KQL, outputs, profiles, NDJSON serialization) move into the pipeline repository. Integration tests that exercise the full agent (daemon startup, end-to-end forwarding, CLI smoke tests) stay in the agent repository. Buffer tests remain with `DeltaZulu.DurableBuffer`.
+
+### Readiness tasks
+
+- [ ] Confirm `DeltaZulu.Agent.Pipeline` and `DeltaZulu.Agent.Runtime` are the only source boundaries for extraction.
+- [ ] Decide whether `DeltaZulu.DurableBuffer` remains a direct agent submodule during transition or moves exclusively under `DeltaZulu.Pipeline` after extraction.
+- [ ] Produce a branch plan that keeps the current agent build green before deleting in-repo pipeline projects.
+- [ ] Define package/project names for extracted test projects before moving files.
+- [ ] Update README and architecture diagrams in the same branch as the extraction.
 
 ### Migration sequence
 
@@ -222,9 +273,9 @@ This service implements the agent side of the heartbeat endpoint, source health 
 
 ## P1: Production RELP and TLS hardening
 
-- Continue hardening the RELP.Net adapter behind the RELP-neutral transport boundary.
+- Continue hardening the DeltaZulu.Relp adapter behind the RELP-neutral transport boundary.
 - Validate plain RELP and RELP/TLS wire behavior against production rsyslog and syslog-ng builds.
-- Wire configured certificate policy into server-certificate validation when supported by the underlying RELP.Net surface.
+- Wire configured certificate policy into server-certificate validation when supported by the underlying DeltaZulu.Relp surface.
 - Add certificate-expiry diagnostics and clearer TLS failure reporting.
 - Refine endpoint selection and transient/permanent failure classification while leaving durable retry scheduling in `DeltaZulu.DurableBuffer`.
 - Keep `docs/RELP_RECEIVER_SETUP.md` aligned with validated receiver behavior.
@@ -338,7 +389,7 @@ Treat migration from `System.Reactive` to R3 as a lowest-priority performance im
 - Keep `DeltaZulu.Pipeline` self-contained: it must build, test, and run independently of the agent orchestrator.
 - Keep the agent as an orchestrator/watchdog only: it supervises pipeline, policy, metrics, and inventory services but does not contain streaming ETL logic.
 - Keep `DeltaZulu.DurableBuffer` as the authoritative durability and backpressure layer.
-- Keep RELP.Net details behind the forwarder transport adapter.
+- Keep DeltaZulu.Relp details behind the forwarder transport adapter.
 - Keep `dzagentctl` and `dzagentd` responsibilities separate.
 - Keep input adapters source-native and avoid broad architecture-only reshuffles.
 - Keep inventory collectors discrete-state with scan-and-report scheduling, separate from the reactive streaming pipeline.
