@@ -69,8 +69,8 @@ public sealed class MessagePackTests
         Assert.AreEqual(4688, Convert.ToInt32(decodedRecord.Event["EventId"]));
         Assert.AreEqual(11320633L, Convert.ToInt64(decodedRecord.Event["RecordId"]));
 
-        Assert.IsInstanceOfType(decodedRecord.Event["EventData"], typeof(IReadOnlyDictionary<object, object?>));
-        var eventData = (IReadOnlyDictionary<object, object?>)decodedRecord.Event["EventData"]!;
+        Assert.IsInstanceOfType(decodedRecord.Event["EventData"], typeof(IReadOnlyDictionary<string, object?>));
+        var eventData = (IReadOnlyDictionary<string, object?>)decodedRecord.Event["EventData"]!;
         Assert.AreEqual("demo-user", eventData["SubjectUserName"]);
         Assert.AreEqual(1234, Convert.ToInt32(eventData["NewProcessId"]));
         Assert.AreEqual("1.2.3", eventData["UnsupportedObject"]);

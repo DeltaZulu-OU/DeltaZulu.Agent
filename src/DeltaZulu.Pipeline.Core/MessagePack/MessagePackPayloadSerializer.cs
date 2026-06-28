@@ -30,7 +30,8 @@ public sealed class MessagePackPayloadSerializer
     {
         try
         {
-            return MessagePackSerializer.Deserialize<T>(payload, _options);
+            var value = MessagePackSerializer.Deserialize<T>(payload, _options);
+            return value is null ? default : MessagePackValueNormalizer.Normalize(value);
         }
         catch (MessagePackSerializationException ex)
         {

@@ -3,6 +3,7 @@ using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Core.Relp;
+using System.Collections;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -209,8 +210,11 @@ public sealed class RelpInput : ISourceInput
             : value switch {
                 string text when !string.IsNullOrWhiteSpace(text) => text,
                 JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString(),
+                JsonElement element when element.ValueKind is JsonValueKind.Object or JsonValueKind.Array => null,
                 DateTimeOffset timestamp => timestamp.ToString("O"),
                 DateTime timestamp => timestamp.ToString("O"),
+                IDictionary => null,
+                IEnumerable when value is not string => null,
                 _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
             };
 
