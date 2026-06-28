@@ -79,6 +79,85 @@ public sealed class EtwProfileTests
         Assert.IsEmpty(recordsReceived, "Events from different providers should be filtered out");
     }
 
+
+    [TestMethod]
+    public void KernelProcessProfile_PreservesEtwDeliveryMetadata()
+    {
+        using var executor = new ResourceKqlProfileExecutor();
+        var profile = CreateKernelProcessProfile();
+        var mockEtwEvent = CreateMockEtwEvent();
+
+        var (captured, capturedError) = ExecuteSingle(executor, mockEtwEvent, profile);
+
+        Assert.IsNull(capturedError, $"Query raised an exception: {capturedError}");
+        Assert.IsNotNull(captured);
+        Assert.AreEqual("windows.etw.kernel-process", captured.Metadata["profileId"]);
+        Assert.AreEqual("1.0.0", captured.Metadata["profileVersion"]);
+        Assert.AreEqual("test-agent", captured.Metadata["collectorId"]);
+        Assert.AreEqual("WindowsEtw", captured.Metadata["sourceType"]);
+        Assert.AreEqual("Microsoft-Windows-Kernel-Process", captured.Metadata["sourceName"]);
+        Assert.AreEqual("windows", captured.Metadata["platform"]);
+        Assert.AreEqual("test-host", captured.Metadata["hostname"]);
+    }
+
+    [TestMethod]
+    public void KernelProcessProfile_ProjectProviderAndEventId_EmitsSelectedEtwFields()
+    {
+        using var executor = new ResourceKqlProfileExecutor();
+        var profile = CreateProfileWithQuery(
+            """
+            Etw
+            | where ProviderName == "Microsoft-Windows-Kernel-Process"
+            | project ProviderName, EventId, EventName
+            """);
+        var mockEtwEvent = CreateMockEtwEvent();
+
+        var (captured, capturedError) = ExecuteSingle(executor, mockEtwEvent, profile);
+
+        Assert.IsNull(capturedError, $"Query raised an exception: {capturedError}");
+        Assert.IsNotNull(captured);
+        Assert.AreEqual("Microsoft-Windows-Kernel-Process", captured.Event["ProviderName"]);
+        Assert.AreEqual(1, Convert.ToInt32(captured.Event["EventId"]));
+        Assert.AreEqual("ProcessCreate", captured.Event["EventName"]);
+        Assert.IsFalse(captured.Event.ContainsKey("RawEvent"), "Projected ETW output should not include unselected raw bytes.");
+    }
+
+    [TestMethod]
+    public void KernelProcessProfile_WhereEventIdNotIn_RejectsExcludedEtwEventIds()
+    {
+        using var executor = new ResourceKqlProfileExecutor();
+        var profile = CreateProfileWithQuery(
+            """
+            Etw
+            | where ProviderName == "Microsoft-Windows-Kernel-Process"
+            | where EventId notin (2, 3)
+            """);
+        var rejectedEtwEvent = CreateMockEtwEvent(eventId: 2);
+
+        var (captured, capturedError) = ExecuteSingle(executor, rejectedEtwEvent, profile);
+
+        Assert.IsNull(capturedError, $"Query raised an exception: {capturedError}");
+        Assert.IsNull(captured, "EventId notin filter should reject excluded ETW event IDs.");
+    }
+
+    [TestMethod]
+    public void KernelProcessProfile_WhereEventIdNotIn_AllowsUnlistedEtwEventIds()
+    {
+        using var executor = new ResourceKqlProfileExecutor();
+        var profile = CreateProfileWithQuery(
+            """
+            Etw
+            | where ProviderName == "Microsoft-Windows-Kernel-Process"
+            | where EventId notin (2, 3)
+            """);
+        var acceptedEtwEvent = CreateMockEtwEvent(eventId: 1);
+
+        var (captured, capturedError) = ExecuteSingle(executor, acceptedEtwEvent, profile);
+
+        Assert.IsNull(capturedError, $"Query raised an exception: {capturedError}");
+        Assert.IsNotNull(captured, "EventId notin filter should allow unlisted ETW event IDs.");
+    }
+
     [TestMethod]
     public void Execute_PropagatesSourceErrorsAfterReorder()
     {
@@ -161,10 +240,10 @@ public sealed class EtwProfileTests
         | where ProviderName =~ "Microsoft-Windows-Kernel-Process"
         """);
 
-    private static SourceEvent CreateMockEtwEvent() =>
-        CreateMockEtwEventWithProvider("Microsoft-Windows-Kernel-Process");
+    private static SourceEvent CreateMockEtwEvent(int eventId = 1) =>
+        CreateMockEtwEventWithProvider("Microsoft-Windows-Kernel-Process", eventId);
 
-    private static SourceEvent CreateMockEtwEventWithProvider(string providerName) => new(
+    private static SourceEvent CreateMockEtwEventWithProvider(string providerName, int eventId = 1) => new(
         new ResourceMetadata
         {
             CollectorId = "test-agent",
@@ -179,7 +258,7 @@ public sealed class EtwProfileTests
             ["Timestamp"] = DateTime.UtcNow,
             ["ProviderName"] = providerName,
             ["source"] = providerName,
-            ["EventId"] = 1,
+            ["EventId"] = eventId,
             ["EventName"] = "ProcessCreate",
             ["Opcode"] = 1,
             ["Task"] = 1,
