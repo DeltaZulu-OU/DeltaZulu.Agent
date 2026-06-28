@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using DeltaZulu.Agent.Pipeline.Abstractions;
 using DeltaZulu.Agent.Pipeline;
+using DeltaZulu.Agent.Pipeline.Events;
 
 namespace DeltaZulu.Agent.Runtime;
 
@@ -37,9 +38,10 @@ public sealed class AgentRuntime
     {
         using var completed = new ManualResetEventSlim(false);
         using var writer = new CompletionTrackingWriter(_sink, completed);
+        using var reloadableExecutor = CreateReloadableExecutor(binding);
         var pipeline = new ResourcePipeline(
             binding.Input,
-            source => binding.Executor.Execute(source, binding.Profile, cancellationToken),
+            source => ExecuteBinding(binding, reloadableExecutor, source, cancellationToken),
             writer,
             _observations);
 
@@ -64,6 +66,20 @@ public sealed class AgentRuntime
 
         return new AgentRuntimeResult(true);
     }
+
+    private static HotSwappableProfileExecutor? CreateReloadableExecutor(ProfileBinding binding) =>
+        binding.ProfileReloads is null
+            ? null
+            : new HotSwappableProfileExecutor(binding.Executor, binding.ProfileReloads);
+
+    private static IObservable<ResourceOutputRecord> ExecuteBinding(
+        ProfileBinding binding,
+        HotSwappableProfileExecutor? reloadableExecutor,
+        IObservable<SourceEvent> source,
+        CancellationToken cancellationToken) =>
+        reloadableExecutor is null
+            ? binding.Executor.Execute(source, binding.Profile, cancellationToken)
+            : reloadableExecutor.Execute(source, cancellationToken);
 
     private AgentRuntimeResult HandleSingleBindingFailure(ProfileBinding binding, Exception exception)
     {
@@ -117,9 +133,10 @@ public sealed class AgentRuntime
     {
         using var completed = new ManualResetEventSlim(false);
         using var writer = new CompletionTrackingWriter(sink, completed, completeInner: false);
+        using var reloadableExecutor = CreateReloadableExecutor(binding);
         var pipeline = new ResourcePipeline(
             binding.Input,
-            source => binding.Executor.Execute(source, binding.Profile, cancellationToken),
+            source => ExecuteBinding(binding, reloadableExecutor, source, cancellationToken),
             writer,
             _observations);
 

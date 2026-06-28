@@ -1,4 +1,5 @@
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using DeltaZulu.Agent.Pipeline.Abstractions;
 using DeltaZulu.Agent.Runtime;
 using DeltaZulu.Agent.Pipeline.Events;
@@ -188,6 +189,69 @@ public sealed class AgentRuntimeTests
         Assert.ThrowsExactly<OperationCanceledException>(() => runtime.Run(cts.Token));
     }
 
+    [TestMethod]
+    public void ReloadableProfile_UsesNotifiedProfileForSubsequentEvents()
+    {
+        using var source = new Subject<SourceEvent>();
+        var input = new ObservableInput(source);
+        var sink = new RecordingSink();
+        var executor = new PassthroughExecutor();
+        var initialProfile = CreateProfile("initial");
+        var reloads = new ProfileReloadSource(initialProfile);
+        var binding = new ProfileBinding(input, initialProfile, executor, reloads);
+        var runtime = new AgentRuntime([binding], sink);
+
+        var runTask = Task.Run(() => runtime.Run(TestContext.CancellationToken));
+        Assert.IsTrue(input.Opened.Wait(TimeSpan.FromSeconds(5)));
+        source.OnNext(CreateEvent("before"));
+        Assert.IsTrue(SpinWait.SpinUntil(() => sink.Records.Count == 1, TimeSpan.FromSeconds(5)));
+
+        reloads.NotifyProfileChanged(CreateProfile("replacement"));
+        source.OnNext(CreateEvent("after"));
+        source.OnCompleted();
+
+        Assert.IsTrue(runTask.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(runTask.Result.Success);
+        Assert.HasCount(2, sink.Records);
+        Assert.AreEqual("initial", sink.Records[0].Metadata["profileId"]);
+        Assert.AreEqual("replacement", sink.Records[1].Metadata["profileId"]);
+    }
+
+    [TestMethod]
+    public void ReloadableProfile_NotificationWaitsForInFlightEventBeforeSwap()
+    {
+        using var source = new Subject<SourceEvent>();
+        var input = new ObservableInput(source);
+        var sink = new RecordingSink();
+        var executor = new BlockingFirstEventExecutor();
+        var initialProfile = CreateProfile("initial");
+        var reloads = new ProfileReloadSource(initialProfile);
+        var binding = new ProfileBinding(input, initialProfile, executor, reloads);
+        var runtime = new AgentRuntime([binding], sink);
+
+        var runTask = Task.Run(() => runtime.Run(TestContext.CancellationToken));
+        Assert.IsTrue(input.Opened.Wait(TimeSpan.FromSeconds(5)));
+
+        var firstWrite = Task.Run(() => source.OnNext(CreateEvent("before")));
+        Assert.IsTrue(executor.FirstEventStarted.Wait(TimeSpan.FromSeconds(5)));
+
+        var reloadTask = Task.Run(() => reloads.NotifyProfileChanged(CreateProfile("replacement")));
+        Assert.IsFalse(reloadTask.Wait(TimeSpan.FromMilliseconds(100)));
+
+        executor.ReleaseFirstEvent.Set();
+        Assert.IsTrue(firstWrite.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(reloadTask.Wait(TimeSpan.FromSeconds(5)));
+
+        source.OnNext(CreateEvent("after"));
+        source.OnCompleted();
+
+        Assert.IsTrue(runTask.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(runTask.Result.Success);
+        Assert.HasCount(2, sink.Records);
+        Assert.AreEqual("initial", sink.Records[0].Metadata["profileId"]);
+        Assert.AreEqual("replacement", sink.Records[1].Metadata["profileId"]);
+    }
+
     private static ResourceProfile CreateProfile(string id = "test", bool mandatory = true) => new() {
         SchemaVersion = 1,
         Id = id,
@@ -208,6 +272,25 @@ public sealed class AgentRuntimeTests
             Hostname = "test"
         },
         new Dictionary<string, object?> { ["label"] = label });
+
+    private sealed class ObservableInput : ISourceInput
+    {
+        private readonly IObservable<SourceEvent> _source;
+
+        public ObservableInput(IObservable<SourceEvent> source)
+        {
+            _source = source;
+        }
+
+        public string Name => "observable";
+        public ManualResetEventSlim Opened { get; } = new(false);
+
+        public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default)
+        {
+            Opened.Set();
+            return _source;
+        }
+    }
 
     private sealed class TestInput : ISourceInput
     {
@@ -247,11 +330,56 @@ public sealed class AgentRuntimeTests
         public void Dispose() { }
     }
 
+    private sealed class BlockingFirstEventExecutor : IProfileExecutor
+    {
+        public ManualResetEventSlim FirstEventStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseFirstEvent { get; } = new(false);
+        private int _eventCount;
+
+        public IObservable<ResourceOutputRecord> Execute(
+            IObservable<SourceEvent> source,
+            ResourceProfile profile,
+            CancellationToken cancellationToken = default) =>
+            source.SelectMany(sourceEvent => Observable.Create<ResourceOutputRecord>(observer =>
+            {
+                if (Interlocked.Increment(ref _eventCount) == 1)
+                {
+                    FirstEventStarted.Set();
+                    ReleaseFirstEvent.Wait(cancellationToken);
+                }
+
+                observer.OnNext(ResourceOutputRecord.FromSource(sourceEvent, profile.Id, profile.Version));
+                observer.OnCompleted();
+                return () => { };
+            }));
+
+        public void Dispose() { }
+    }
+
     private sealed class RecordingSink : IOutputWriter
     {
+        private readonly Lock _lock = new();
+        private readonly List<ResourceOutputRecord> _records = [];
+
         public string Name => "recording";
-        public List<ResourceOutputRecord> Records { get; } = [];
-        public void OnNext(ResourceOutputRecord value) => Records.Add(value);
+        public IReadOnlyList<ResourceOutputRecord> Records
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return [.. _records];
+                }
+            }
+        }
+
+        public void OnNext(ResourceOutputRecord value)
+        {
+            lock (_lock)
+            {
+                _records.Add(value);
+            }
+        }
         public void OnError(Exception error) { }
         public void OnCompleted() { }
         public void Dispose() { }
