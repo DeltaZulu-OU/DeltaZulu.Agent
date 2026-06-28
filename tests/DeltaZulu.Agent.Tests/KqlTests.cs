@@ -174,7 +174,7 @@ public sealed class KqlTests
         Version = "1.0.0",
         Resource = new ResourceDescriptor { Platform = "test", Family = "test" },
         Input = new ResourceInputContract { Table = "Source", Schema = "Value:string" },
-        Filter = new ResourceFilter { Language = "kql", Query = "Source | take 1" },
+        Filter = new ResourceFilter { Language = "kql", Query = "Source" },
         Output = new ResourceOutputContract { Format = "ndjson", PreserveOriginalFieldNames = true }
     };
 

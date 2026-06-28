@@ -167,15 +167,20 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         var profiles = loadResult.Profiles
             .Where(profile => profile.Enabled)
             .Where(IsProfileForCurrentPlatform)
-            .Where(IsProfileConditionSatisfied)
             .ToList();
 
         var bindings = new List<ProfileBinding>(profiles.Count);
         foreach (var profile in profiles)
         {
-            if (ShouldSkipUnavailableWindowsEventLog(profile, out var warning))
+            if (!IsProfileConditionSatisfied(profile, out var conditionWarning))
             {
-                logger.LogWarning("{Warning}", warning);
+                logger.LogWarning("{Warning}", conditionWarning ?? $"Profile '{profile.Id}' condition is not satisfied.");
+                continue;
+            }
+
+            if (ShouldSkipUnavailableWindowsEventLog(profile, out var eventLogWarning))
+            {
+                logger.LogWarning("{Warning}", eventLogWarning);
                 continue;
             }
 
@@ -202,18 +207,19 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             return false;
         }
 
-        var target = profile.Resource.Channel;
-        if (string.IsNullOrWhiteSpace(target))
+        var validationResult = WindowsResourceValidator.ValidateEventLog(profile);
+        if (validationResult.IsValid)
         {
             return false;
         }
 
-        if (WindowsEventLogInput.TryValidateLogReadable(target, out _, out var errorMessage))
+        if (!string.IsNullOrWhiteSpace(validationResult.ErrorMessage))
         {
+            //throw new InvalidDataException(validationResult.ErrorMessage);
             return false;
         }
 
-        warning = $"Skipping daemon profile '{profile.Id}' because {errorMessage}";
+        warning = validationResult.WarningMessage ?? string.Empty;
         return true;
     }
 #else
@@ -224,8 +230,10 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     }
 #endif
 
-    private bool IsProfileConditionSatisfied(ResourceProfile profile)
+    private bool IsProfileConditionSatisfied(ResourceProfile profile, out string? warning)
     {
+        warning = null;
+
         if (profile.Condition is null)
         {
             return true;
@@ -243,31 +251,35 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
         if (WmiCondition.TryExists(profile.Condition.Query, out var result, out var error, scopePath))
         {
-            if (!result)
+            if (result)
             {
-                logger.LogInformation("Skipping daemon profile {ProfileId} because its WMI condition returned no rows.", profile.Id);
+                return true;
             }
 
-            return result;
+            if (!profile.Mandatory)
+            {
+                warning = $"Skipping optional daemon profile '{profile.Id}' because WMI condition is not satisfied";
+                return false;
+            }
+
+            throw new InvalidDataException($"Daemon profile '{profile.Id}' requires WMI condition but it is not satisfied");
         }
 
-        var message = $"profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}";
-        if (profile.Condition.Mandatory)
+        if (!profile.Mandatory)
         {
-            throw new InvalidOperationException(message, error);
+            warning = $"Skipping optional daemon profile '{profile.Id}' because WMI condition could not be evaluated: {error?.Message ?? "unknown error"}";
+            return false;
         }
 
-        logger.LogWarning("Skipping daemon profile {ProfileId} because its optional WMI condition could not be evaluated: {Error}", profile.Id, error?.Message ?? "unknown error");
-        return false;
+        throw new InvalidDataException($"Daemon profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}", error);
 #else
-        var message = $"profile '{profile.Id}' WMI condition requires the Windows build.";
-        if (profile.Condition.Mandatory)
+        if (!profile.Mandatory)
         {
-            throw new PlatformNotSupportedException(message);
+            warning = $"Skipping optional daemon profile '{profile.Id}' because WMI condition is not supported on this platform";
+            return false;
         }
 
-        logger.LogWarning("Skipping daemon profile {ProfileId} because its optional WMI condition requires the Windows build.", profile.Id);
-        return false;
+        throw new PlatformNotSupportedException($"Daemon profile '{profile.Id}' requires WMI condition but this is not a Windows platform");
 #endif
     }
 

@@ -51,21 +51,8 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
             try
             {
-                var sourceSubscription = source.Subscribe(
-                    sourceEvent => {
-                        Interlocked.CompareExchange(ref capturedMetadata, sourceEvent.Metadata, null);
-                        kqlRows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow()));
-                    },
-                    error => {
-                        kqlRows.OnError(error);
-                        if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
-                        {
-                            observer.OnError(error);
-                        }
-                    },
-                    kqlRows.OnCompleted);
-                disposables.Add(sourceSubscription);
-
+                // KqlNodeHub must subscribe to kqlRows before the source starts emitting into it.
+                // Otherwise synchronous or finite sources can complete the Subject before the hub sees events.
                 var hub = KqlNodeHub.FromFiles(
                     kqlRows,
                     kqlOutput => OnKqlOutput(kqlOutput, profile, observer, capturedMetadata),
@@ -102,6 +89,22 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
                     disposables.Add(hub._outputSubscription);
                 }
+
+                var sourceSubscription = source.Subscribe(
+                    sourceEvent => {
+                        Interlocked.CompareExchange(ref capturedMetadata, sourceEvent.Metadata, null);
+                        kqlRows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow()));
+                    },
+                    error => {
+                        if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                        {
+                            observer.OnError(error);
+                        }
+
+                        kqlRows.OnError(error);
+                    },
+                    kqlRows.OnCompleted);
+                disposables.Add(sourceSubscription);
 
                 disposables.Add(cancellationToken.Register(observer.OnCompleted));
             }

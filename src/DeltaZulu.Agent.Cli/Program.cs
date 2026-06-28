@@ -592,34 +592,22 @@ Examples:
                     continue;
                 }
 
-                var logName = plan.InputArgument ?? profile.Resource.Channel;
-                if (string.IsNullOrWhiteSpace(logName))
+                var validationResult = WindowsResourceValidator.ValidateEventLog(profile, plan.InputArgument);
+                if (validationResult.IsValid)
                 {
-                    Console.Error.WriteLine($"error: profile '{profile.Id}' requires resource.channel or a eventlog <logname> argument.");
-                    Console.Error.Flush();
-                    return false;
+                    continue;
                 }
 
-                if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
+                if (!string.IsNullOrWhiteSpace(validationResult.WarningMessage))
                 {
-                    if (WindowsEventLogInput.IsDisabledChannelError(errorMessage))
-                    {
-                        Console.Error.WriteLine($"warning: profile '{profile.Id}' skipped because {errorMessage}");
-                        Console.Error.Flush();
-                        continue;
-                    }
-
-                    if (!profile.Mandatory)
-                    {
-                        Console.Error.WriteLine($"warning: profile '{profile.Id}' skipped because mandatory is false: {errorMessage}");
-                        Console.Error.Flush();
-                        continue;
-                    }
-
-                    Console.Error.WriteLine($"error: {errorMessage}");
+                    Console.Error.WriteLine($"warning: {validationResult.WarningMessage}");
                     Console.Error.Flush();
-                    return false;
+                    continue;
                 }
+
+                Console.Error.WriteLine($"error: {validationResult.ErrorMessage}");
+                Console.Error.Flush();
+                return false;
             }
         }
         else if (plan.InputCommand?.Equals("eventlog", StringComparison.OrdinalIgnoreCase) == true)
