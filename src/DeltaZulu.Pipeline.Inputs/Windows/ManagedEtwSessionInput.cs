@@ -36,10 +36,14 @@ public sealed class ManagedEtwSessionInput : ISourceInput
         return Observable.Using(
             CreateSession,
             _ => Tx.Windows.EtwTdhObservable.FromSession(_sessionName)
-                .Select(x =>
+                .SelectMany(x =>
                 {
-                    var fields = EtwTdhEventFields.Materialize(x);
-                    return WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", Name, nameof(ManagedEtwSessionInput));
+                    if (!EtwTdhEventFields.TryMaterialize(x, out var fields))
+                    {
+                        return Observable.Empty<SourceEvent>();
+                    }
+
+                    return Observable.Return(WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", Name, nameof(ManagedEtwSessionInput)));
                 }));
     }
 

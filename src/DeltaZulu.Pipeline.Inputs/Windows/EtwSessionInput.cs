@@ -30,10 +30,14 @@ public sealed class EtwSessionInput : ISourceInput
             try
             {
                 return Tx.Windows.EtwTdhObservable.FromSession(_sessionName)
-                    .Select(x =>
+                    .SelectMany(x =>
                     {
-                        var fields = EtwTdhEventFields.Materialize(x);
-                        return WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", Name, nameof(EtwSessionInput));
+                        if (!EtwTdhEventFields.TryMaterialize(x, out var fields))
+                        {
+                            return Observable.Empty<SourceEvent>();
+                        }
+
+                        return Observable.Return(WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", Name, nameof(EtwSessionInput)));
                     });
             }
             catch (Win32Exception ex)

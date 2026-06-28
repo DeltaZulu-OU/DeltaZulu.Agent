@@ -23,6 +23,14 @@ public sealed class EtlFileInput : ISourceInput
         }
 
         return Tx.Windows.EtwTdhObservable.FromFiles(_path)
-            .Select(x => WindowsSourceEventMapper.FromDictionary(EtwTdhEventFields.Materialize(x), "WindowsEtw", Name, nameof(EtlFileInput)));
+            .SelectMany(x =>
+            {
+                if (!EtwTdhEventFields.TryMaterialize(x, out var fields))
+                {
+                    return Observable.Empty<SourceEvent>();
+                }
+
+                return Observable.Return(WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", Name, nameof(EtlFileInput)));
+            });
     }
 }

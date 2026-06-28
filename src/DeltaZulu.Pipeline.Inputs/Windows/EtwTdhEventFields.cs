@@ -2,7 +2,23 @@ namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 internal static class EtwTdhEventFields
 {
-    public static IReadOnlyDictionary<string, object?> Materialize(IDictionary<string, object> fields)
+    public static bool TryMaterialize(
+        IDictionary<string, object> fields,
+        out IReadOnlyDictionary<string, object?> materialized)
+    {
+        try
+        {
+            materialized = Materialize(fields);
+            return true;
+        }
+        catch (Exception ex) when (IsUnmaterializableTdhEvent(ex))
+        {
+            materialized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase).AsReadOnly();
+            return false;
+        }
+    }
+
+    private static IReadOnlyDictionary<string, object?> Materialize(IDictionary<string, object> fields)
     {
         var materialized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (var field in fields)
@@ -11,5 +27,14 @@ internal static class EtwTdhEventFields
         }
 
         return materialized.AsReadOnly();
+    }
+
+    private static bool IsUnmaterializableTdhEvent(Exception exception) =>
+        exception is FormatException || IsTdhProviderNotFound(exception);
+
+    private static bool IsTdhProviderNotFound(Exception exception)
+    {
+        const int ErrorNotFound = 1168;
+        return exception.Message.Contains($"TDH status {ErrorNotFound}", StringComparison.OrdinalIgnoreCase);
     }
 }
