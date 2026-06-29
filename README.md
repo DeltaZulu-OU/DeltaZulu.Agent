@@ -151,7 +151,7 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 ## Current implementation status
 
 - `DeltaZulu.Agent.Pipeline` contains ETL pipeline contracts, source events, resource outputs, profile models/loaders/validators, delivery envelopes, observation records, RELP frame helpers, NDJSON options, MessagePack payload wrappers, completion tracking, and output multiplexing.
-- `DeltaZulu.Agent.Runtime` contains daemon/CLI orchestration primitives such as the shared runtime and profile binding used by both hosts.
+- `DeltaZulu.Agent.Runtime` contains daemon/CLI orchestration primitives such as the shared runtime and profile binding used by both hosts. It also contains a Windows-only, read-only ETW integrity monitor that baselines `ntdll!EtwEventWrite` and `ntdll!NtTraceEvent` inside the agent process and reports agent-health findings when common user-mode ETW bypass patches alter those prologues.
 - `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, and NDJSON output.
 - `dzagentd` is the YAML-configured daemon host. Its production role is forwarding, and its collector-style configuration is reserved for local validation or controlled lab tests.
 - `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
@@ -159,6 +159,7 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - Input families include syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW. Optional MessagePack input support is isolated under `DeltaZulu.Agent.Inputs/MessagePack`.
 - Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
+- ETW integrity monitoring is intentionally scoped to agent self-protection diagnostics: it checks only the current process's `ntdll` ETW prologues, does not unhook or repair memory, and should emit `AgentIntegrityFinding`-style internal security/health events rather than normal endpoint telemetry.
 - Enrichment, DuckDB, SQL window engines, and edge-side canonical normalization remain out of scope for the agent.
 
 ## Project layout
@@ -175,6 +176,7 @@ src/
     Profiles/
     Relp/
   DeltaZulu.Agent.Runtime/
+    Security/EtwIntegrity/
   DeltaZulu.Agent.Kql/
   DeltaZulu.Agent.Outputs/
     Ndjson/

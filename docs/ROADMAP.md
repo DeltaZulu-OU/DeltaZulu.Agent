@@ -48,7 +48,8 @@ Implemented foundation:
 - RELP-neutral delivery records, batches, ACKs, transport port, buffered forwarder sink, DeltaZulu.Relp adapter, ordered endpoint failover groundwork, and forwarder health snapshots.
 - Stable `DeliveryId` per delivery envelope for at-least-once server deduplication.
 - Metadata fallback injection so user KQL projections cannot accidentally remove delivery identity.
-- Host-neutral tests for domain/application behavior, profile loading, KQL seams, syslog, auditd, CSV, NDJSON, forwarder behavior, observability, and buffer behavior.
+- Host-neutral tests for domain/application behavior, profile loading, KQL seams, syslog, auditd, CSV, NDJSON, forwarder behavior, observability, buffer behavior, and ETW integrity detector/monitor suppression logic.
+- Windows-only read-only ETW integrity monitor MVP in `DeltaZulu.Agent.Runtime` for agent self-protection diagnostics. It baselines `ntdll!EtwEventWrite` and `ntdll!NtTraceEvent` in the current process and emits structured findings when common ETW bypass prologue patches are observed.
 
 Not implemented yet:
 
@@ -59,6 +60,7 @@ Not implemented yet:
 - Source checkpoint advancement tied explicitly to durable enqueue.
 - Journald input.
 - Optional typed resource-local enrichment providers.
+- Production wiring from ETW integrity findings into the agent's internal health/security telemetry pipeline.
 - Host-gated integration coverage for live auditd, Windows Event Log, EVTX, ETL, ETW, and future journald behavior.
 
 ## Agent architecture evolution
@@ -83,6 +85,17 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 - Stable delivery IDs and metadata preservation across KQL projections.
 - Forwarder health observations.
 - Split `dzagentctl` exploration CLI and `dzagentd` daemon host.
+
+## Agent integrity monitoring
+
+The ETW integrity monitor is a self-protection diagnostic, not an input adapter. Keep it read-only and scoped to current-process user-mode ETW prologue checks until there is a separate design for broader tamper detection. The added value is defensive visibility: if malware or an injected component patches the agent process's ETW write path, the agent can raise a high-severity internal health/security finding instead of silently trusting that its own telemetry path is intact.
+
+- [ ] Wire `IEtwIntegrityReporter` to the production agent diagnostics/event pipeline.
+  - Instruction: emit agent-health/security events such as `AgentIntegrityFinding` with category `EtwUserModePrologueIntegrity`; do not mix these findings into normal endpoint source telemetry.
+  - Acceptance: a changed prologue creates one structured high-severity internal event containing function, pattern, baseline/current bytes or hashes, process id, architecture, and baseline source.
+- [ ] Validate the native memory reader on target Windows architectures before production enablement.
+  - Instruction: test x64 first, then any supported x86/Arm64 runtime, with attention to `MEMORY_BASIC_INFORMATION` layout and readable executable pages.
+  - Acceptance: Windows validation notes identify OS, process architecture, resolved `ntdll` functions, and successful clean-baseline operation.
 
 ## P0: Stabilize daemon forwarding
 

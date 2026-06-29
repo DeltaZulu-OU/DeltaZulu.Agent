@@ -30,7 +30,7 @@ DeltaZulu.Agent currently has three executable hosts:
 ```text
 src/
   DeltaZulu.Agent.Pipeline/      Shared ETL pipeline models, abstractions, serializers, and helpers.
-  DeltaZulu.Agent.Runtime/       Runtime orchestration that binds inputs, profiles, executors, and sinks.
+  DeltaZulu.Agent.Runtime/       Runtime orchestration that binds inputs, profiles, executors, and sinks; includes agent self-protection services such as ETW prologue integrity monitoring.
   DeltaZulu.Agent.Kql/           Microsoft.Rx.Kql-backed resource profile executor.
   DeltaZulu.Agent.Outputs/        Output adapters grouped by type.
     Ndjson/                       NDJSON console/file sinks, serializer options, and error records.
@@ -118,6 +118,12 @@ Implemented input families are:
 - ETW real-time session input.
 
 Windows Event Log records expose named XML `EventData` values both under the dynamic `EventData` object and as top-level convenience fields. This supports profile styles such as `EventData.TargetUserSid` and `TargetUserSid`.
+
+## Agent self-protection diagnostics
+
+The runtime includes a minimal, read-only ETW integrity monitor for Windows agents. Its value is early visibility into common in-process ETW bypass attempts against the agent itself: at startup it baselines the live prologues for `ntdll!EtwEventWrite` and `ntdll!NtTraceEvent`, then periodically re-reads those bytes and classifies known patch patterns such as `RET`, NOP sleds, `XOR EAX,EAX; RET`, `MOV EAX,imm; RET`, and generic byte modifications.
+
+This monitor is deliberately not a normal input source and does not produce endpoint telemetry. It belongs in the internal diagnostics/protection path and should emit structured agent-health/security findings, for example `EventType=AgentIntegrityFinding` and `Category=EtwUserModePrologueIntegrity`. The MVP only checks user-mode ETW prologue integrity inside the current agent process; it does not map clean images, inspect IAT/EAT state, repair hooks, scan other processes, or validate ETW sessions.
 
 ## Daemon roles and coordination
 

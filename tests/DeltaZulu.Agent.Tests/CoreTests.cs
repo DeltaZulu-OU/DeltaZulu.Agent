@@ -50,7 +50,7 @@ public sealed class CoreTests
     {
         await using var stream = new MemoryStream(Encoding.ASCII.GetBytes("1 syslog 5 abc"));
 
-        var result = await RelpFrameCodec.ReadFrameAsync(stream);
+        var result = await RelpFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
 
         Assert.IsNull(result);
     }
@@ -60,8 +60,10 @@ public sealed class CoreTests
     {
         await using var stream = new MemoryStream(Encoding.ASCII.GetBytes("1 syslog 3 abc"));
 
-        var result = await RelpFrameCodec.ReadFrameAsync(stream);
+        var result = await RelpFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
 
         Assert.IsNull(result);
     }
+
+    public TestContext TestContext { get; set; }
 }
