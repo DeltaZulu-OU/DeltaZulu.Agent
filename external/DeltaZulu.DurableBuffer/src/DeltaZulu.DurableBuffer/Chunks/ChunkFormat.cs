@@ -36,9 +36,15 @@ public static class ChunkFormat
             throw new InvalidDataException("Invalid chunk magic bytes.");
         }
 
-        var records = new List<ReadOnlyMemory<byte>>();
-        var offset = HeaderSize;
         var footerStart = span.Length - FooterSize;
+        var expectedRecordCount = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(footerStart + FooterRecordCountOffset, RecordLengthSize));
+        if (expectedRecordCount < 0)
+        {
+            throw new InvalidDataException("Chunk footer contains a negative record count.");
+        }
+
+        var records = new List<ReadOnlyMemory<byte>>(expectedRecordCount);
+        var offset = HeaderSize;
 
         while (offset + RecordLengthSize <= footerStart)
         {

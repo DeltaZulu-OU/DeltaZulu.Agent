@@ -5,7 +5,26 @@ namespace DeltaZulu.Pipeline.Core.Events;
 public static class DictionaryCoercion
 {
     public static Dictionary<string, object?> ToObjectDictionary(IReadOnlyDictionary<string, object?> source)
-        => source.ToDictionary(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+    {
+        var result = new Dictionary<string, object?>(source.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var field in source)
+        {
+            result[field.Key] = field.Value;
+        }
+
+        return result;
+    }
+
+    public static Dictionary<string, object?> ToObjectDictionary(IDictionary<string, object?> source)
+    {
+        var result = new Dictionary<string, object?>(source.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var field in source)
+        {
+            result[field.Key] = field.Value;
+        }
+
+        return result;
+    }
 
     public static IReadOnlyDictionary<string, object?>? CoerceToNullableDictionary(object? value)
     {
@@ -16,22 +35,22 @@ public static class DictionaryCoercion
 
         if (value is IReadOnlyDictionary<string, object?> ro)
         {
-            return new Dictionary<string, object?>(ro, StringComparer.OrdinalIgnoreCase);
+            return CopyDictionary(ro);
         }
 
         if (value is IDictionary<string, object?> dict)
         {
-            return new Dictionary<string, object?>(dict, StringComparer.OrdinalIgnoreCase);
+            return CopyDictionary(dict);
         }
 
         if (value is IDictionary<string, object> legacy)
         {
-            return legacy.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
+            return CopyLegacyDictionary(legacy);
         }
 
         if (value is ExpandoObject expando)
         {
-            return ((IDictionary<string, object?>)expando).ToDictionary(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+            return CopyDictionary((IDictionary<string, object?>)expando);
         }
 
         return new Dictionary<string, object?> { ["value"] = value };
@@ -39,13 +58,46 @@ public static class DictionaryCoercion
 
     public static IDictionary<string, object> ToKqlDictionary(IDictionary<string, object?> source)
     {
-        var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, object>(source.Count, StringComparer.OrdinalIgnoreCase);
         foreach (var field in source)
         {
             if (field.Value is not null)
             {
                 result[field.Key] = field.Value;
             }
+        }
+
+        return result;
+    }
+
+    private static Dictionary<string, object?> CopyDictionary(IReadOnlyDictionary<string, object?> source)
+    {
+        var result = new Dictionary<string, object?>(source.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var field in source)
+        {
+            result[field.Key] = field.Value;
+        }
+
+        return result;
+    }
+
+    private static Dictionary<string, object?> CopyDictionary(IDictionary<string, object?> source)
+    {
+        var result = new Dictionary<string, object?>(source.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var field in source)
+        {
+            result[field.Key] = field.Value;
+        }
+
+        return result;
+    }
+
+    private static Dictionary<string, object?> CopyLegacyDictionary(IDictionary<string, object> source)
+    {
+        var result = new Dictionary<string, object?>(source.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var field in source)
+        {
+            result[field.Key] = field.Value;
         }
 
         return result;

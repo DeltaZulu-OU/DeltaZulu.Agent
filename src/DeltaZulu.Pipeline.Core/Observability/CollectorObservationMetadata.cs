@@ -10,9 +10,9 @@ public sealed record CollectorObservationMetadata
     public DateTimeOffset? WindowStart { get; init; }
     public DateTimeOffset? WindowEnd { get; init; }
 
-    public IReadOnlyDictionary<string, object?> ToDictionary()
+    public Dictionary<string, object?> ToDictionary()
     {
-        var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
+        var values = new Dictionary<string, object?>(7, StringComparer.OrdinalIgnoreCase) {
             ["agentId"] = AgentId,
             ["hostId"] = HostId,
             ["profileId"] = ProfileId,

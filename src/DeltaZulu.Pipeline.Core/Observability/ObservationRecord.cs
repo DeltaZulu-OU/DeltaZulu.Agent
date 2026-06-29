@@ -4,9 +4,9 @@ internal static class ObservationRecord
 {
     public static IReadOnlyDictionary<string, object?> MetadataWithKind(CollectorObservationMetadata metadata, string recordKind)
     {
-        var copy = new Dictionary<string, object?>(metadata.ToDictionary(), StringComparer.OrdinalIgnoreCase) {
-            ["recordKind"] = recordKind
-        };
+        var copy = metadata.ToDictionary();
+        copy.EnsureCapacity(copy.Count + 1);
+        copy["recordKind"] = recordKind;
         return copy;
     }
 }

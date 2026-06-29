@@ -16,9 +16,9 @@ public sealed record ResourceMetadata
     public bool RawPreserved { get; init; }
     public IReadOnlyDictionary<string, object?> Properties { get; init; } = new Dictionary<string, object?>();
 
-    public IDictionary<string, object?> ToDictionary()
+    public Dictionary<string, object?> ToDictionary()
     {
-        var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
+        var dict = new Dictionary<string, object?>(12 + Properties.Count, StringComparer.OrdinalIgnoreCase) {
             ["schemaVersion"] = SchemaVersion,
             ["collectorId"] = CollectorId,
             ["profileId"] = ProfileId,

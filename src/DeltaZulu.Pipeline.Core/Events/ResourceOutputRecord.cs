@@ -16,7 +16,11 @@ public sealed record ResourceOutputRecord
 
     public static ResourceOutputRecord FromSource(SourceEvent source, string? profileId = null, string? profileVersion = null)
     {
-        var metadata = new Dictionary<string, object?>(source.Metadata.ToDictionary(), StringComparer.OrdinalIgnoreCase);
+        var metadata = source.Metadata.ToDictionary();
+        if (!string.IsNullOrWhiteSpace(profileId) || !string.IsNullOrWhiteSpace(profileVersion))
+        {
+            metadata.EnsureCapacity(metadata.Count + 2);
+        }
         if (!string.IsNullOrWhiteSpace(profileId))
         {
             metadata["profileId"] = profileId;
@@ -29,7 +33,7 @@ public sealed record ResourceOutputRecord
 
         return new ResourceOutputRecord {
             Metadata = metadata,
-            Event = new Dictionary<string, object?>(source.Fields, StringComparer.OrdinalIgnoreCase)
+            Event = DictionaryCoercion.ToObjectDictionary(source.Fields)
         };
     }
 
@@ -47,8 +51,8 @@ public sealed record ResourceOutputRecord
         string? profileVersion,
         ResourceMetadata? sourceMetadata)
     {
-        var eventFields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        var metadata = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
+        var eventFields = new Dictionary<string, object?>(projectedFields.Count, StringComparer.OrdinalIgnoreCase);
+        var metadata = new Dictionary<string, object?>(12, StringComparer.OrdinalIgnoreCase) {
             ["schemaVersion"] = 1,
             ["profileId"] = profileId,
             ["profileVersion"] = profileVersion,
@@ -73,7 +77,8 @@ public sealed record ResourceOutputRecord
         {
             if (field.Key.Equals("_metadata", StringComparison.OrdinalIgnoreCase) && field.Value is IDictionary<string, object?> meta)
             {
-                var projected = new Dictionary<string, object?>(meta, StringComparer.OrdinalIgnoreCase);
+                var projected = DictionaryCoercion.ToObjectDictionary(meta);
+                projected.EnsureCapacity(projected.Count + 2);
                 projected["profileId"] = profileId;
                 projected["profileVersion"] = profileVersion;
                 PreserveDeliveryIdentity(metadata, projected);
@@ -83,7 +88,11 @@ public sealed record ResourceOutputRecord
 
             if (field.Key.Equals("_metadata", StringComparison.OrdinalIgnoreCase) && field.Value is IDictionary<string, object> legacyMeta)
             {
-                var projected = legacyMeta.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
+                var projected = new Dictionary<string, object?>(legacyMeta.Count + 2, StringComparer.OrdinalIgnoreCase);
+                foreach (var item in legacyMeta)
+                {
+                    projected[item.Key] = item.Value;
+                }
                 projected["profileId"] = profileId;
                 projected["profileVersion"] = profileVersion;
                 PreserveDeliveryIdentity(metadata, projected);

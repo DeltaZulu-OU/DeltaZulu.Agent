@@ -16,7 +16,7 @@ public sealed record FilterSummaryObservation
 
     public ResourceOutputRecord ToOutputRecord() => new() {
         Metadata = ObservationRecord.MetadataWithKind(Metadata, RecordKind),
-        Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
+        Event = new Dictionary<string, object?>(6, StringComparer.OrdinalIgnoreCase) {
             ["sourceType"] = SourceType,
             ["channel"] = Channel,
             ["readCount"] = ReadCount,

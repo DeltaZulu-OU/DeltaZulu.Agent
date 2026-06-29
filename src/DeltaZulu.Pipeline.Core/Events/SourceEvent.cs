@@ -6,7 +6,7 @@ public sealed record SourceEvent(
 {
     public IDictionary<string, object?> ToKqlRow()
     {
-        var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        var row = new Dictionary<string, object?>(Fields.Count + 2, StringComparer.OrdinalIgnoreCase);
         foreach (var field in Fields)
         {
             row[field.Key] = field.Value;
