@@ -49,8 +49,9 @@ public sealed class ManagedEtwSessionInput : ISourceInput
         }
         catch (Exception ex) when (IsSessionAlreadyExists(ex))
         {
-            _warn?.Invoke($"Managed ETW session '{_sessionName}': existing session found, attaching without stopping it.");
-            return AttachAndEnableSession();
+            _warn?.Invoke($"Managed ETW session '{_sessionName}': existing session found; reclaiming it before creating a fresh DeltaZulu-owned session.");
+            StopExistingSession();
+            return CreateAndEnableSession();
         }
         catch (Exception ex) when (IsSessionLimitExceeded(ex))
         {
@@ -82,22 +83,22 @@ public sealed class ManagedEtwSessionInput : ISourceInput
         }
     }
 
-    private TraceEventSession AttachAndEnableSession()
+    private void StopExistingSession()
     {
-        var session = new TraceEventSession(_sessionName, TraceEventSessionOptions.Attach)
-        {
-            StopOnDispose = false
-        };
-
         try
         {
-            EnableProvider(session);
-            return session;
+            using var session = new TraceEventSession(_sessionName, TraceEventSessionOptions.Attach)
+            {
+                StopOnDispose = true
+            };
         }
-        catch
+        catch (Exception stopException) when (IsSessionNotFound(stopException))
         {
-            session.Dispose();
-            throw;
+            _warn?.Invoke($"Managed ETW session '{_sessionName}': existing session disappeared before it could be reclaimed.");
+        }
+        catch (Exception stopException)
+        {
+            throw new InvalidOperationException($"Managed ETW session '{_sessionName}' already exists and could not be reclaimed.", stopException);
         }
     }
 
@@ -115,12 +116,16 @@ public sealed class ManagedEtwSessionInput : ISourceInput
 
     private const int ErrorNoSystemResources = 1450;
     private const int ErrorAlreadyExists = 183;
+    private const int ErrorNotFound = 1168;
 
     private static bool IsSessionLimitExceeded(Exception ex) =>
         GetWin32ErrorCode(ex) == ErrorNoSystemResources;
 
     private static bool IsSessionAlreadyExists(Exception ex) =>
         GetWin32ErrorCode(ex) == ErrorAlreadyExists;
+
+    private static bool IsSessionNotFound(Exception ex) =>
+        GetWin32ErrorCode(ex) == ErrorNotFound;
 
     private static int? GetWin32ErrorCode(Exception ex)
     {
