@@ -26,15 +26,24 @@ public sealed class AgentRuntime
 
     public AgentRuntimeResult Run(CancellationToken cancellationToken = default)
     {
+        var warnings = new List<string>();
+        AgentRuntimeResult result;
+
         if (_bindings.Count == 1)
         {
-            return RunSingle(_bindings[0], cancellationToken);
+            result = RunSingle(_bindings[0], warnings, cancellationToken);
+        }
+        else
+        {
+            result = RunMultiple(warnings, cancellationToken);
         }
 
-        return RunMultiple(cancellationToken);
+        return warnings.Count > 0
+            ? result with { Warnings = warnings }
+            : result;
     }
 
-    private AgentRuntimeResult RunSingle(ProfileBinding binding, CancellationToken cancellationToken)
+    private AgentRuntimeResult RunSingle(ProfileBinding binding, List<string> warnings, CancellationToken cancellationToken)
     {
         using var completed = new ManualResetEventSlim(false);
         using var writer = new CompletionTrackingWriter(_sink, completed);
@@ -56,12 +65,12 @@ public sealed class AgentRuntime
         }
         catch (Exception ex)
         {
-            return HandleSingleBindingFailure(binding, ex);
+            return HandleSingleBindingFailure(binding, warnings, ex);
         }
 
         if (writer.Error is not null)
         {
-            return HandleSingleBindingFailure(binding, writer.Error);
+            return HandleSingleBindingFailure(binding, warnings, writer.Error);
         }
 
         return new AgentRuntimeResult(true);
@@ -81,22 +90,25 @@ public sealed class AgentRuntime
             ? binding.Executor.Execute(source, binding.Profile, cancellationToken)
             : reloadableExecutor.Execute(source, cancellationToken);
 
-    private AgentRuntimeResult HandleSingleBindingFailure(ProfileBinding binding, Exception exception)
+    private AgentRuntimeResult HandleSingleBindingFailure(ProfileBinding binding, List<string> warnings, Exception exception)
     {
+        var message = $"profile '{binding.Profile.Id}' failed: {exception.Message}";
         if (!binding.Profile.Mandatory)
         {
-            _warn?.Invoke($"profile '{binding.Profile.Id}' failed and will be skipped because mandatory is false: {exception.Message}");
+            message += " (skipped because mandatory is false)";
+            _warn?.Invoke(message);
+            warnings.Add(message);
             return new AgentRuntimeResult(true);
         }
 
         return new AgentRuntimeResult(false, exception);
     }
 
-    private AgentRuntimeResult RunMultiple(CancellationToken cancellationToken)
+    private AgentRuntimeResult RunMultiple(List<string> warnings, CancellationToken cancellationToken)
     {
         using var mux = new ChannelOutputMultiplexer(_sink);
         var tasks = _bindings
-            .Select(binding => Task.Run(() => RunBindingSafely(binding, mux, cancellationToken), cancellationToken))
+            .Select(binding => Task.Run(() => RunBindingSafely(binding, warnings, mux, cancellationToken), cancellationToken))
             .ToArray();
 
         try
@@ -117,7 +129,7 @@ public sealed class AgentRuntime
             : new AgentRuntimeResult(true);
     }
 
-    private void RunBindingSafely(ProfileBinding binding, IOutputWriter sink, CancellationToken cancellationToken)
+    private void RunBindingSafely(ProfileBinding binding, List<string> warnings, IOutputWriter sink, CancellationToken cancellationToken)
     {
         try
         {
@@ -125,7 +137,12 @@ public sealed class AgentRuntime
         }
         catch (Exception ex) when (!binding.Profile.Mandatory)
         {
-            _warn?.Invoke($"profile '{binding.Profile.Id}' failed and will be skipped because mandatory is false: {ex.Message}");
+            var message = $"profile '{binding.Profile.Id}' failed: {ex.Message} (skipped because mandatory is false)";
+            _warn?.Invoke(message);
+            lock (warnings)
+            {
+                warnings.Add(message);
+            }
         }
     }
 

@@ -72,6 +72,15 @@ internal static partial class Program
                     return 1;
                 }
 
+                if (result.Degraded)
+                {
+                    foreach (var warning in result.Warnings!)
+                    {
+                        Console.Error.WriteLine($"warning: {warning}");
+                    }
+                    Console.Error.Flush();
+                }
+
                 return 0;
             }
             finally
@@ -269,13 +278,19 @@ internal static partial class Program
 #if WINDOWS
             "eventlog" => new WindowsEventLogInput(plan.InputArgument ?? profile?.Resource.Channel ?? throw new ArgumentException("eventlog profiles require resource.channel or a target <logname> argument.")),
             "evtx" => new EvtxFileInput(plan.InputArgument ?? throw new ArgumentException("evtx requires <file.evtx>")),
-            "etl" => new EtlFileInput(plan.InputArgument ?? throw new ArgumentException("etl requires <file.etl>")),
-            "etw" => new EtwSessionInput(plan.InputArgument ?? throw new ArgumentException("etw requires <session>")),
+            "etl" => new EtlFileInput(plan.InputArgument ?? throw new ArgumentException("etl requires <file.etl>"), warn: WarnStderr),
+            "etw" => new EtwSessionInput(plan.InputArgument ?? throw new ArgumentException("etw requires <session>"), warn: WarnStderr),
 #else
             "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{inputCommand} is available from the net10.0-windows build."),
 #endif
             _ => throw new ArgumentException($"unknown input command '{inputCommand}'")
         };
+    }
+
+    private static void WarnStderr(string message)
+    {
+        Console.Error.WriteLine($"warning: {message}");
+        Console.Error.Flush();
     }
 
     private static ResourceProfile CreatePassthroughProfile(CliPlan plan) => new() {

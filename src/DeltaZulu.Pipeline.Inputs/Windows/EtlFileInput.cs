@@ -7,11 +7,15 @@ namespace DeltaZulu.Pipeline.Inputs.Windows;
 public sealed class EtlFileInput : ISourceInput
 {
     private readonly string _path;
+    private readonly Action<string>? _warn;
+    private readonly EtwTdhDropWarningLimiter _dropWarningLimiter;
     public string Name { get; }
 
-    public EtlFileInput(string path, string name = "etl-file")
+    public EtlFileInput(string path, string name = "etl-file", Action<string>? warn = null)
     {
         _path = path;
+        _warn = warn;
+        _dropWarningLimiter = new EtwTdhDropWarningLimiter(warn, $"ETL file '{path}'");
         Name = name;
     }
 
@@ -23,14 +27,29 @@ public sealed class EtlFileInput : ISourceInput
         }
 
         return Tx.Windows.EtwTdhObservable.FromFiles(_path)
-            .SelectMany(x =>
-            {
-                if (!EtwTdhEventFields.TryMaterialize(x, out var fields))
-                {
-                    return Observable.Empty<SourceEvent>();
-                }
+            .SelectMany(x => MaterializeEvent(x));
+    }
 
-                return Observable.Return(WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", Name, nameof(EtlFileInput)));
-            });
+    private IObservable<SourceEvent> MaterializeEvent(IDictionary<string, object> raw)
+    {
+        try
+        {
+            if (!EtwTdhEventFields.TryMaterialize(raw, out var fields, OnEventDropped))
+            {
+                return Observable.Empty<SourceEvent>();
+            }
+
+            return Observable.Return(WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", Name, nameof(EtlFileInput)));
+        }
+        catch (Exception ex)
+        {
+            _warn?.Invoke($"ETL file '{_path}': event skipped due to unexpected materialization error: {ex.Message}");
+            return Observable.Empty<SourceEvent>();
+        }
+    }
+
+    private void OnEventDropped(Exception ex)
+    {
+        _dropWarningLimiter.OnEventDropped(ex);
     }
 }

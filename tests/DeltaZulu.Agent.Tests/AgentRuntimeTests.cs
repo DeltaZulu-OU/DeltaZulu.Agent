@@ -23,6 +23,7 @@ public sealed class AgentRuntimeTests
 
         Assert.IsTrue(result.Success);
         Assert.IsNull(result.Error);
+        Assert.IsFalse(result.Degraded);
         Assert.HasCount(2, sink.Records);
     }
 
@@ -63,6 +64,10 @@ public sealed class AgentRuntimeTests
         var result = runtime.Run(TestContext.CancellationToken);
 
         Assert.IsTrue(result.Success);
+        Assert.IsTrue(result.Degraded);
+        Assert.IsNotNull(result.Warnings);
+        Assert.HasCount(1, result.Warnings);
+        Assert.Contains("bad", result.Warnings[0]);
         Assert.HasCount(1, sink.Records);
     }
 
@@ -121,6 +126,9 @@ public sealed class AgentRuntimeTests
 
         Assert.IsTrue(result.Success);
         Assert.IsNull(result.Error);
+        Assert.IsTrue(result.Degraded);
+        Assert.IsNotNull(result.Warnings);
+        Assert.Contains("solo", result.Warnings[0]);
     }
 
     [TestMethod]
@@ -154,7 +162,9 @@ public sealed class AgentRuntimeTests
 
         Assert.IsTrue(result.Success);
         Assert.IsNull(result.Error);
+        Assert.IsTrue(result.Degraded);
         Assert.HasCount(1, warnings);
+        Assert.HasCount(1, result.Warnings!);
         Assert.Contains("solo", warnings[0]);
     }
 

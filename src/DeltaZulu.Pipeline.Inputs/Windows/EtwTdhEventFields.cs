@@ -4,7 +4,8 @@ internal static class EtwTdhEventFields
 {
     public static bool TryMaterialize(
         IDictionary<string, object> fields,
-        out IReadOnlyDictionary<string, object?> materialized)
+        out IReadOnlyDictionary<string, object?> materialized,
+        Action<Exception>? onDropped = null)
     {
         try
         {
@@ -13,6 +14,7 @@ internal static class EtwTdhEventFields
         }
         catch (Exception ex) when (IsUnmaterializableTdhEvent(ex))
         {
+            onDropped?.Invoke(ex);
             materialized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase).AsReadOnly();
             return false;
         }
