@@ -3,6 +3,7 @@ using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
 using Microsoft.Diagnostics.Tracing.Parsers;
 using Microsoft.Diagnostics.Tracing.Session;
+using System.Reflection;
 using System.Reactive.Linq;
 using System.Security.Principal;
 
@@ -10,6 +11,17 @@ namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 public sealed class ManagedEtwSessionInput : ISourceInput
 {
+    // Managed ETW sessions need enough room for bursty Security/DNS events while
+    // keeping orphaned sessions bounded if the process exits abruptly. Use a
+    // 256 KB ETW buffer quantum for large PowerShell/Security payloads and a
+    // 64 MB pool budget, which yields 256 maximum buffers.
+    internal const int ManagedSessionBufferSizeKilobytes = 256;
+    internal const int ManagedSessionMemoryBudgetMegabytes = 64;
+    internal const int ManagedSessionMaximumBuffers = ManagedSessionMemoryBudgetMegabytes * 1024 / ManagedSessionBufferSizeKilobytes;
+    internal const int ManagedSessionMinimumBuffers = ManagedSessionMaximumBuffers / 4;
+
+    private const string TraceEventBufferQuantumFieldName = "m_BufferQuantumKB";
+
     private readonly string _sessionName;
     private readonly string _providerName;
     private readonly Action<string>? _warn;
@@ -68,8 +80,10 @@ public sealed class ManagedEtwSessionInput : ISourceInput
     {
         var session = new TraceEventSession(_sessionName)
         {
-            StopOnDispose = true
+            StopOnDispose = true,
+            BufferSizeMB = ManagedSessionMemoryBudgetMegabytes
         };
+        ConfigureBufferSize(session);
 
         try
         {
@@ -81,6 +95,18 @@ public sealed class ManagedEtwSessionInput : ISourceInput
             session.Dispose();
             throw;
         }
+    }
+
+
+    private static void ConfigureBufferSize(TraceEventSession session)
+    {
+        // TraceEvent exposes the total ETW buffer pool as BufferSizeMB, but not
+        // EVENT_TRACE_PROPERTIES.BufferSize. The field below is TraceEvent's
+        // backing buffer quantum, set before EnableProvider starts the session.
+        var field = typeof(TraceEventSession).GetField(
+            TraceEventBufferQuantumFieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        field?.SetValue(session, ManagedSessionBufferSizeKilobytes);
     }
 
     private void StopExistingSession()
