@@ -124,34 +124,14 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
         return _session;
     }
 
-    private async ValueTask<X509CertificateCollection?> GetClientCertificatesAsync(CancellationToken cancellationToken)
+    private ValueTask<X509CertificateCollection?> GetClientCertificatesAsync(CancellationToken cancellationToken)
     {
-        var staticCertificates = _options.ClientCertificates;
-        if (!_options.UseTls || _options.TunnelCertificateProvider is null)
-        {
-            return staticCertificates;
-        }
-
-        var lease = await _options.TunnelCertificateProvider.GetCurrentCertificateAsync(cancellationToken).ConfigureAwait(false);
-        if (lease is null)
-        {
-            return staticCertificates;
-        }
-
-        var certificates = new X509CertificateCollection();
-        if (staticCertificates is not null)
-        {
-            certificates.AddRange(staticCertificates);
-        }
-
-        certificates.Add(lease.Certificate);
-        return certificates;
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(_options.UseTls ? _options.ClientCertificates : null);
     }
 
-    private RelpEndpoint CurrentEndpoint
-    {
-        get
-        {
+    private RelpEndpoint CurrentEndpoint {
+        get {
             var endpoints = _options.GetConfiguredEndpoints();
             return endpoints[Math.Abs(_endpointIndex % endpoints.Count)];
         }

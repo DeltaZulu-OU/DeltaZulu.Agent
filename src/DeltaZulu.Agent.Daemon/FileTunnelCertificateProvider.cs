@@ -1,9 +1,10 @@
 using System.Security.Cryptography.X509Certificates;
+using DeltaZulu.Pipeline.Tunnel;
 
-namespace DeltaZulu.Agent.Tunnel;
+namespace DeltaZulu.Agent.Daemon;
 
 /// <summary>
-/// Loads an agent mTLS certificate from local files while preserving the lifecycle abstraction for future enrollment services.
+/// Loads an mTLS client certificate from local files while preserving the lifecycle abstraction for future enrollment services.
 /// </summary>
 public sealed class FileTunnelCertificateProvider : ITunnelCertificateProvider
 {

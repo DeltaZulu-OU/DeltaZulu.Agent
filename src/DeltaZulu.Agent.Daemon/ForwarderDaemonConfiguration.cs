@@ -11,6 +11,7 @@ public sealed record ForwarderDaemonConfiguration
     public ForwarderDaemonPipelineConfiguration Pipeline { get; init; } = new();
     public RelpBufferConfiguration Buffer { get; init; } = new();
     public RelpTransportConfiguration Relp { get; init; } = new();
+    public ForwarderDaemonTunnelConfiguration Tunnel { get; init; } = new();
     public ForwarderDaemonDiagnosticsConfiguration Diagnostics { get; init; } = new();
 }
 
@@ -37,6 +38,18 @@ public sealed record ForwarderDaemonPipelineOutputConfiguration
     public string Encoding { get; init; } = "messagepack";
     public string Transport { get; init; } = "relp";
     public string? File { get; init; }
+}
+
+public sealed record ForwarderDaemonTunnelConfiguration
+{
+    public bool Enabled { get; init; }
+    public ForwarderDaemonTunnelListenConfiguration Listen { get; init; } = new();
+}
+
+public sealed record ForwarderDaemonTunnelListenConfiguration
+{
+    public string Host { get; init; } = "127.0.0.1";
+    public int Port { get; init; } = 2514;
 }
 
 public sealed record ForwarderDaemonDiagnosticsConfiguration
@@ -70,8 +83,7 @@ public sealed class YamlForwarderDaemonConfigurationLoader
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var prefix = string.IsNullOrWhiteSpace(path) ? "Agent daemon configuration" : $"Agent daemon configuration '{path}'";
-        YamlRelpOutputConfigurationLoader.Validate(new RelpOutputConfiguration
-        {
+        YamlRelpOutputConfigurationLoader.Validate(new RelpOutputConfiguration {
             Id = configuration.Id,
             Buffer = configuration.Buffer,
             Relp = configuration.Relp
@@ -114,6 +126,24 @@ public sealed class YamlForwarderDaemonConfigurationLoader
         if (outputMode == "file" && string.IsNullOrWhiteSpace(configuration.Pipeline.Output.File))
         {
             throw new InvalidDataException($"{prefix} pipeline.output.file is required when pipeline.output.mode is file.");
+        }
+
+        if (configuration.Tunnel.Enabled)
+        {
+            if (outputMode != "forward")
+            {
+                throw new InvalidDataException($"{prefix} tunnel.enabled requires pipeline.output.mode to be forward.");
+            }
+
+            if (string.IsNullOrWhiteSpace(configuration.Tunnel.Listen.Host))
+            {
+                throw new InvalidDataException($"{prefix} tunnel.listen.host is required when tunnel.enabled is true.");
+            }
+
+            if (configuration.Tunnel.Listen.Port is < 1 or > 65535)
+            {
+                throw new InvalidDataException($"{prefix} tunnel.listen.port must be between 1 and 65535.");
+            }
         }
 
         if (configuration.Diagnostics.IntervalSeconds is <= 0)

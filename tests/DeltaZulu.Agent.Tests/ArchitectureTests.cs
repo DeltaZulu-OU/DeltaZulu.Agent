@@ -1,6 +1,8 @@
 using System.Reflection;
 using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Outputs.Relp;
+using DeltaZulu.Pipeline.Tunnel;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -25,6 +27,28 @@ public sealed class ArchitectureTests
 
         Assert.IsEmpty(projectRefs,
             $"Pipeline should not reference other DeltaZulu projects but found: {string.Join(", ", projectRefs)}");
+    }
+
+    [TestMethod]
+    public void PipelineOutputs_DoesNotReferencePipelineTunnel()
+    {
+        var outputAssembly = typeof(RelpForwarderOptions).Assembly;
+        var projectRefs = GetProjectReferences(outputAssembly);
+
+        Assert.DoesNotContain("DeltaZulu.Pipeline.Tunnel", projectRefs,
+            "Pipeline outputs must stay independent of tunnel infrastructure; tunnel wiring belongs in the daemon composition root.");
+    }
+
+    [TestMethod]
+    public void PipelineTunnel_DoesNotReferenceAgentProjects()
+    {
+        var tunnelAssembly = typeof(TcpTunnel).Assembly;
+        var agentRefs = GetProjectReferences(tunnelAssembly)
+            .Where(name => name.StartsWith("DeltaZulu.Agent", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.IsEmpty(agentRefs,
+            $"Pipeline tunnel must remain generic and must not reference agent projects: {string.Join(", ", agentRefs)}");
     }
 
     [TestMethod]

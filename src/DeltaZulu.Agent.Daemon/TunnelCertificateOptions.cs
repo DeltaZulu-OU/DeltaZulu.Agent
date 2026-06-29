@@ -1,7 +1,7 @@
-namespace DeltaZulu.Agent.Tunnel;
+namespace DeltaZulu.Agent.Daemon;
 
 /// <summary>
-/// Configuration for the agent identity certificate used by outbound mTLS tunnels.
+/// File-based client certificate configuration for outbound mTLS tunnels.
 /// </summary>
 public sealed record TunnelCertificateOptions
 {

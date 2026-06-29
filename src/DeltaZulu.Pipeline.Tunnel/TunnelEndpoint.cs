@@ -1,7 +1,7 @@
-namespace DeltaZulu.Agent.Tunnel;
+namespace DeltaZulu.Pipeline.Tunnel;
 
 /// <summary>
-/// Network endpoint used by an mTLS-backed tunnel.
+/// Network endpoint used by a TCP tunnel.
 /// </summary>
 public sealed record TunnelEndpoint
 {

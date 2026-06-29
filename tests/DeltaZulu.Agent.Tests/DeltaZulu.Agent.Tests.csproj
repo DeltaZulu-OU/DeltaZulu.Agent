@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Kql\DeltaZulu.Pipeline.Kql.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
-    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Tunnel\DeltaZulu.Agent.Tunnel.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Agent.Daemon\DeltaZulu.Agent.Daemon.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Tunnel\DeltaZulu.Pipeline.Tunnel.csproj" />
   </ItemGroup>
 </Project>

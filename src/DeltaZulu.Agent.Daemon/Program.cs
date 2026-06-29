@@ -1,16 +1,13 @@
-using System.Net;
-using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Pipeline.Inputs.Auditd;
-using DeltaZulu.Pipeline.Inputs.Files;
-using DeltaZulu.Pipeline.Inputs.Relp;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
 using DeltaZulu.Pipeline.Outputs.Relp;
-using DeltaZulu.Agent.Tunnel;
+using DeltaZulu.Pipeline.Tunnel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -223,11 +220,13 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         return true;
     }
 #else
+
     private static bool ShouldSkipUnavailableWindowsEventLog(ResourceProfile profile, out string warning)
     {
         warning = string.Empty;
         return false;
     }
+
 #endif
 
     private bool IsProfileConditionSatisfied(ResourceProfile profile, out string? warning)
@@ -306,8 +305,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     private static ISourceInput CreateInput(ResourceProfile profile)
     {
         var family = profile.Resource.Family.ToLowerInvariant();
-        return family switch
-        {
+        return family switch {
             "syslog" => new SyslogFileTailInput("/var/log/auth.log", profile.Id),
             "auditd" => new AuditdFileInput("/var/log/audit/audit.log", profile.Id),
 #if WINDOWS
@@ -333,25 +331,26 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     }
 #endif
 
-    private static IOutputWriter CreateOutputSink(ForwarderDaemonConfiguration configuration) =>
-        configuration.Pipeline.Output.Mode.ToLowerInvariant() switch
-        {
+    private IOutputWriter CreateOutputSink(ForwarderDaemonConfiguration configuration) =>
+        configuration.Pipeline.Output.Mode.ToLowerInvariant() switch {
             "console" => new ConsoleNdjsonSink(),
             "file" => new NdjsonFileSink(configuration.Pipeline.Output.File!),
             _ => CreateRelpSink(configuration)
         };
 
-    private static BufferedRelpSink CreateRelpSink(ForwarderDaemonConfiguration configuration)
+    private BufferedRelpSink CreateRelpSink(ForwarderDaemonConfiguration configuration)
     {
-        var endpoints = configuration.Relp.Endpoints;
+        var (endpoints, useTls) = configuration.Tunnel.Enabled
+            ? StartRelpTunnel(configuration)
+            : ((IReadOnlyList<RelpEndpoint>)configuration.Relp.Endpoints, configuration.Relp.UseTls);
+
         var primaryEndpoint = endpoints[0];
-        return new BufferedRelpSink(configuration.Buffer.ToBufferOptions(), new RelpForwarderTransport(new RelpForwarderOptions
-        {
+        return new BufferedRelpSink(configuration.Buffer.ToBufferOptions(), new RelpForwarderTransport(new RelpForwarderOptions {
             Host = primaryEndpoint.Host,
             Port = primaryEndpoint.Port,
             Endpoints = endpoints,
-            UseTls = configuration.Relp.UseTls,
-            TunnelCertificateProvider = CreateTunnelCertificateProvider(configuration.Relp.Tls),
+            UseTls = useTls,
+            ClientCertificates = configuration.Tunnel.Enabled ? null : CreateClientCertificates(configuration.Relp.Tls),
             CertificateValidation = configuration.Relp.Tls.CertificateValidation,
             AllowedServerCertificateThumbprints = configuration.Relp.Tls.AllowedServerCertificateThumbprints,
             CertificateExpiryWarningDays = configuration.Relp.Tls.CertificateExpiryWarningDays
@@ -376,13 +375,59 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             TimeSpan.FromSeconds(intervalSeconds)));
     }
 
+    private (IReadOnlyList<RelpEndpoint> Endpoints, bool UseTls) StartRelpTunnel(ForwarderDaemonConfiguration configuration)
+    {
+        var tunnel = new TcpTunnel(new TcpTunnelOptions {
+            ListenEndpoint = new TunnelEndpoint {
+                Host = configuration.Tunnel.Listen.Host,
+                Port = configuration.Tunnel.Listen.Port
+            },
+            Endpoints = configuration.Relp.Endpoints
+                .Select(endpoint => new TunnelEndpoint { Host = endpoint.Host, Port = endpoint.Port })
+                .ToList(),
+            UseTls = configuration.Relp.UseTls,
+            CertificateProvider = CreateTunnelCertificateProvider(configuration.Relp.Tls),
+            ServerCertificateValidationCallback = CreateServerCertificateValidationCallback(configuration.Relp.Tls)
+        });
+        tunnel.Start();
+        _disposables.Add(tunnel);
+
+        var localEndpoint = new RelpEndpoint {
+            Host = configuration.Tunnel.Listen.Host,
+            Port = configuration.Tunnel.Listen.Port
+        };
+        return ([localEndpoint], false);
+    }
+
     private static ITunnelCertificateProvider? CreateTunnelCertificateProvider(RelpTlsConfiguration tls) =>
         !tls.ClientCertificateEnabled || string.IsNullOrWhiteSpace(tls.ClientCertificatePath)
             ? null
-            : new FileTunnelCertificateProvider(new TunnelCertificateOptions
-            {
+            : new FileTunnelCertificateProvider(new TunnelCertificateOptions {
                 Enabled = tls.ClientCertificateEnabled,
                 CertificatePath = tls.ClientCertificatePath,
                 CertificatePassword = tls.ClientCertificatePassword
             });
+
+    private static System.Security.Cryptography.X509Certificates.X509CertificateCollection? CreateClientCertificates(RelpTlsConfiguration tls)
+    {
+        var provider = CreateTunnelCertificateProvider(tls);
+        if (provider is null)
+        {
+            return null;
+        }
+
+        var lease = provider.GetCurrentCertificateAsync().AsTask().GetAwaiter().GetResult();
+        return lease is null ? null : [lease.Certificate];
+    }
+
+    private static System.Net.Security.RemoteCertificateValidationCallback? CreateServerCertificateValidationCallback(RelpTlsConfiguration tls) =>
+        tls.CertificateValidation switch {
+            RelpCertificateValidationMode.Disabled => (_, _, _, _) => true,
+            RelpCertificateValidationMode.Thumbprint => (_, certificate, _, _) =>
+                certificate is not null
+                && tls.AllowedServerCertificateThumbprints.Contains(
+                    certificate.GetCertHashString(),
+                    StringComparer.OrdinalIgnoreCase),
+            _ => null
+        };
 }

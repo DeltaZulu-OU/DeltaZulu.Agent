@@ -1,9 +1,9 @@
 using System.Security.Cryptography.X509Certificates;
 
-namespace DeltaZulu.Agent.Tunnel;
+namespace DeltaZulu.Pipeline.Tunnel;
 
 /// <summary>
-/// Represents the currently usable agent certificate and renewal metadata.
+/// Represents the currently usable client certificate and renewal metadata.
 /// </summary>
 public sealed record TunnelCertificateLease(
     X509Certificate2 Certificate,
