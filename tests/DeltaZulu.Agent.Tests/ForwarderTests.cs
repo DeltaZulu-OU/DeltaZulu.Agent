@@ -67,6 +67,24 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
+    public void BufferedRelpSink_OnNextAfterDispose_IsNoop()
+    {
+        using var directory = new TemporaryDirectory();
+        var transport = new CapturingTransport();
+        var options = new DurableBuffer.Configuration.DurableBufferOptions {
+            StoragePath = directory.Path,
+            MaxChunkRecords = 1,
+            MaxChunkBytes = 4096,
+            MaxChunkAge = TimeSpan.FromMinutes(5)
+        };
+
+        var sink = new BufferedRelpSink(options, transport);
+        sink.Dispose();
+
+        sink.OnNext(CreateTestOutputRecord());
+    }
+
+    [TestMethod]
     public void BufferedRelpSink_PermanentFailure_DeadLettersChunk()
     {
         using var directory = new TemporaryDirectory();

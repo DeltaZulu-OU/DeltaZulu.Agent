@@ -47,7 +47,10 @@ public sealed class BufferedRelpSink : IOutputWriter
 
     public void OnNext(ResourceOutputRecord value)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
 
         var result = _host.Buffer.WriteAsync(
             DeliveryRecord.FromResourceOutput(value),

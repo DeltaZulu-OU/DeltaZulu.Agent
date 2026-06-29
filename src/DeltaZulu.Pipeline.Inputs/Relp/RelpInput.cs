@@ -76,35 +76,55 @@ public sealed class RelpInput : ISourceInput
     private async Task HandleClientAsync(TcpClient client, IObserver<SourceEvent> observer, CancellationToken cancellationToken)
     {
         using var clientRegistration = client;
-        await using var stream = await OpenStreamAsync(client, cancellationToken).ConfigureAwait(false);
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            var maybeFrame = await RelpFrameCodec.ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
-            if (maybeFrame is not { } frame)
+            await using var stream = await OpenStreamAsync(client, cancellationToken).ConfigureAwait(false);
+            while (!cancellationToken.IsCancellationRequested)
             {
-                return;
-            }
+                var maybeFrame = await RelpFrameCodec.ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
+                if (maybeFrame is not { } frame)
+                {
+                    return;
+                }
 
-            if (frame.Command.Equals("open", StringComparison.OrdinalIgnoreCase))
-            {
-                await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
-                continue;
-            }
+                if (frame.Command.Equals("open", StringComparison.OrdinalIgnoreCase))
+                {
+                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
 
-            if (frame.Command.Equals("close", StringComparison.OrdinalIgnoreCase))
-            {
-                await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
-                return;
-            }
+                if (frame.Command.Equals("close", StringComparison.OrdinalIgnoreCase))
+                {
+                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
+                    return;
+                }
 
-            if (!frame.Command.Equals("syslog", StringComparison.OrdinalIgnoreCase))
-            {
-                await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "500 unsupported command", cancellationToken).ConfigureAwait(false);
-                continue;
-            }
+                if (!frame.Command.Equals("syslog", StringComparison.OrdinalIgnoreCase))
+                {
+                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "500 unsupported command", cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
 
-            var accepted = PublishPayload(frame.Payload, observer, out var errorMessage);
-            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : $"500 {errorMessage}", cancellationToken).ConfigureAwait(false);
+                var accepted = PublishPayload(frame.Payload, observer, out var errorMessage);
+                await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : $"500 {errorMessage}", cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (EndOfStreamException)
+        {
+            // The peer can close the connection while the input is shutting down.
+            return;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (IOException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
         }
     }
 

@@ -22,10 +22,16 @@ public static class RelpFrameCodec
             ?? throw new InvalidDataException("Missing RELP payload length.");
         var length = int.Parse(lengthText, CultureInfo.InvariantCulture);
         var payload = new byte[length];
-        await stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
+        if (!await TryReadExactlyAsync(stream, payload, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
 
         var terminator = new byte[1];
-        await stream.ReadExactlyAsync(terminator, cancellationToken).ConfigureAwait(false);
+        if (!await TryReadExactlyAsync(stream, terminator, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
         if (terminator[0] != (byte)'\n')
         {
             throw new InvalidDataException("Missing RELP frame terminator.");
@@ -45,6 +51,22 @@ public static class RelpFrameCodec
         await stream.WriteAsync(body, cancellationToken).ConfigureAwait(false);
         await stream.WriteAsync("\n"u8.ToArray(), cancellationToken).ConfigureAwait(false);
         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> TryReadExactlyAsync(Stream stream, Memory<byte> buffer, CancellationToken cancellationToken)
+    {
+        while (buffer.Length > 0)
+        {
+            var read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                return false;
+            }
+
+            buffer = buffer[read..];
+        }
+
+        return true;
     }
 
     private static async Task<string?> ReadTokenAsync(Stream stream, byte delimiter, CancellationToken cancellationToken)

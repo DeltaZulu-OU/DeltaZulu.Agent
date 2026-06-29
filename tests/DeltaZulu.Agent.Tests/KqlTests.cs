@@ -1,4 +1,5 @@
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Pipeline.Kql;
@@ -25,6 +26,33 @@ public sealed class KqlTests
                     completed.Set();
                 },
                 completed.Set);
+
+        Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The output observer did not receive source termination.");
+        Assert.AreSame(sourceException, observedException);
+    }
+
+    [TestMethod]
+    public void Execute_SourceErrorDoesNotThrowWhenObserverDisposesSubscription()
+    {
+        using var executor = new ResourceKqlProfileExecutor();
+        using var source = new Subject<SourceEvent>();
+        var sourceException = new InvalidOperationException("source stopped");
+        Exception? observedException = null;
+        using var completed = new ManualResetEventSlim(false);
+        IDisposable? subscription = null;
+
+        subscription = executor
+            .Execute(source, CreatePassThroughProfile(), TestContext.CancellationToken)
+            .Subscribe(
+                _ => { },
+                error => {
+                    observedException = error;
+                    subscription?.Dispose();
+                    completed.Set();
+                },
+                completed.Set);
+
+        source.OnError(sourceException);
 
         Assert.IsTrue(completed.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The output observer did not receive source termination.");
         Assert.AreSame(sourceException, observedException);

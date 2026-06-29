@@ -93,7 +93,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                 var sourceSubscription = source.Subscribe(
                     sourceEvent => {
                         Interlocked.CompareExchange(ref capturedMetadata, sourceEvent.Metadata, null);
-                        kqlRows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow()));
+                        TryNotifyKqlRows(kqlRows, rows => rows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow())));
                     },
                     error => {
                         if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
@@ -101,9 +101,9 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                             observer.OnError(error);
                         }
 
-                        kqlRows.OnError(error);
+                        TryNotifyKqlRows(kqlRows, rows => rows.OnError(error));
                     },
-                    kqlRows.OnCompleted);
+                    () => TryNotifyKqlRows(kqlRows, rows => rows.OnCompleted()));
                 disposables.Add(sourceSubscription);
 
                 disposables.Add(cancellationToken.Register(observer.OnCompleted));
@@ -124,6 +124,18 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
     {
         ScalarFunctionFactory.AddFunctions(typeof(AgentScalarFunctions));
         return true;
+    }
+
+    private static void TryNotifyKqlRows(Subject<IDictionary<string, object>> kqlRows, Action<Subject<IDictionary<string, object>>> notify)
+    {
+        try
+        {
+            notify(kqlRows);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Downstream error/completion can synchronously dispose the pipeline before the KQL subject is notified.
+        }
     }
 
     private static void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output, ResourceMetadata? sourceMetadata)
