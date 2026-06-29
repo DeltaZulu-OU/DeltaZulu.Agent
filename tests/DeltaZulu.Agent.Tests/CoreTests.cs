@@ -1,5 +1,5 @@
-using DeltaZulu.Pipeline.Core.Events;
 using System.Dynamic;
+using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -34,8 +34,7 @@ public sealed class CoreTests
     [TestMethod]
     public void ToKqlDictionary_DropsNullValuesAndKeepsNonNullValues()
     {
-        var result = DictionaryCoercion.ToKqlDictionary(new Dictionary<string, object?>
-        {
+        var result = DictionaryCoercion.ToKqlDictionary(new Dictionary<string, object?> {
             ["keep"] = 42,
             ["drop"] = null
         });

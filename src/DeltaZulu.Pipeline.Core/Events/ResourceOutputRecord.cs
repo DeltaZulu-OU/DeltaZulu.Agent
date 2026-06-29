@@ -27,8 +27,7 @@ public sealed record ResourceOutputRecord
             metadata["profileVersion"] = profileVersion;
         }
 
-        return new ResourceOutputRecord
-        {
+        return new ResourceOutputRecord {
             Metadata = metadata,
             Event = new Dictionary<string, object?>(source.Fields, StringComparer.OrdinalIgnoreCase)
         };
@@ -49,8 +48,7 @@ public sealed record ResourceOutputRecord
         ResourceMetadata? sourceMetadata)
     {
         var eventFields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        var metadata = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        var metadata = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["schemaVersion"] = 1,
             ["profileId"] = profileId,
             ["profileVersion"] = profileVersion,
@@ -102,8 +100,7 @@ public sealed record ResourceOutputRecord
             eventFields[field.Key] = field.Value;
         }
 
-        return new ResourceOutputRecord
-        {
+        return new ResourceOutputRecord {
             Metadata = metadata,
             Event = eventFields,
             Enrichment = enrichment

@@ -12,16 +12,13 @@ public sealed record RelpHealthObservation
 
     public ResourceOutputRecord ToOutputRecord()
     {
-        var metadata = new Dictionary<string, object?>(Metadata.ToDictionary(), StringComparer.OrdinalIgnoreCase)
-        {
+        var metadata = new Dictionary<string, object?>(Metadata.ToDictionary(), StringComparer.OrdinalIgnoreCase) {
             ["recordKind"] = RecordKind
         };
 
-        return new ResourceOutputRecord
-        {
+        return new ResourceOutputRecord {
             Metadata = metadata,
-            Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-            {
+            Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
                 ["bufferState"] = Health.Buffer.State.ToString(),
                 ["diskBytesUsed"] = Health.Buffer.DiskBytesUsed,
                 ["diskBytesLimit"] = Health.Buffer.DiskBytesLimit,

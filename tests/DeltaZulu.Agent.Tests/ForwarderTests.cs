@@ -2,18 +2,18 @@ using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Delivery;
-using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Core.Observability;
-using DeltaZulu.Pipeline.Inputs.Relp;
-using DeltaZulu.Pipeline.Outputs.Relp;
-using DeltaZulu.Pipeline.Core.Ndjson;
-using DeltaZulu.Pipeline.Core.Relp;
-using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Delivery;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.MessagePack;
+using DeltaZulu.Pipeline.Core.Ndjson;
+using DeltaZulu.Pipeline.Core.Observability;
+using DeltaZulu.Pipeline.Core.Relp;
+using DeltaZulu.Pipeline.Inputs.Relp;
+using DeltaZulu.Pipeline.Outputs.Relp;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -414,8 +414,6 @@ public sealed class ForwarderTests
         Assert.Contains("server busy", result.Error!);
     }
 
-
-
     [TestMethod]
     public void YamlRelpOutputConfigurationLoader_LoadFile_LoadsBufferAndRelpSettings()
     {
@@ -485,7 +483,6 @@ public sealed class ForwarderTests
         Assert.ThrowsExactly<InvalidDataException>(() => new YamlRelpOutputConfigurationLoader().LoadFile(configPath));
     }
 
-
     [TestMethod]
     public void YamlRelpOutputConfigurationLoader_LoadFile_RejectsThumbprintValidationWithoutThumbprints()
     {
@@ -535,14 +532,12 @@ public sealed class ForwarderTests
     {
         using var timeout = CreateRelpTestTimeout();
         await using var server = await FakeRelpServer.StartAsync(acceptSyslog: true, timeout.Token);
-        await using var transport = new RelpForwarderTransport(new RelpForwarderOptions
-        {
+        await using var transport = new RelpForwarderTransport(new RelpForwarderOptions {
             Host = "127.0.0.1",
             Port = server.Port
         });
 
-        var batch = new DeliveryBatch
-        {
+        var batch = new DeliveryBatch {
             BatchId = "batch-01",
             Records = [CreateTestDeliveryRecord()]
         };
@@ -564,14 +559,12 @@ public sealed class ForwarderTests
     {
         using var timeout = CreateRelpTestTimeout();
         await using var server = await FakeRelpServer.StartAsync(acceptSyslog: false, timeout.Token);
-        await using var transport = new RelpForwarderTransport(new RelpForwarderOptions
-        {
+        await using var transport = new RelpForwarderTransport(new RelpForwarderOptions {
             Host = "127.0.0.1",
             Port = server.Port
         });
 
-        var ack = await transport.SendAsync(new DeliveryBatch
-        {
+        var ack = await transport.SendAsync(new DeliveryBatch {
             BatchId = "batch-02",
             Records = [CreateTestDeliveryRecord()]
         }, timeout.Token).AsTask().WaitAsync(timeout.Token);
@@ -584,8 +577,7 @@ public sealed class ForwarderTests
     [TestMethod]
     public async Task RelpForwarderTransport_Dispose_IsIdempotentAcrossSyncAndAsyncCalls()
     {
-        var transport = new RelpForwarderTransport(new RelpForwarderOptions
-        {
+        var transport = new RelpForwarderTransport(new RelpForwarderOptions {
             Host = "127.0.0.1",
             Port = 6514
         });
@@ -807,6 +799,7 @@ public sealed class ForwarderTests
                         case "open":
                             await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", _cts.Token).ConfigureAwait(false);
                             break;
+
                         case "syslog":
                             _batchSource.TrySetResult(new MessagePackPayloadSerializer().Deserialize<DeliveryBatch>(frame.Payload));
                             await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, _acceptSyslog ? "200 OK" : "500 rejected", _cts.Token).ConfigureAwait(false);
@@ -815,6 +808,7 @@ public sealed class ForwarderTests
                                 return;
                             }
                             break;
+
                         case "close":
                             await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", _cts.Token).ConfigureAwait(false);
                             return;
@@ -832,17 +826,23 @@ public sealed class ForwarderTests
                 _batchSource.TrySetCanceled(_cts.Token);
             }
         }
-
     }
 
     private sealed class CapturingResourceSink : IOutputWriter
     {
         public string Name => "capturing";
         public List<ResourceOutputRecord> Records { get; } = [];
+
         public void OnNext(ResourceOutputRecord value) => Records.Add(value);
-        public void OnError(Exception error) { }
-        public void OnCompleted() { }
-        public void Dispose() { }
+
+        public void OnError(Exception error)
+        { }
+
+        public void OnCompleted()
+        { }
+
+        public void Dispose()
+        { }
     }
 
     private sealed class TemporaryDirectory : IDisposable

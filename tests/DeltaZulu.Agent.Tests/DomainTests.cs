@@ -1,6 +1,6 @@
-using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Tests;
@@ -78,8 +78,7 @@ public sealed class DomainTests
     [TestMethod]
     public void DeliveryRecord_FromResourceOutput_Creates_Valid_Record()
     {
-        var metadata = new Dictionary<string, object?>
-        {
+        var metadata = new Dictionary<string, object?> {
             ["collectorId"] = "agent-1",
             ["sourceType"] = "syslog",
             ["sourceName"] = "auth.log"

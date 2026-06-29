@@ -166,8 +166,7 @@ public sealed class KqlTests
         Assert.AreEqual("ExplicitSource", row["source"]);
     }
 
-    private static ResourceProfile CreatePassThroughProfile() => new()
-    {
+    private static ResourceProfile CreatePassThroughProfile() => new() {
         SchemaVersion = 1,
         Id = "test.pass-through",
         Name = "Pass through",

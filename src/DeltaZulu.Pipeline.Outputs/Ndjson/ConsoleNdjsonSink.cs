@@ -1,7 +1,7 @@
+using System.Text.Json;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Ndjson;
-using System.Text.Json;
 
 namespace DeltaZulu.Pipeline.Outputs.Ndjson;
 

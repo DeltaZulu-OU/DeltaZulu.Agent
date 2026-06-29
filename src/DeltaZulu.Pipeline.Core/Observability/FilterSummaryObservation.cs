@@ -14,11 +14,9 @@ public sealed record FilterSummaryObservation
     public long DiscardedCount { get; init; }
     public long ForwardedCount { get; init; }
 
-    public ResourceOutputRecord ToOutputRecord() => new()
-    {
+    public ResourceOutputRecord ToOutputRecord() => new() {
         Metadata = ObservationRecord.MetadataWithKind(Metadata, RecordKind),
-        Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["sourceType"] = SourceType,
             ["channel"] = Channel,
             ["readCount"] = ReadCount,

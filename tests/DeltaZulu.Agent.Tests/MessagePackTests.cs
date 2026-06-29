@@ -1,8 +1,8 @@
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Inputs.MessagePack;
 using DeltaZulu.Pipeline.Outputs.MessagePack;
-using DeltaZulu.Pipeline.Core.MessagePack;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -30,25 +30,20 @@ public sealed class MessagePackTests
     {
         var serializer = new MessagePackPayloadSerializer();
         var batch = CreateBatch();
-        var record = batch.Records[0] with
-        {
-            Record = batch.Records[0].Record with
-            {
-                Metadata = new Dictionary<string, object?>
-                {
+        var record = batch.Records[0] with {
+            Record = batch.Records[0].Record with {
+                Metadata = new Dictionary<string, object?> {
                     ["collectorId"] = "agent-a",
                     ["sourceType"] = "WindowsEventLog",
                     ["ingestedAt"] = DateTimeOffset.Parse("2026-06-27T00:00:02Z"),
                     ["rawPreserved"] = true
                 },
-                Event = new Dictionary<string, object?>
-                {
+                Event = new Dictionary<string, object?> {
                     ["ProviderName"] = "Microsoft-Windows-Security-Auditing",
                     ["EventId"] = 4688,
                     ["RecordId"] = 11320633L,
                     ["TimeCreated"] = DateTimeOffset.Parse("2026-06-27T00:00:03Z"),
-                    ["EventData"] = new Dictionary<string, object?>
-                    {
+                    ["EventData"] = new Dictionary<string, object?> {
                         ["SubjectUserName"] = "demo-user",
                         ["NewProcessId"] = 1234,
                         ["UnsupportedObject"] = new Version(1, 2, 3)
@@ -92,8 +87,7 @@ public sealed class MessagePackTests
         Assert.AreEqual("linux", decoded.Records[0].Record.Metadata["platform"]?.ToString());
     }
 
-    private static DeliveryBatch CreateBatch() => new()
-    {
+    private static DeliveryBatch CreateBatch() => new() {
         BatchId = "batch-1",
         CreatedAt = DateTimeOffset.Parse("2026-06-27T00:00:00Z"),
         Records =

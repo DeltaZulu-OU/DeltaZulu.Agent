@@ -1,6 +1,6 @@
+using System.Threading.Channels;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
-using System.Threading.Channels;
 
 namespace DeltaZulu.Pipeline.Core;
 
@@ -8,12 +8,12 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
 {
     private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly Channel<SinkMessage> _channel = Channel.CreateBounded<SinkMessage>(new BoundedChannelOptions(65_536)
-    {
+    private readonly Channel<SinkMessage> _channel = Channel.CreateBounded<SinkMessage>(new BoundedChannelOptions(65_536) {
         SingleReader = true,
         SingleWriter = false,
         FullMode = BoundedChannelFullMode.Wait
     });
+
     private readonly IOutputWriter _inner;
     private readonly Task _reader;
     private readonly Lock _lock = new();
@@ -27,10 +27,8 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
 
     public string Name => _inner.Name;
 
-    public Exception? Error
-    {
-        get
-        {
+    public Exception? Error {
+        get {
             lock (_lock)
             {
                 return field;

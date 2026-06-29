@@ -18,8 +18,7 @@ public sealed record ResourceMetadata
 
     public IDictionary<string, object?> ToDictionary()
     {
-        var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["schemaVersion"] = SchemaVersion,
             ["collectorId"] = CollectorId,
             ["profileId"] = ProfileId,

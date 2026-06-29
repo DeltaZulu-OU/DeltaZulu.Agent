@@ -5,8 +5,7 @@ namespace DeltaZulu.Pipeline.Core.Ndjson;
 
 public static class NdjsonSerializerOptions
 {
-    public static JsonSerializerOptions CreateDefault() => new JsonSerializerOptions()
-    {
+    public static JsonSerializerOptions CreateDefault() => new JsonSerializerOptions() {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         PropertyNamingPolicy = null,

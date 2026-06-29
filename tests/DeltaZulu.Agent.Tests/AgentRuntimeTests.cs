@@ -1,7 +1,7 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Profiles;
 
@@ -139,7 +139,6 @@ public sealed class AgentRuntimeTests
         Assert.HasCount(1, warnings);
         Assert.Contains("solo", warnings[0]);
     }
-
 
     [TestMethod]
     public void SingleBinding_NonMandatory_StartupExceptionDoesNotFailRuntime()
@@ -296,26 +295,29 @@ public sealed class AgentRuntimeTests
     private sealed class TestInput : ISourceInput
     {
         private readonly IReadOnlyList<SourceEvent> _events;
+
         public TestInput(IReadOnlyList<SourceEvent> events)
         {
             _events = events;
         }
 
         public string Name => "test";
+
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => _events.ToObservable();
     }
 
     private sealed class FailingInput : ISourceInput
     {
         public string Name => "failing";
+
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) =>
             Observable.Throw<SourceEvent>(new InvalidOperationException("input failed"));
     }
 
-
     private sealed class ThrowingOpenInput : ISourceInput
     {
         public string Name => "throwing";
+
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("input open failed");
     }
@@ -326,9 +328,10 @@ public sealed class AgentRuntimeTests
             IObservable<SourceEvent> source,
             ResourceProfile profile,
             CancellationToken cancellationToken = default) =>
-            source.Select( o => ResourceOutputRecord.FromSource(o, profile.Id, profile.Version));
+            source.Select(o => ResourceOutputRecord.FromSource(o, profile.Id, profile.Version));
 
-        public void Dispose() { }
+        public void Dispose()
+        { }
     }
 
     private sealed class BlockingFirstEventExecutor : IProfileExecutor
@@ -341,8 +344,7 @@ public sealed class AgentRuntimeTests
             IObservable<SourceEvent> source,
             ResourceProfile profile,
             CancellationToken cancellationToken = default) =>
-            source.SelectMany(sourceEvent => Observable.Create<ResourceOutputRecord>(observer =>
-            {
+            source.SelectMany(sourceEvent => Observable.Create<ResourceOutputRecord>(observer => {
                 if (Interlocked.Increment(ref _eventCount) == 1)
                 {
                     FirstEventStarted.Set();
@@ -354,7 +356,8 @@ public sealed class AgentRuntimeTests
                 return () => { };
             }));
 
-        public void Dispose() { }
+        public void Dispose()
+        { }
     }
 
     private sealed class RecordingSink : IOutputWriter
@@ -363,10 +366,9 @@ public sealed class AgentRuntimeTests
         private readonly List<ResourceOutputRecord> _records = [];
 
         public string Name => "recording";
-        public IReadOnlyList<ResourceOutputRecord> Records
-        {
-            get
-            {
+
+        public IReadOnlyList<ResourceOutputRecord> Records {
+            get {
                 lock (_lock)
                 {
                     return [.. _records];
@@ -381,9 +383,15 @@ public sealed class AgentRuntimeTests
                 _records.Add(value);
             }
         }
-        public void OnError(Exception error) { }
-        public void OnCompleted() { }
-        public void Dispose() { }
+
+        public void OnError(Exception error)
+        { }
+
+        public void OnCompleted()
+        { }
+
+        public void Dispose()
+        { }
     }
 
     public TestContext TestContext { get; set; }

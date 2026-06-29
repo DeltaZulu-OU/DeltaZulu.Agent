@@ -29,8 +29,7 @@ public sealed record RelpBufferConfiguration
     public double RetryBaseDelaySeconds { get; init; } = 1;
     public double RetryMaxDelaySeconds { get; init; } = 300;
 
-    public DurableBufferOptions ToBufferOptions() => new()
-    {
+    public DurableBufferOptions ToBufferOptions() => new() {
         StoragePath = Path,
         MaxDiskBytes = MaxDiskBytes,
         MaxMemoryBytes = MaxMemoryBytes,

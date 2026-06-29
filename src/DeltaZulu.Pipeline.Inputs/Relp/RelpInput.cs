@@ -1,8 +1,3 @@
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Delivery;
-using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Core.MessagePack;
-using DeltaZulu.Pipeline.Core.Relp;
 using System.Collections;
 using System.Net;
 using System.Net.Security;
@@ -12,6 +7,11 @@ using System.Reactive.Linq;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Delivery;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.MessagePack;
+using DeltaZulu.Pipeline.Core.Relp;
 using MessagePack;
 
 namespace DeltaZulu.Pipeline.Inputs.Relp;
@@ -42,14 +42,12 @@ public sealed class RelpInput : ISourceInput
         _serverCertificate = LoadServerCertificate(configuration);
     }
 
-    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer =>
-    {
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var listener = new TcpListener(IPAddress.Parse(_configuration.Address), _configuration.Port);
         listener.Start();
 
-        _ = Task.Run(async () =>
-        {
+        _ = Task.Run(async () => {
             try
             {
                 while (!linkedCts.IsCancellationRequested)
@@ -68,8 +66,7 @@ public sealed class RelpInput : ISourceInput
             }
         }, linkedCts.Token);
 
-        return Disposable.Create(() =>
-        {
+        return Disposable.Create(() => {
             linkedCts.Cancel();
             listener.Stop();
             linkedCts.Dispose();
@@ -120,8 +117,7 @@ public sealed class RelpInput : ISourceInput
         }
 
         var ssl = new SslStream(network, leaveInnerStreamOpen: false);
-        await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
-        {
+        await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions {
             ServerCertificate = _serverCertificate,
             EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
         }, cancellationToken).ConfigureAwait(false);
@@ -163,8 +159,7 @@ public sealed class RelpInput : ISourceInput
     private SourceEvent ToSourceEvent(DeliveryRecord deliveryRecord)
     {
         var record = deliveryRecord.Record;
-        var metadata = new ResourceMetadata
-        {
+        var metadata = new ResourceMetadata {
             CollectorId = GetString(record.Metadata, "collectorId") ?? deliveryRecord.AgentId,
             ProfileId = GetString(record.Metadata, "profileId") ?? deliveryRecord.ProfileId,
             ProfileVersion = GetString(record.Metadata, "profileVersion"),
@@ -175,8 +170,7 @@ public sealed class RelpInput : ISourceInput
             IngestedAt = DateTimeOffset.UtcNow,
             ParserName = nameof(RelpInput),
             RawPreserved = true,
-            Properties = new Dictionary<string, object?>
-            {
+            Properties = new Dictionary<string, object?> {
                 ["relp.deliveryId"] = deliveryRecord.DeliveryId,
                 ["relp.recordId"] = deliveryRecord.RecordId,
                 ["relp.createdAt"] = deliveryRecord.CreatedAt
@@ -217,5 +211,4 @@ public sealed class RelpInput : ISourceInput
                 IEnumerable when value is not string => null,
                 _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
             };
-
 }

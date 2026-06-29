@@ -1,6 +1,6 @@
-using DeltaZulu.Pipeline.Core.Events;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Pipeline.Inputs.Syslog;
 
@@ -19,8 +19,7 @@ public sealed partial class LightweightSyslogParser
     public SourceEvent Parse(string rawMessage, string sourceName, string? sourceAddress = null)
     {
         var receivedAt = DateTimeOffset.UtcNow;
-        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["RawMessage"] = rawMessage,
             ["ReceivedAt"] = receivedAt
         };
@@ -145,8 +144,7 @@ public sealed partial class LightweightSyslogParser
     private static SourceEvent CreateEvent(IReadOnlyDictionary<string, object?> fields, string sourceName)
     {
         var hostname = fields.TryGetValue("Hostname", out var host) ? host?.ToString() : Environment.MachineName;
-        var metadata = new ResourceMetadata
-        {
+        var metadata = new ResourceMetadata {
             SourceType = "LinuxSyslog",
             SourceName = sourceName,
             Platform = "linux",

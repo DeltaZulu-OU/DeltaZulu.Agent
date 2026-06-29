@@ -25,11 +25,9 @@ public sealed class ObservabilityTests
     [TestMethod]
     public void PipelineCountsObservation_EmitsPlannedRecordKindAndFields()
     {
-        var observation = new PipelineCountsObservation
-        {
+        var observation = new PipelineCountsObservation {
             LogKey = new LogTelemetryKey("WindowsEventLog", "Security", "Microsoft-Windows-Security-Auditing", 4688),
-            Metadata = new CollectorObservationMetadata
-            {
+            Metadata = new CollectorObservationMetadata {
                 AgentId = "endpoint-123",
                 HostId = "host-abc",
                 ProfileId = "windows-security-default",
@@ -78,8 +76,7 @@ public sealed class ObservabilityTests
 
         using var subscription = pipeline.Start(TestContext.CancellationToken);
 
-        var count = observations.SnapshotPipelineCounts(new CollectorObservationMetadata
-        {
+        var count = observations.SnapshotPipelineCounts(new CollectorObservationMetadata {
             AgentId = "agent",
             HostId = "host",
             ProfileId = "profile"
@@ -92,7 +89,6 @@ public sealed class ObservabilityTests
         Assert.AreEqual(0, count.ForwardFailedCount);
     }
 
-
     [TestMethod]
     public void AgentObservationAccumulator_AggregatesOverflowKeys()
     {
@@ -103,8 +99,7 @@ public sealed class ObservabilityTests
             observations.RecordRead(CreateWindowsEvent(i, $"provider-{i}"));
         }
 
-        var counts = observations.SnapshotPipelineCounts(new CollectorObservationMetadata
-        {
+        var counts = observations.SnapshotPipelineCounts(new CollectorObservationMetadata {
             AgentId = "agent",
             HostId = "host",
             ProfileId = "profile"
@@ -116,16 +111,14 @@ public sealed class ObservabilityTests
     }
 
     private static SourceEvent CreateWindowsEvent(int eventId, string provider) => new(
-        new ResourceMetadata
-        {
+        new ResourceMetadata {
             SourceType = "WindowsEventLog",
             SourceName = "Security",
             Platform = "windows",
             CollectorId = "endpoint-123",
             Hostname = "host-abc"
         },
-        new Dictionary<string, object?>
-        {
+        new Dictionary<string, object?> {
             ["EventId"] = eventId,
             ["ProviderName"] = provider
         });
@@ -133,12 +126,14 @@ public sealed class ObservabilityTests
     private sealed class TestInput : ISourceInput
     {
         private readonly IReadOnlyList<SourceEvent> _events;
+
         public TestInput(IReadOnlyList<SourceEvent> events)
         {
             _events = events;
         }
 
         public string Name => "test";
+
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => _events.ToObservable();
     }
 
@@ -146,10 +141,16 @@ public sealed class ObservabilityTests
     {
         public string Name => "test";
         public List<ResourceOutputRecord> Records { get; } = [];
-        public void OnCompleted() { }
+
+        public void OnCompleted()
+        { }
+
         public void OnError(Exception error) => throw error;
+
         public void OnNext(ResourceOutputRecord value) => Records.Add(value);
-        public void Dispose() { }
+
+        public void Dispose()
+        { }
     }
 
     public TestContext TestContext { get; set; }

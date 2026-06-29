@@ -50,7 +50,6 @@ public sealed class ApplicationTests
         Assert.AreSame(exception, writer.Error);
     }
 
-
     [TestMethod]
     public void CompletionTrackingWriter_SignalsCompletionWhenInnerOnCompletedThrows()
     {
@@ -190,8 +189,7 @@ public sealed class ApplicationTests
 
     private static ResourceOutputRecord CreateRecord(string id = "test")
     {
-        var metadata = new ResourceMetadata
-        {
+        var metadata = new ResourceMetadata {
             SourceType = "test",
             SourceName = "test",
             Platform = "test",
@@ -203,16 +201,14 @@ public sealed class ApplicationTests
 
     private static SourceEvent CreateSourceEvent(string label)
     {
-        var metadata = new ResourceMetadata
-        {
+        var metadata = new ResourceMetadata {
             SourceType = "test",
             SourceName = "test",
             Platform = "test",
             CollectorId = "test",
             Hostname = "test"
         };
-        return new SourceEvent(metadata, new Dictionary<string, object?>
-        {
+        return new SourceEvent(metadata, new Dictionary<string, object?> {
             ["label"] = label,
             ["keep"] = label == "keep"
         });
@@ -221,15 +217,16 @@ public sealed class ApplicationTests
     private sealed class TestInput : ISourceInput
     {
         private readonly IReadOnlyList<SourceEvent> _events;
+
         public TestInput(IReadOnlyList<SourceEvent> events)
         {
             _events = events;
         }
 
         public string Name => "test";
+
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => _events.ToObservable();
     }
-
 
     private sealed class ThrowingSink : IOutputWriter
     {
@@ -242,7 +239,10 @@ public sealed class ApplicationTests
         }
 
         public string Name => "throwing";
-        public void OnNext(ResourceOutputRecord value) { }
+
+        public void OnNext(ResourceOutputRecord value)
+        { }
+
         public void OnError(Exception error)
         {
             if (_throwOnError)
@@ -250,6 +250,7 @@ public sealed class ApplicationTests
                 throw new InvalidOperationException("inner error failed");
             }
         }
+
         public void OnCompleted()
         {
             if (_throwOnCompleted)
@@ -257,7 +258,9 @@ public sealed class ApplicationTests
                 throw new InvalidOperationException("inner completion failed");
             }
         }
-        public void Dispose() { }
+
+        public void Dispose()
+        { }
     }
 
     private sealed class RecordingSink : IOutputWriter
@@ -268,9 +271,13 @@ public sealed class ApplicationTests
         public bool CompletedCalled { get; private set; }
 
         public void OnNext(ResourceOutputRecord value) => Records.Add(value);
+
         public void OnError(Exception error) => Errors.Add(error);
+
         public void OnCompleted() => CompletedCalled = true;
-        public void Dispose() { }
+
+        public void Dispose()
+        { }
     }
 
     public TestContext TestContext { get; set; }

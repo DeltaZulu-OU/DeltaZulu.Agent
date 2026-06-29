@@ -14,11 +14,9 @@ public sealed record PipelineCountsObservation
     public long ForwardedCount { get; init; }
     public long ForwardFailedCount { get; init; }
 
-    public ResourceOutputRecord ToOutputRecord() => new()
-    {
+    public ResourceOutputRecord ToOutputRecord() => new() {
         Metadata = ObservationRecord.MetadataWithKind(Metadata, RecordKind),
-        Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["sourceType"] = LogKey.SourceType,
             ["channel"] = LogKey.Channel,
             ["provider"] = LogKey.Provider,

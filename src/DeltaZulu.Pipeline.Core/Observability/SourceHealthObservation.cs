@@ -15,11 +15,9 @@ public sealed record SourceHealthObservation
     public long ReadErrorCount { get; init; }
     public string? LastError { get; init; }
 
-    public ResourceOutputRecord ToOutputRecord() => new()
-    {
+    public ResourceOutputRecord ToOutputRecord() => new() {
         Metadata = ObservationRecord.MetadataWithKind(Metadata, RecordKind),
-        Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        Event = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["sourceType"] = SourceType,
             ["channel"] = Channel,
             ["isEnabled"] = IsEnabled,

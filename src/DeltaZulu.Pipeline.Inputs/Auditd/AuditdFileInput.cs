@@ -1,7 +1,7 @@
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Events;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Pipeline.Inputs.Auditd;
 

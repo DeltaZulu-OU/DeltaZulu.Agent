@@ -1,9 +1,9 @@
 using System.Buffers;
 using System.Text.Json;
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.DurableBuffer.Dispatch;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Delivery;
 
 namespace DeltaZulu.Pipeline.Outputs.Relp;
 
@@ -44,8 +44,7 @@ public sealed class RelpChunkSender : IChunkSender
                     $"Chunk {chunk.Id} expected {chunk.Metadata.RecordCount} records but decoded {records.Count}.");
             }
 
-            var ack = await _transport.SendAsync(new DeliveryBatch
-            {
+            var ack = await _transport.SendAsync(new DeliveryBatch {
                 BatchId = chunk.Id.Value,
                 CreatedAt = chunk.Metadata.SealedUtc ?? chunk.Metadata.CreatedUtc,
                 Records = records

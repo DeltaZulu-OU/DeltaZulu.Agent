@@ -8,8 +8,7 @@ public sealed record NdjsonErrorRecord
     public string? ExceptionType { get; init; }
     public string? StackTrace { get; init; }
 
-    public static NdjsonErrorRecord FromException(Exception exception) => new()
-    {
+    public static NdjsonErrorRecord FromException(Exception exception) => new() {
         Message = exception.Message,
         ExceptionType = exception.GetType().FullName,
         StackTrace = exception.StackTrace

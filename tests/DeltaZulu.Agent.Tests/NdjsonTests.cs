@@ -1,7 +1,7 @@
-using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Outputs.Ndjson;
-using DeltaZulu.Pipeline.Core.Ndjson;
 using System.Text.Json;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Ndjson;
+using DeltaZulu.Pipeline.Outputs.Ndjson;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -24,10 +24,8 @@ public sealed class NdjsonTests
         var node = new CyclicNode();
         node.Next = node;
 
-        var record = new ResourceOutputRecord
-        {
-            Event = new Dictionary<string, object?>
-            {
+        var record = new ResourceOutputRecord {
+            Event = new Dictionary<string, object?> {
                 ["CyclicValue"] = node
             }
         };

@@ -1,10 +1,10 @@
+using DeltaZulu.DurableBuffer;
+using DeltaZulu.DurableBuffer.Configuration;
+using DeltaZulu.DurableBuffer.Metrics;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Observability;
-using DeltaZulu.DurableBuffer;
-using DeltaZulu.DurableBuffer.Configuration;
-using DeltaZulu.DurableBuffer.Metrics;
 
 namespace DeltaZulu.Pipeline.Outputs.Relp;
 
@@ -34,15 +34,13 @@ public sealed class BufferedRelpSink : IOutputWriter
 
     public string Name => "buffered-relp";
 
-    public RelpHealthSnapshot GetHealthSnapshot() => new()
-    {
+    public RelpHealthSnapshot GetHealthSnapshot() => new() {
         Buffer = _host.Buffer.GetSnapshot(),
         LastForwarderActivityUtc = ReadLastActivity()
     };
 
     public ResourceOutputRecord GetHealthOutputRecord(CollectorObservationMetadata metadata) =>
-        new RelpHealthObservation
-        {
+        new RelpHealthObservation {
             Metadata = metadata,
             Health = GetHealthSnapshot()
         }.ToOutputRecord();
@@ -99,6 +97,7 @@ public sealed class BufferedRelpSink : IOutputWriter
             case IAsyncDisposable asyncDisposable:
                 asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
                 break;
+
             case IDisposable disposable:
                 disposable.Dispose();
                 break;
@@ -128,7 +127,10 @@ public sealed class BufferedRelpSink : IOutputWriter
             }
         }
 
-        public void OnCompleted() { }
-        public void OnError(Exception error) { }
+        public void OnCompleted()
+        { }
+
+        public void OnError(Exception error)
+        { }
     }
 }

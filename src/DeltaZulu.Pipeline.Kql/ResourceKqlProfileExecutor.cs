@@ -1,12 +1,12 @@
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Core.Profiles;
 using System.Reactive.Disposables;
 using System.Reactive.Kql;
 using System.Reactive.Kql.CustomTypes;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Pipeline.Kql;
 

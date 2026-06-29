@@ -12,8 +12,11 @@ public sealed class AgentObservationAccumulator
     private readonly Dictionary<LogTelemetryKey, MutableCounts> _counts = [];
 
     public void RecordRead(SourceEvent source) => Increment(LogTelemetryKey.FromSourceEvent(source), counts => counts.ReadCount++);
+
     public void RecordKeptAfterFilter(ResourceOutputRecord record) => Increment(LogTelemetryKey.FromOutputRecord(record), counts => counts.KeptAfterFilterCount++);
+
     public void RecordForwarded(ResourceOutputRecord record) => Increment(LogTelemetryKey.FromOutputRecord(record), counts => counts.ForwardedCount++);
+
     public void RecordForwardFailed(ResourceOutputRecord record) => Increment(LogTelemetryKey.FromOutputRecord(record), counts => counts.ForwardFailedCount++);
 
     public IReadOnlyList<PipelineCountsObservation> SnapshotPipelineCounts(CollectorObservationMetadata metadata)
@@ -64,8 +67,7 @@ public sealed class AgentObservationAccumulator
         public long ForwardedCount { get; set; }
         public long ForwardFailedCount { get; set; }
 
-        public PipelineCountsObservation ToObservation(LogTelemetryKey key, CollectorObservationMetadata metadata) => new()
-        {
+        public PipelineCountsObservation ToObservation(LogTelemetryKey key, CollectorObservationMetadata metadata) => new() {
             LogKey = key,
             Metadata = metadata,
             ReadCount = ReadCount,

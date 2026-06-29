@@ -1,10 +1,10 @@
 using System.Net;
-using DeltaZulu.Pipeline.Inputs.Relp;
-using DeltaZulu.Pipeline.Outputs.Ndjson;
-using DeltaZulu.Pipeline.Core.Profiles;
+using DeltaZulu.Agent.Runtime;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Pipeline.Core.Profiles;
+using DeltaZulu.Pipeline.Inputs.Relp;
+using DeltaZulu.Pipeline.Outputs.Ndjson;
 
 namespace DeltaZulu.Demo.Collector;
 
@@ -60,22 +60,18 @@ internal static class Program
         }
     }
 
-    private static ResourceProfile CreatePassThroughProfile() => new()
-    {
+    private static ResourceProfile CreatePassThroughProfile() => new() {
         Id = "demo-relp-collector.passthrough",
         Name = "Demo RELP collector passthrough",
         Version = "1.0.0",
-        Resource = new ResourceDescriptor
-        {
+        Resource = new ResourceDescriptor {
             Platform = "portable",
             Family = "relp"
         },
-        Input = new ResourceInputContract
-        {
+        Input = new ResourceInputContract {
             Table = "Source"
         },
-        Output = new ResourceOutputContract
-        {
+        Output = new ResourceOutputContract {
             Format = "ndjson",
             PreserveOriginalFieldNames = true,
             PreserveRawEvent = true,

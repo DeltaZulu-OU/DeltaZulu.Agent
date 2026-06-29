@@ -1,7 +1,7 @@
+using System.Text.Json;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Ndjson;
-using System.Text.Json;
 
 namespace DeltaZulu.Pipeline.Outputs.Ndjson;
 
@@ -18,8 +18,7 @@ public sealed class NdjsonFileSink : IOutputWriter
     {
         Name = name;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
-        _stream = new FileStream(path, new FileStreamOptions
-        {
+        _stream = new FileStream(path, new FileStreamOptions {
             Mode = FileMode.Append,
             Access = FileAccess.Write,
             Share = FileShare.Read,

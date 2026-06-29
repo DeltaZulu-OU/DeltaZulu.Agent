@@ -1,7 +1,7 @@
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Events;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Pipeline.Core;
 
@@ -42,8 +42,7 @@ public sealed class ResourcePipeline
             ? _sink
             : new ForwardingObservationSink(_sink, _observations);
         var subscription = output.Subscribe(observer);
-        return Disposable.Create(() =>
-        {
+        return Disposable.Create(() => {
             subscription.Dispose();
             _sink.Dispose();
         });

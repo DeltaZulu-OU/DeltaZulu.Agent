@@ -12,10 +12,8 @@ public sealed class ProfileReloadSource
         _current = initialProfile ?? throw new ArgumentNullException(nameof(initialProfile));
     }
 
-    public ResourceProfile Current
-    {
-        get
-        {
+    public ResourceProfile Current {
+        get {
             lock (_lock)
             {
                 return _current;

@@ -38,8 +38,7 @@ public sealed record DeliveryRecord
             ?? GetString(record.Event, "ID")
             ?? Guid.NewGuid().ToString("N");
 
-        return new DeliveryRecord
-        {
+        return new DeliveryRecord {
             AgentId = agentId,
             SourceId = $"{sourceType}:{sourceName}",
             ProfileId = profileId,
@@ -56,8 +55,7 @@ public sealed record DeliveryRecord
             return null;
         }
 
-        return value switch
-        {
+        return value switch {
             string text when !string.IsNullOrWhiteSpace(text) => text,
             DateTimeOffset timestamp => timestamp.ToString("O"),
             DateTime timestamp => timestamp.ToString("O"),

@@ -172,12 +172,14 @@ public sealed class PipelineIntegrationTests
     private sealed class TestInput : ISourceInput
     {
         private readonly IReadOnlyList<SourceEvent> _events;
+
         public TestInput(IReadOnlyList<SourceEvent> events)
         {
             _events = events;
         }
 
         public string Name => "test";
+
         public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => _events.ToObservable();
     }
 
@@ -189,7 +191,8 @@ public sealed class PipelineIntegrationTests
             CancellationToken cancellationToken = default) =>
             source.Select(o => ResourceOutputRecord.FromSource(o, profile.Id, profile.Version));
 
-        public void Dispose() { }
+        public void Dispose()
+        { }
     }
 
     private sealed class RecordingSink : IOutputWriter
@@ -197,9 +200,15 @@ public sealed class PipelineIntegrationTests
         public string Name => "recording";
         public List<ResourceOutputRecord> Records { get; } = [];
         public bool Disposed { get; private set; }
+
         public void OnNext(ResourceOutputRecord value) => Records.Add(value);
-        public void OnError(Exception error) { }
-        public void OnCompleted() { }
+
+        public void OnError(Exception error)
+        { }
+
+        public void OnCompleted()
+        { }
+
         public void Dispose() => Disposed = true;
     }
 

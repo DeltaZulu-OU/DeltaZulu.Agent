@@ -1,9 +1,9 @@
-using CsvHelper;
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Events;
 using System.Globalization;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using CsvHelper;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Pipeline.Inputs.Files;
 
@@ -44,8 +44,7 @@ public sealed class CsvFileInput : ISourceInput
                     fields[header] = Coerce(csv.GetField(header));
                 }
 
-                var metadata = new ResourceMetadata
-                {
+                var metadata = new ResourceMetadata {
                     SourceType = "Csv",
                     SourceName = Name,
                     Platform = "portable",

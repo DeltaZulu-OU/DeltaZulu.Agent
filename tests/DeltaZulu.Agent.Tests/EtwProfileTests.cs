@@ -79,7 +79,6 @@ public sealed class EtwProfileTests
         Assert.IsEmpty(recordsReceived, "Events from different providers should be filtered out");
     }
 
-
     [TestMethod]
     public void KernelProcessProfile_PreservesEtwDeliveryMetadata()
     {
@@ -202,33 +201,28 @@ public sealed class EtwProfileTests
         return (captured, capturedError);
     }
 
-    private static ResourceProfile CreateProfileWithQuery(string query) => new()
-    {
+    private static ResourceProfile CreateProfileWithQuery(string query) => new() {
         SchemaVersion = 1,
         Id = "windows.etw.kernel-process",
         Name = "Windows Kernel Process ETW resource filter",
         Version = "1.0.0",
         Enabled = true,
-        Resource = new ResourceDescriptor
-        {
+        Resource = new ResourceDescriptor {
             Platform = "windows",
             Family = "etw",
             Mode = "managed",
             Session = "DeltaZulu-Kernel-Process",
             Provider = "Microsoft-Windows-Kernel-Process"
         },
-        Input = new ResourceInputContract
-        {
+        Input = new ResourceInputContract {
             Table = "Etw",
             Schema = "WindowsEtw.Native"
         },
-        Filter = new ResourceFilter
-        {
+        Filter = new ResourceFilter {
             Language = "kql",
             Query = query
         },
-        Output = new ResourceOutputContract
-        {
+        Output = new ResourceOutputContract {
             Format = "ndjson",
             PreserveOriginalFieldNames = true
         }
@@ -244,8 +238,7 @@ public sealed class EtwProfileTests
         CreateMockEtwEventWithProvider("Microsoft-Windows-Kernel-Process", eventId);
 
     private static SourceEvent CreateMockEtwEventWithProvider(string providerName, int eventId = 1) => new(
-        new ResourceMetadata
-        {
+        new ResourceMetadata {
             CollectorId = "test-agent",
             ProfileId = "windows.etw.kernel-process",
             SourceType = "WindowsEtw",
@@ -253,8 +246,7 @@ public sealed class EtwProfileTests
             Platform = "windows",
             Hostname = "test-host"
         },
-        new Dictionary<string, object?>
-        {
+        new Dictionary<string, object?> {
             ["Timestamp"] = DateTime.UtcNow,
             ["ProviderName"] = providerName,
             ["source"] = providerName,
@@ -264,8 +256,7 @@ public sealed class EtwProfileTests
             ["Task"] = 1,
             ["Keywords"] = 0x8000000000000000L,
             ["ActivityId"] = Guid.NewGuid(),
-            ["Payload"] = new Dictionary<string, object?>
-            {
+            ["Payload"] = new Dictionary<string, object?> {
                 ["ProcessId"] = 1234,
                 ["ImageFileName"] = "notepad.exe"
             },

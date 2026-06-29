@@ -1,14 +1,14 @@
 using System.Net;
 using System.Text.Json;
-using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Pipeline.Inputs.Auditd;
 using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
-using DeltaZulu.Pipeline.Core.Ndjson;
 
 #if WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
@@ -513,6 +513,7 @@ internal static partial class Program
         Console.Error.WriteLine(exception);
         Console.Error.Flush();
     }
+
     private static void LogProfileLoadWarnings(IEnumerable<string> warnings)
     {
         foreach (var warning in warnings)
@@ -580,6 +581,7 @@ Examples:
         "etw" => "etw",
         _ => null
     };
+
     private static bool ValidateResources(CliPlan plan)
     {
 #if WINDOWS
@@ -636,5 +638,4 @@ Examples:
         return ProfileFamilyToInputCommand(profile)?.Equals("eventlog", StringComparison.OrdinalIgnoreCase) == true;
     }
 #endif
-
 }

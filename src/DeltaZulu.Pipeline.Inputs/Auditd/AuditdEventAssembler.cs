@@ -65,8 +65,7 @@ public sealed class AuditdEventAssembler
 
     private static SourceEvent BuildEvent(string id, IReadOnlyList<AuditdRecord> records)
     {
-        var eventFields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        var eventFields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["ID"] = id,
             ["RawEvent"] = records.Select(r => r.RawLine).ToArray()
         };
@@ -88,8 +87,7 @@ public sealed class AuditdEventAssembler
             }
         }
 
-        var metadata = new ResourceMetadata
-        {
+        var metadata = new ResourceMetadata {
             SourceType = "LinuxAuditd",
             SourceName = "auditd",
             Platform = "linux",

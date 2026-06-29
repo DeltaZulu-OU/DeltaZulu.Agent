@@ -28,8 +28,7 @@ public sealed class ProfileTests
     public void Validate_AcceptsWmiCondition()
     {
         var profile = CreateValidProfile();
-        profile.Condition = new ResourceCondition
-        {
+        profile.Condition = new ResourceCondition {
             Type = "wmi",
             Query = "select * from Win32_OperatingSystem where ProductType=2",
             Mandatory = false
@@ -163,8 +162,7 @@ filter:
         }
     }
 
-    private static ResourceProfile CreateValidProfile() => new()
-    {
+    private static ResourceProfile CreateValidProfile() => new() {
         SchemaVersion = 1,
         Id = "linux.syslog.sshd",
         Name = "SSH logins",

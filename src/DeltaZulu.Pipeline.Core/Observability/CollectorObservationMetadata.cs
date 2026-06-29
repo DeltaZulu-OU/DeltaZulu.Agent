@@ -12,8 +12,7 @@ public sealed record CollectorObservationMetadata
 
     public IReadOnlyDictionary<string, object?> ToDictionary()
     {
-        var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
+        var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
             ["agentId"] = AgentId,
             ["hostId"] = HostId,
             ["profileId"] = ProfileId,

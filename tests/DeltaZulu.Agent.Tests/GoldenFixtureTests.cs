@@ -1,9 +1,9 @@
 using System.Text.Json;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Inputs.Auditd;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
-using DeltaZulu.Pipeline.Core.Ndjson;
 
 namespace DeltaZulu.Agent.Tests;
 
