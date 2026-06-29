@@ -29,8 +29,8 @@ public sealed class TunnelTests
         Assert.IsNotNull(lease);
         using var loaded = lease.Certificate;
         Assert.IsTrue(loaded.HasPrivateKey);
-        Assert.IsGreaterThan(lease.ExpiresAt, DateTimeOffset.UtcNow);
-        Assert.IsLessThanOrEqualTo(lease.RenewAfter, lease.ExpiresAt);
+        Assert.IsGreaterThan(DateTimeOffset.UtcNow, lease.ExpiresAt);
+        Assert.IsLessThanOrEqualTo(lease.ExpiresAt, lease.RenewAfter);
     }
 
     [TestMethod]
