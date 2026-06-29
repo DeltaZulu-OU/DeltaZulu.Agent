@@ -330,39 +330,22 @@ internal static partial class Program
         var availableProfiles = new List<ResourceProfile>(profiles.Count);
         foreach (var profile in profiles)
         {
-            if (!ShouldValidateWindowsEventLog(plan, profile))
+            if (!ShouldValidateWindowsResource(plan, profile))
             {
                 availableProfiles.Add(profile);
                 continue;
             }
 
-            var logName = plan.InputArgument ?? profile.Resource.Channel;
-            if (string.IsNullOrWhiteSpace(logName))
-            {
-                if (profile.Mandatory)
-                {
-                    throw new ArgumentException($"profile '{profile.Id}' requires resource.channel or a eventlog <logname> argument.");
-                }
-
-                // ValidateResources already emitted the optional-profile warning; keep this execution filter silent.
-                continue;
-            }
-
-            if (WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
+            var validationResult = ValidateWindowsResource(plan, profile);
+            if (validationResult.IsValid)
             {
                 availableProfiles.Add(profile);
                 continue;
             }
 
-            if (WindowsEventLogInput.IsDisabledChannelError(errorMessage))
+            if (!string.IsNullOrWhiteSpace(validationResult.ErrorMessage))
             {
-                // ValidateResources already emitted the disabled-channel warning; keep this execution filter silent.
-                continue;
-            }
-
-            if (profile.Mandatory)
-            {
-                throw new InvalidOperationException(errorMessage);
+                throw new InvalidOperationException(validationResult.ErrorMessage);
             }
 
             // ValidateResources already emitted the optional-profile warning; keep this execution filter silent.
@@ -604,12 +587,12 @@ Examples:
         {
             foreach (var profile in LoadProfiles(plan.Option("--profile")!))
             {
-                if (!ShouldValidateWindowsEventLog(plan, profile))
+                if (!ShouldValidateWindowsResource(plan, profile))
                 {
                     continue;
                 }
 
-                var validationResult = WindowsResourceValidator.ValidateEventLog(profile, plan.InputArgument);
+                var validationResult = ValidateWindowsResource(plan, profile);
                 if (validationResult.IsValid)
                 {
                     continue;
@@ -629,10 +612,24 @@ Examples:
         }
         else if (plan.InputCommand?.Equals("eventlog", StringComparison.OrdinalIgnoreCase) == true)
         {
-            var logName = plan.InputArgument ?? throw new ArgumentException("eventlog requires <logname>");
-            if (!WindowsEventLogInput.TryResolveLogName(logName, out _, out var errorMessage))
+            var profile = CreatePassthroughProfile(plan);
+            profile.Resource.Channel = plan.InputArgument ?? throw new ArgumentException("eventlog requires <logname>");
+            var validationResult = WindowsResourceValidator.ValidateEventLog(profile, plan.InputArgument);
+            if (!validationResult.IsValid)
             {
-                Console.Error.WriteLine($"error: {errorMessage}");
+                Console.Error.WriteLine($"error: {validationResult.ErrorMessage ?? validationResult.WarningMessage}");
+                Console.Error.Flush();
+                return false;
+            }
+        }
+        else if (plan.InputCommand?.Equals("etw", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var profile = CreatePassthroughProfile(plan);
+            profile.Resource.Session = plan.InputArgument ?? throw new ArgumentException("etw requires <session>");
+            var validationResult = WindowsResourceValidator.ValidateEtw(profile, plan.InputArgument);
+            if (!validationResult.IsValid)
+            {
+                Console.Error.WriteLine($"error: {validationResult.ErrorMessage ?? validationResult.WarningMessage}");
                 Console.Error.Flush();
                 return false;
             }
@@ -643,14 +640,23 @@ Examples:
     }
 
 #if WINDOWS
-    private static bool ShouldValidateWindowsEventLog(CliPlan plan, ResourceProfile profile)
+    private static bool ShouldValidateWindowsResource(CliPlan plan, ResourceProfile profile)
     {
-        if (plan.InputCommand is not null)
-        {
-            return plan.InputCommand.Equals("eventlog", StringComparison.OrdinalIgnoreCase);
-        }
+        var command = plan.InputCommand ?? ProfileFamilyToInputCommand(profile);
+        return command is not null
+            && (command.Equals("eventlog", StringComparison.OrdinalIgnoreCase)
+                || command.Equals("etw", StringComparison.OrdinalIgnoreCase));
+    }
 
-        return ProfileFamilyToInputCommand(profile)?.Equals("eventlog", StringComparison.OrdinalIgnoreCase) == true;
+    private static WindowsResourceValidationResult ValidateWindowsResource(CliPlan plan, ResourceProfile profile)
+    {
+        var command = plan.InputCommand ?? ProfileFamilyToInputCommand(profile);
+        return command?.ToLowerInvariant() switch
+        {
+            "eventlog" => WindowsResourceValidator.ValidateEventLog(profile, plan.InputArgument),
+            "etw" => WindowsResourceValidator.ValidateEtw(profile, plan.InputArgument),
+            _ => WindowsResourceValidationResult.Valid
+        };
     }
 #endif
 }

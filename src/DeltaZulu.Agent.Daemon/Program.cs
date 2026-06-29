@@ -175,9 +175,9 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                 continue;
             }
 
-            if (ShouldSkipUnavailableWindowsEventLog(profile, out var eventLogWarning))
+            if (ShouldSkipUnavailableWindowsResource(profile, out var resourceWarning))
             {
-                logger.LogWarning("{Warning}", eventLogWarning);
+                logger.LogWarning("{Warning}", resourceWarning);
                 continue;
             }
 
@@ -196,32 +196,27 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     }
 
 #if WINDOWS
-    private static bool ShouldSkipUnavailableWindowsEventLog(ResourceProfile profile, out string warning)
+    private static bool ShouldSkipUnavailableWindowsResource(ResourceProfile profile, out string warning)
     {
         warning = string.Empty;
-        if (!profile.Resource.Family.Equals("eventlog", StringComparison.OrdinalIgnoreCase))
+        var validationResult = profile.Resource.Family.ToLowerInvariant() switch
         {
-            return false;
-        }
+            "eventlog" => WindowsResourceValidator.ValidateEventLog(profile),
+            "etw" => WindowsResourceValidator.ValidateEtw(profile),
+            _ => WindowsResourceValidationResult.Valid
+        };
 
-        var validationResult = WindowsResourceValidator.ValidateEventLog(profile);
         if (validationResult.IsValid)
         {
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(validationResult.ErrorMessage))
-        {
-            //throw new InvalidDataException(validationResult.ErrorMessage);
-            return false;
-        }
-
-        warning = validationResult.WarningMessage ?? string.Empty;
+        warning = validationResult.WarningMessage ?? validationResult.ErrorMessage ?? string.Empty;
         return true;
     }
 #else
 
-    private static bool ShouldSkipUnavailableWindowsEventLog(ResourceProfile profile, out string warning)
+    private static bool ShouldSkipUnavailableWindowsResource(ResourceProfile profile, out string warning)
     {
         warning = string.Empty;
         return false;
