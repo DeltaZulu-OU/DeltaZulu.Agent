@@ -123,6 +123,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     {
         var configuration = new YamlForwarderDaemonConfigurationLoader().LoadFile(configPath);
         logger.LogInformation("Starting DeltaZulu agent daemon {AgentId} from {ConfigPath}.", configuration.Id, configPath);
+        ApplyResourceQuotas(configuration);
 
         var outputSink = CreateOutputSink(configuration);
         _disposables.Add(outputSink);
@@ -136,6 +137,22 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             logger.LogWarning("{Warning}", msg));
 
         return Task.Run(() => runtime.Run(stoppingToken), stoppingToken);
+    }
+
+    private void ApplyResourceQuotas(ForwarderDaemonConfiguration configuration)
+    {
+        if (configuration.ResourceQuotas.CpuPercent is not { } cpuPercent)
+        {
+            return;
+        }
+
+#if WINDOWS
+        var limiter = WindowsJobObjectResourceLimiter.ApplyToCurrentProcess(cpuPercent);
+        _disposables.Add(limiter);
+        logger.LogInformation("Applied Windows job object CPU quota of {CpuPercent}% to the agent daemon process.", cpuPercent);
+#else
+        logger.LogWarning("Ignoring configured resourceQuotas.cpuPercent={CpuPercent} because CPU quotas are only supported by the Windows build.", cpuPercent);
+#endif
     }
 
     public override void Dispose()
@@ -199,8 +216,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     private static bool ShouldSkipUnavailableWindowsResource(ResourceProfile profile, out string warning)
     {
         warning = string.Empty;
-        var validationResult = profile.Resource.Family.ToLowerInvariant() switch
-        {
+        var validationResult = profile.Resource.Family.ToLowerInvariant() switch {
             "eventlog" => WindowsResourceValidator.ValidateEventLog(profile),
             "etw" => WindowsResourceValidator.ValidateEtw(profile),
             _ => WindowsResourceValidationResult.Valid
@@ -381,8 +397,8 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                 Port = configuration.Tunnel.Listen.Port
             },
             Endpoints = configuration.Relp.Endpoints
-                .Select(endpoint => new TunnelEndpoint { Host = endpoint.Host, Port = endpoint.Port })
-                .ToList(),
+                .ConvertAll(endpoint => new TunnelEndpoint { Host = endpoint.Host, Port = endpoint.Port })
+,
             UseTls = configuration.Relp.UseTls,
             CertificateProvider = CreateTunnelCertificateProvider(configuration.Relp.Tls),
             ServerCertificateValidationCallback = CreateServerCertificateValidationCallback(configuration.Relp.Tls)

@@ -23,8 +23,105 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
     private readonly List<string> _temporaryQueryFiles = [];
     private int _disposed;
 
+    /// <summary>
+    /// Normalizes Kusto syntax aliases that are not accepted by Microsoft.Rx.Kql.
+    /// </summary>
+    public static string NormalizeQueryForRxKql(string query) => NormalizeQueryForRxKql(query, inputTableName: null, observableName: null);
+
+    public static string NormalizeQueryForRxKql(string query, string? inputTableName, string? observableName)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        const string notInAlias = "notin";
+        var normalized = new StringBuilder(query.Length);
+        var inSingleQuotedString = false;
+        var inDoubleQuotedString = false;
+
+        for (var i = 0; i < query.Length; i++)
+        {
+            var current = query[i];
+
+            if (current == '\'' && !inDoubleQuotedString)
+            {
+                normalized.Append(current);
+                if (inSingleQuotedString && i + 1 < query.Length && query[i + 1] == '\'')
+                {
+                    normalized.Append(query[++i]);
+                    continue;
+                }
+
+                inSingleQuotedString = !inSingleQuotedString;
+                continue;
+            }
+
+            if (current == '"' && !inSingleQuotedString)
+            {
+                normalized.Append(current);
+                if (inDoubleQuotedString && i + 1 < query.Length && query[i + 1] == '"')
+                {
+                    normalized.Append(query[++i]);
+                    continue;
+                }
+
+                inDoubleQuotedString = !inDoubleQuotedString;
+                continue;
+            }
+
+            if (!inSingleQuotedString && !inDoubleQuotedString)
+            {
+                if (!string.IsNullOrWhiteSpace(inputTableName)
+                    && !string.IsNullOrWhiteSpace(observableName)
+                    && !inputTableName.Equals(observableName, StringComparison.OrdinalIgnoreCase)
+                    && IsKeywordAt(query, i, inputTableName))
+                {
+                    normalized.Append(observableName);
+                    i += inputTableName.Length - 1;
+                    continue;
+                }
+
+                if (IsKeywordAt(query, i, notInAlias))
+                {
+                    normalized.Append("!in");
+                    i += notInAlias.Length - 1;
+                    continue;
+                }
+            }
+
+            normalized.Append(current);
+        }
+
+        return normalized.ToString();
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        IDisposable[] subscriptions;
+        string[] temporaryQueryFiles;
+        lock (_gate)
+        {
+            subscriptions = [.. _subscriptions];
+            temporaryQueryFiles = [.. _temporaryQueryFiles];
+        }
+
+        foreach (var subscription in subscriptions)
+        {
+            subscription.Dispose();
+        }
+
+        foreach (var temporaryQueryFile in temporaryQueryFiles)
+        {
+            try { File.Delete(temporaryQueryFile); }
+            catch { /* best effort cleanup */ }
+        }
+    }
+
     public IObservable<ResourceOutputRecord> Execute(
-        IObservable<SourceEvent> source,
+                    IObservable<SourceEvent> source,
         ResourceProfile profile,
         CancellationToken cancellationToken = default)
     {
@@ -120,108 +217,6 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
         });
     }
 
-    private static bool RegisterScalarFunctions()
-    {
-        ScalarFunctionFactory.AddFunctions(typeof(AgentScalarFunctions));
-        return true;
-    }
-
-    private static void TryNotifyKqlRows(Subject<IDictionary<string, object>> kqlRows, Action<Subject<IDictionary<string, object>>> notify)
-    {
-        try
-        {
-            notify(kqlRows);
-        }
-        catch (ObjectDisposedException)
-        {
-            // Downstream error/completion can synchronously dispose the pipeline before the KQL subject is notified.
-        }
-    }
-
-    private static void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output, ResourceMetadata? sourceMetadata)
-    {
-        try
-        {
-            var projected = kqlOutput.Output.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
-            var record = ResourceOutputRecord.FromKqlProjection(projected, profile.Id, profile.Version, sourceMetadata);
-            output.OnNext(record);
-        }
-        catch (Exception ex)
-        {
-            output.OnError(ex);
-        }
-    }
-
-    /// <summary>
-    /// Normalizes Kusto syntax aliases that are not accepted by Microsoft.Rx.Kql.
-    /// </summary>
-    public static string NormalizeQueryForRxKql(string query) => NormalizeQueryForRxKql(query, inputTableName: null, observableName: null);
-
-    public static string NormalizeQueryForRxKql(string query, string? inputTableName, string? observableName)
-    {
-        ArgumentNullException.ThrowIfNull(query);
-
-        const string notInAlias = "notin";
-        var normalized = new StringBuilder(query.Length);
-        var inSingleQuotedString = false;
-        var inDoubleQuotedString = false;
-
-        for (var i = 0; i < query.Length; i++)
-        {
-            var current = query[i];
-
-            if (current == '\'' && !inDoubleQuotedString)
-            {
-                normalized.Append(current);
-                if (inSingleQuotedString && i + 1 < query.Length && query[i + 1] == '\'')
-                {
-                    normalized.Append(query[++i]);
-                    continue;
-                }
-
-                inSingleQuotedString = !inSingleQuotedString;
-                continue;
-            }
-
-            if (current == '"' && !inSingleQuotedString)
-            {
-                normalized.Append(current);
-                if (inDoubleQuotedString && i + 1 < query.Length && query[i + 1] == '"')
-                {
-                    normalized.Append(query[++i]);
-                    continue;
-                }
-
-                inDoubleQuotedString = !inDoubleQuotedString;
-                continue;
-            }
-
-            if (!inSingleQuotedString && !inDoubleQuotedString)
-            {
-                if (!string.IsNullOrWhiteSpace(inputTableName)
-                    && !string.IsNullOrWhiteSpace(observableName)
-                    && !inputTableName.Equals(observableName, StringComparison.OrdinalIgnoreCase)
-                    && IsKeywordAt(query, i, inputTableName))
-                {
-                    normalized.Append(observableName);
-                    i += inputTableName.Length - 1;
-                    continue;
-                }
-
-                if (IsKeywordAt(query, i, notInAlias))
-                {
-                    normalized.Append("!in");
-                    i += notInAlias.Length - 1;
-                    continue;
-                }
-            }
-
-            normalized.Append(current);
-        }
-
-        return normalized.ToString();
-    }
-
     private static bool IsKeywordAt(string text, int index, string keyword)
     {
         if (index + keyword.Length > text.Length)
@@ -244,6 +239,38 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
     private static bool IsKqlIdentifierCharacter(char value) => char.IsLetterOrDigit(value) || value == '_';
 
+    private static void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output, ResourceMetadata? sourceMetadata)
+    {
+        try
+        {
+            var projected = kqlOutput.Output.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
+            var record = ResourceOutputRecord.FromKqlProjection(projected, profile.Id, profile.Version, sourceMetadata);
+            output.OnNext(record);
+        }
+        catch (Exception ex)
+        {
+            output.OnError(ex);
+        }
+    }
+
+    private static bool RegisterScalarFunctions()
+    {
+        ScalarFunctionFactory.AddFunctions(typeof(AgentScalarFunctions));
+        return true;
+    }
+
+    private static void TryNotifyKqlRows(Subject<IDictionary<string, object>> kqlRows, Action<Subject<IDictionary<string, object>>> notify)
+    {
+        try
+        {
+            notify(kqlRows);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Downstream error/completion can synchronously dispose the pipeline before the KQL subject is notified.
+        }
+    }
+
     private string CreateTemporaryQueryFile(ResourceProfile profile, string observableName, string inputTableName)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agent-{profile.Id}-{Guid.NewGuid():N}.kql");
@@ -257,32 +284,5 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
             _temporaryQueryFiles.Add(path);
         }
         return path;
-    }
-
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
-        {
-            return;
-        }
-
-        IDisposable[] subscriptions;
-        string[] temporaryQueryFiles;
-        lock (_gate)
-        {
-            subscriptions = [.. _subscriptions];
-            temporaryQueryFiles = [.. _temporaryQueryFiles];
-        }
-
-        foreach (var subscription in subscriptions)
-        {
-            subscription.Dispose();
-        }
-
-        foreach (var temporaryQueryFile in temporaryQueryFiles)
-        {
-            try { File.Delete(temporaryQueryFile); }
-            catch { /* best effort cleanup */ }
-        }
     }
 }

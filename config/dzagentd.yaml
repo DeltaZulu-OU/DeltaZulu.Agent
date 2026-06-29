@@ -50,6 +50,13 @@ relp:
     - host: 127.0.0.1
       port: 6514
 
+# Optional Windows-only resource quotas for low-resource environments.
+# Uncomment cpuPercent to hard-cap the daemon process CPU usage with a
+# Windows Job Object. Valid range: 1-100. Non-Windows builds log a warning
+# and ignore this setting.
+# resourceQuotas:
+#   cpuPercent: 20
+
 diagnostics:
   # Emit daemon/buffer health observations every N seconds. Set to null or remove
   # this value to disable periodic diagnostics.

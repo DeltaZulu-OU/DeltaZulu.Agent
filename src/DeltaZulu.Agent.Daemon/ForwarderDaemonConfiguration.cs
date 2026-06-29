@@ -13,6 +13,7 @@ public sealed record ForwarderDaemonConfiguration
     public RelpTransportConfiguration Relp { get; init; } = new();
     public ForwarderDaemonTunnelConfiguration Tunnel { get; init; } = new();
     public ForwarderDaemonDiagnosticsConfiguration Diagnostics { get; init; } = new();
+    public ForwarderDaemonResourceQuotaConfiguration ResourceQuotas { get; init; } = new();
 }
 
 public sealed record ForwarderDaemonPipelineConfiguration
@@ -58,26 +59,17 @@ public sealed record ForwarderDaemonDiagnosticsConfiguration
     public string? File { get; init; }
 }
 
+public sealed record ForwarderDaemonResourceQuotaConfiguration
+{
+    public int? CpuPercent { get; init; }
+}
+
 public sealed class YamlForwarderDaemonConfigurationLoader
 {
     private readonly IDeserializer _deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
-
-    public ForwarderDaemonConfiguration LoadFile(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("Agent daemon configuration path is required.", nameof(path));
-        }
-
-        using var reader = System.IO.File.OpenText(path);
-        var configuration = _deserializer.Deserialize<ForwarderDaemonConfiguration>(reader)
-            ?? throw new InvalidDataException($"Agent daemon configuration file '{path}' did not contain a configuration.");
-        Validate(configuration, path);
-        return configuration;
-    }
 
     public static void Validate(ForwarderDaemonConfiguration configuration, string? path = null)
     {
@@ -150,5 +142,24 @@ public sealed class YamlForwarderDaemonConfigurationLoader
         {
             throw new InvalidDataException($"{prefix} diagnostics.intervalSeconds must be greater than 0 when set.");
         }
+
+        if (configuration.ResourceQuotas.CpuPercent is < 1 or > 100)
+        {
+            throw new InvalidDataException($"{prefix} resourceQuotas.cpuPercent must be between 1 and 100 when set.");
+        }
+    }
+
+    public ForwarderDaemonConfiguration LoadFile(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Agent daemon configuration path is required.", nameof(path));
+        }
+
+        using var reader = System.IO.File.OpenText(path);
+        var configuration = _deserializer.Deserialize<ForwarderDaemonConfiguration>(reader)
+            ?? throw new InvalidDataException($"Agent daemon configuration file '{path}' did not contain a configuration.");
+        Validate(configuration, path);
+        return configuration;
     }
 }
