@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DeltaZulu.Demo.Collector": {
+      "commandName": "Project",
+      "commandLineArgs": "-p"
+    }
+  }
+}
