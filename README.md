@@ -49,6 +49,8 @@ dzagentctl csv events.csv json out.ndjson --kql "Source | where RawMessage has '
 dzagentctl syslogserver --address 127.0.0.1 --port 5514
 dzagentctl fifo /run/deltazulu/logs.fifo json fifo.ndjson --kql "Source | project ReceivedAt, RawMessage, Message"
 dzdemo-collector --address 127.0.0.1 --port 6514
+# Add -p (or --pretty) to pretty-print each received JSON object for easier reading.
+dzdemo-collector --address 127.0.0.1 --port 6514 -p
 ```
 
 
@@ -110,7 +112,7 @@ For local RELP validation, the pipeline-backed demo collector still defaults to 
 
 ## Demo collector
 
-For local forwarder validation, use the pipeline-backed `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`. It is a standard runtime pipeline instance with a MessagePack RELP input, no KQL filter, and console NDJSON output; RELP acknowledgements are handled by the shared RELP input adapter.
+For local forwarder validation, use the pipeline-backed `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`. It is a standard runtime pipeline instance with a MessagePack RELP input, no KQL filter, and console NDJSON output; RELP acknowledgements are handled by the shared RELP input adapter. Add `-p` or `--pretty` when you want each received JSON object expanded across multiple indented lines for readability.
 
 ```bash
 dzdemo-collector --address 127.0.0.1 --port 6514

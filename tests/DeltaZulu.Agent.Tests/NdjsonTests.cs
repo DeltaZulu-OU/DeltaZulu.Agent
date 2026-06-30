@@ -64,6 +64,55 @@ public sealed class NdjsonTests
     }
 
     [TestMethod]
+    public void ConsoleNdjsonSink_PrettyPrintsWhenRequested()
+    {
+        using var output = new StringWriter();
+        var originalOutput = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            using var sink = new ConsoleNdjsonSink(prettyPrint: true);
+
+            sink.OnNext(new ResourceOutputRecord {
+                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
+                Event = new Dictionary<string, object?> { ["message"] = "hello" }
+            });
+        }
+        finally
+        {
+            Console.SetOut(originalOutput);
+        }
+
+        var json = output.ToString();
+        Assert.Contains(Environment.NewLine + "  \"_metadata\"", json);
+        Assert.Contains(Environment.NewLine + "  \"event\"", json);
+    }
+
+    [TestMethod]
+    public void ConsoleNdjsonSink_DefaultsToSingleLineJson()
+    {
+        using var output = new StringWriter();
+        var originalOutput = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            using var sink = new ConsoleNdjsonSink();
+
+            sink.OnNext(new ResourceOutputRecord {
+                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
+                Event = new Dictionary<string, object?> { ["message"] = "hello" }
+            });
+        }
+        finally
+        {
+            Console.SetOut(originalOutput);
+        }
+
+        var json = output.ToString().TrimEnd();
+        Assert.IsFalse(json.Contains(Environment.NewLine, StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void FromException_MapsExceptionDetailsIntoErrorRecord()
     {
         var exception = new InvalidOperationException("boom");

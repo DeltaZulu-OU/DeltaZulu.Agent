@@ -20,7 +20,7 @@ internal static class Program
 
         var address = IPAddress.Parse(GetOption(args, "--address") ?? "127.0.0.1");
         var port = int.Parse(GetOption(args, "--port") ?? "6514", System.Globalization.CultureInfo.InvariantCulture);
-
+        var prettyPrint = HasFlag(args, "-p") || HasFlag(args, "--pretty");
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) => {
             eventArgs.Cancel = true;
@@ -28,7 +28,7 @@ internal static class Program
         };
 
         using var executor = new DemoCollectorPassthroughExecutor();
-        using var sink = new ConsoleNdjsonSink();
+        using var sink = new ConsoleNdjsonSink(prettyPrint: prettyPrint);
         var runtime = new AgentRuntime(
             [new ProfileBinding(
                 new RelpInput(new RelpInputConfiguration
@@ -81,6 +81,19 @@ internal static class Program
         }
     };
 
+    private static bool HasFlag(string[] args, string flag)
+    {
+        foreach (var token in args)
+        {
+            if (token.Equals(flag, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static string? GetOption(string[] args, string option)
     {
         for (var index = 0; index < args.Length; index++)
@@ -107,10 +120,13 @@ internal static class Program
 
     private static void PrintUsage() => Console.WriteLine("""
 Usage:
-  dzdemo-collector [--address <ip>] [--port <port>]
+  dzdemo-collector [--address <ip>] [--port <port>] [-p|--pretty]
 
 Runs the standard DeltaZulu pipeline with a MessagePack RELP input,
 a pass-through profile with no KQL filter, and console NDJSON output.
+
+Options:
+  -p, --pretty           Pretty-print console JSON output for readability.
 """);
 }
 

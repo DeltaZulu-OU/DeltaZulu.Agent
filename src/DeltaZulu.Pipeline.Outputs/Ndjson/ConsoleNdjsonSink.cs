@@ -7,12 +7,14 @@ namespace DeltaZulu.Pipeline.Outputs.Ndjson;
 
 public sealed class ConsoleNdjsonSink : IOutputWriter
 {
-    private readonly JsonSerializerOptions _jsonOptions = NdjsonSerializerOptions.CreateDefault();
+    private readonly JsonSerializerOptions _jsonOptions;
     public string Name { get; }
 
-    public ConsoleNdjsonSink(string name = "ndjson-console")
+    public ConsoleNdjsonSink(string name = "ndjson-console", bool prettyPrint = true)
     {
         Name = name;
+        _jsonOptions = NdjsonSerializerOptions.CreateDefault();
+        _jsonOptions.WriteIndented = prettyPrint;
     }
 
     public void OnNext(ResourceOutputRecord value) => Console.WriteLine(JsonSerializer.Serialize(value, _jsonOptions));
