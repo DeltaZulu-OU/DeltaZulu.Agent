@@ -72,6 +72,10 @@ flowchart LR
 
 Source events expose a KQL `source` column from the native source name. Daemon profiles use that column to select channels or providers; ETW profiles use `resource.session` for the live session name and `resource.provider` for filtering/identity, for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`.
 
+ETW payload fields remain native provider facts at the live input boundary. Any resolved, normalized, enriched, or correlated field is DeltaZulu-derived schema and must carry documented provenance; see [`docs/ETW_SCHEMA_BOUNDARIES.md`](ETW_SCHEMA_BOUNDARIES.md).
+
+Windows eventing implementation boundaries are captured in [`docs/adr/0001-windows-eventing-library-boundaries.md`](adr/0001-windows-eventing-library-boundaries.md): TraceEvent owns live ETW sessions, Tx remains for ETL/EVTX-style replay/import paths, and P/Invoke is reserved for narrow OS primitives or future native ETW work justified by benchmarks.
+
 ## Output and delivery envelopes
 
 Terminal NDJSON output is one JSON object per line:

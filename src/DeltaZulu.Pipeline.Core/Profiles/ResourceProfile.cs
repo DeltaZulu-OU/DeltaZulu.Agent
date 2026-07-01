@@ -32,7 +32,17 @@ public sealed class ResourceDescriptor
     public string? Session { get; set; }
     public string? Provider { get; set; }
     public string Mode { get; set; } = "attach";
+    public string? Scope { get; set; }
     public List<string> RecordTypes { get; set; } = [];
+    public List<int> EtwEventIds { get; set; } = [];
+    public List<int> EtwExcludedEventIds { get; set; } = [];
+    public bool EtwCaptureStacks { get; set; }
+    public List<int> EtwStackEventIds { get; set; } = [];
+    public List<int> EtwExcludedStackEventIds { get; set; } = [];
+    public List<int> EtwProcessIds { get; set; } = [];
+    public List<string> EtwProcessNames { get; set; } = [];
+    public bool EtwEnableInContainers { get; set; }
+    public bool EtwEnableSourceContainerTracking { get; set; }
 }
 
 public sealed class ResourceInputContract

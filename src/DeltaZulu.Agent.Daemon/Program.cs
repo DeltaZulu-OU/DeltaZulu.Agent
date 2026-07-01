@@ -391,6 +391,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             ? new ManagedEtwSessionInput(
                 session,
                 profile.Resource.Provider ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.provider for managed etw."),
+                profile.Resource,
                 warn: LogWarning)
             : new EtwSessionInput(session, warn: LogWarning);
     }

@@ -26,3 +26,5 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Kernel-File"
+    | where EventId in (10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33, 34)
+    | where not (EventId in (15, 16) and IoSize == 0)

@@ -38,7 +38,7 @@ Implemented foundation:
 - Syslog TCP/file input with lightweight parsing.
 - CSV file input.
 - Auditd parser and assembler with malformed-line handling, EOE/PROCTITLE completion, hex PATH decoding, and array handling for repeated record types.
-- Windows Event Log, EVTX, ETL, and ETW inputs using the Tx.Windows approach.
+- Windows Event Log, EVTX, ETL, and ETW inputs using the mixed Windows eventing boundary documented in [`docs/adr/0001-windows-eventing-library-boundaries.md`](adr/0001-windows-eventing-library-boundaries.md): TraceEvent for live ETW session ownership, Tx for ETL/EVTX import/replay paths, and narrow P/Invoke for OS primitives.
 - Windows Event Log named XML `EventData` extraction as nested payload fields and top-level convenience fields.
 - Sample Linux, Windows Event Log, auditd, and ETW profiles.
 - Shared application runtime that binds inputs, optional profiles, and outputs.
@@ -96,6 +96,123 @@ The ETW integrity monitor is a self-protection diagnostic, not an input adapter.
 - [ ] Validate the native memory reader on target Windows architectures before production enablement.
   - Instruction: test x64 first, then any supported x86/Arm64 runtime, with attention to `MEMORY_BASIC_INFORMATION` layout and readable executable pages.
   - Acceptance: Windows validation notes identify OS, process architecture, resolved `ntdll` functions, and successful clean-baseline operation.
+
+
+
+## Tx review: high-ROI ETW hot-path improvements
+
+Decision: do not replace `Microsoft.Diagnostics.Tracing.TraceEvent` with Tx for
+live ETW collection. Keep TraceEvent for live session ownership and improve the
+DeltaZulu hot path around it. Tx remains useful for offline ETL/EVTX import,
+replay concepts, partition-key dispatch, and lazy materialization patterns.
+
+Selected improvements:
+
+| Priority | Improvement | Decision |
+|---:|---|---|
+| P0 | Complete native ETW envelope fields. | Added `NativeEtwEnvelope`; keep extending Windows mapping as TraceEvent exposes more fields. |
+| P0 | Compile native identity filters before payload materialization. | Added `NativeEtwIdentityFilter` primitive; wire profile compilation next. |
+| P0 | Decode only selected payload fields. | Added selected TraceEvent payload materializer; profile-driven selection is next. |
+| P0 | Bounded callback handoff with counters. | Added counter surface; channel handoff remains implementation work. |
+| P1 | Preserve Tx lazy-materialization behavior in ETL input. | Apply native-filter and selected-field pattern to ETL import. |
+| P1 | Deterministic virtual-time replay benchmarks. | Add benchmark harness before backend replacement decisions. |
+| P2 | Manifest/type-generation experiment. | Defer. |
+| P3 | Replace live TraceEvent with native ETW backend. | Defer until benchmarks prove need. |
+| Rejected | Replace TraceEvent with Tx for live ETW. | Do not do. |
+
+Definition of done for this improvement track:
+
+- Native ETW identity is emitted for every ETW event.
+- Source filters can run before full payload materialization.
+- Profiles can select payload fields explicitly.
+- Unselected payloads are not decoded by default.
+- The ETW callback does not perform full dictionary materialization.
+- The callback handoff is bounded and has drop counters.
+- ETL import can apply the same filtering model.
+- Benchmarks show allocation/event and CPU/event improvements.
+
+## ETW session health and forensic alignment roadmap
+
+DeltaZulu will not implement memory-forensic ETW provider/consumer correlation in
+the core collection pipeline. Memory-image analysis that walks undocumented ETW
+structures, maps providers/consumers from process memory, or dumps ETL-like
+buffers belongs in forensic tooling, not the live agent runtime.
+
+Roadmap placement:
+
+| Priority | Item | Scope | Decision |
+|---:|---|---|---|
+| P0 | ETW parser and source filters | Provider-specific parsing, native event identity, Kernel-File manifest event IDs, pointer-sized semantic decoding, cheap source-side dropping. | Required for first usable agent. |
+| P0 | File identity resolver | `FileObject` / `FileKey` / path correlation with provenance. | Required for usable file telemetry. |
+| P0 | Process/thread/image context | PID/TID/process-generation/image/command-line enrichment. | Required for usable logs. |
+| P1 | IRP lifecycle correlation | Match FileIO start/end by `Irp`, emit duration/status/missing-event markers. | Required for high-quality FileIO. |
+| P1 | Session/filter/parser provenance | Emit profile ID, filter version, parser version, session/provider metadata. | Required for auditability. |
+| P1 | Loss and quality counters | ETW loss, parser failures, resolver misses, source-drop counters. | Required for trust and troubleshooting. |
+| P2 | ETW session health inventory | Inventory DeltaZulu-owned ETW sessions using supported APIs. | Diagnostic feature. |
+| P2 | Active ETW session comparison | Compare expected DeltaZulu sessions against observed runtime state. | Tamper/health signal. |
+| P3 | Full system ETW provider/consumer inventory | Enumerate broader ETW sessions/providers/consumers where supported. | Optional diagnostic mode. |
+| P3 | Forensic memory alignment | Document how DeltaZulu logs can be reconciled with recovered ETL/memory-buffer evidence. | Incident-response support, not agent runtime. |
+| Out of scope | Volatility-style memory walking in agent | Handle-table parsing, `_ETW_REG_ENTRY`, `_ETW_REALTIME_CONSUMER`, ETL buffer dumping. | Forensic tooling only. |
+
+### ETW session health inventory
+
+Add a diagnostic capability that reports the health of DeltaZulu-owned ETW
+sessions using supported Windows ETW APIs where possible. It must not parse
+kernel memory or walk process handle tables.
+
+Initial scope:
+
+- List DeltaZulu-owned ETW sessions.
+- Confirm expected providers are enabled.
+- Confirm expected keyword and level configuration.
+- Report buffer size and loss counters where available.
+- Report session start time and collection mode.
+- Report profile, filter, parser, session, and provider provenance.
+- Emit periodic `EtwSessionHealth` events.
+
+The portable `EtwSessionHealthSnapshot` model captures the event shape and can be
+constructed from `EtwCollectorMetrics`; Windows-specific inventory code can fill
+observed provider/session fields later.
+
+### Active ETW session comparison
+
+A later diagnostic profile should compare expected DeltaZulu sessions against
+observed runtime state to detect collector misconfiguration, session shutdown,
+provider disablement, unexpected loss/counter changes, and troubleshooting or
+incident-response timeline gaps. This is collection health monitoring, not
+detection logic.
+
+Example future profile shape:
+
+```yaml
+schemaVersion: 1
+id: windows.etw.session-health
+name: Windows ETW session health inventory
+version: 0.1.0
+enabled: false
+mandatory: false
+resource:
+  platform: windows
+  family: etw
+  mode: diagnostic
+  scope: deltazulu-owned-sessions
+output:
+  mode: Inventory
+  format: ndjson
+  metadataEnvelope: true
+  eventEnvelope: true
+```
+
+### Forensic alignment metadata
+
+The agent does not recover ETW buffers from memory. It emits enough native event
+identity and provenance to reconcile live logs with ETL files or forensic ETW
+evidence recovered later. Required alignment fields are represented by
+`EtwForensicAlignmentMetadata`: `HostId`, `TimestampUtc`, `TimestampQpc`,
+`ProviderGuid`, `ProviderName`, `EventId`, `Opcode`, `Version`, `ProcessId`,
+`ThreadId`, `ActivityId`, `RelatedActivityId`, `EtwSessionName`, `EtwProfileId`,
+`EtwProfileVersion`, `ParserName`, `ParserVersion`, `SchemaVersion`, and
+`RawPayloadHash`.
 
 ## P0: Stabilize daemon forwarding
 

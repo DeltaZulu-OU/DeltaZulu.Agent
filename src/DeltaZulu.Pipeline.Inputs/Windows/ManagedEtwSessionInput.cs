@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Profiles;
+using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Parsers;
 using Microsoft.Diagnostics.Tracing.Session;
 using System.Reflection;
@@ -24,13 +26,20 @@ public sealed class ManagedEtwSessionInput : ISourceInput
 
     private readonly string _sessionName;
     private readonly string _providerName;
+    private readonly ResourceDescriptor? _resource;
     private readonly Action<string>? _warn;
     public string Name { get; }
 
     public ManagedEtwSessionInput(string sessionName, string providerName, string? name = null, Action<string>? warn = null)
+        : this(sessionName, providerName, resource: null, name, warn)
+    {
+    }
+
+    public ManagedEtwSessionInput(string sessionName, string providerName, ResourceDescriptor? resource, string? name = null, Action<string>? warn = null)
     {
         _sessionName = sessionName;
         _providerName = providerName;
+        _resource = resource;
         _warn = warn;
         Name = name ?? $"etw{sessionName}";
     }
@@ -170,6 +179,64 @@ public sealed class ManagedEtwSessionInput : ISourceInput
             return;
         }
 
-        session.EnableProvider(_providerName);
+        session.EnableProvider(_providerName, TraceEventLevel.Verbose, ulong.MaxValue, BuildProviderOptions(_resource));
     }
+
+    internal static TraceEventProviderOptions? BuildProviderOptions(ResourceDescriptor? resource)
+    {
+        if (resource is null)
+        {
+            return null;
+        }
+
+        var options = new TraceEventProviderOptions
+        {
+            StacksEnabled = resource.EtwCaptureStacks,
+            EnableInContainers = resource.EtwEnableInContainers,
+            EnableSourceContainerTracking = resource.EtwEnableSourceContainerTracking
+        };
+
+        if (resource.EtwProcessIds.Count > 0)
+        {
+            options.ProcessIDFilter = resource.EtwProcessIds;
+        }
+
+        if (resource.EtwProcessNames.Count > 0)
+        {
+            options.ProcessNameFilter = resource.EtwProcessNames;
+        }
+
+        if (resource.EtwEventIds.Count > 0)
+        {
+            options.EventIDsToEnable = resource.EtwEventIds;
+        }
+
+        if (resource.EtwExcludedEventIds.Count > 0)
+        {
+            options.EventIDsToDisable = resource.EtwExcludedEventIds;
+        }
+
+        if (resource.EtwStackEventIds.Count > 0)
+        {
+            options.EventIDStacksToEnable = resource.EtwStackEventIds;
+        }
+
+        if (resource.EtwExcludedStackEventIds.Count > 0)
+        {
+            options.EventIDStacksToDisable = resource.EtwExcludedStackEventIds;
+        }
+
+        return HasProviderOptions(resource) ? options : null;
+    }
+
+    private static bool HasProviderOptions(ResourceDescriptor resource) =>
+        resource.EtwCaptureStacks ||
+        resource.EtwEnableInContainers ||
+        resource.EtwEnableSourceContainerTracking ||
+        resource.EtwProcessIds.Count > 0 ||
+        resource.EtwProcessNames.Count > 0 ||
+        resource.EtwEventIds.Count > 0 ||
+        resource.EtwExcludedEventIds.Count > 0 ||
+        resource.EtwStackEventIds.Count > 0 ||
+        resource.EtwExcludedStackEventIds.Count > 0;
 }

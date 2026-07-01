@@ -81,6 +81,63 @@ public sealed class ProfileTests
         Assert.Contains("id is required.", exception.Message);
     }
 
+
+    [TestMethod]
+    public void LoadFile_LoadsManagedEtwProviderEnablementOptions()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.yaml");
+        try
+        {
+            File.WriteAllText(path, """
+schemaVersion: 1
+id: windows.etw.test
+name: Windows ETW test
+version: 1.0.0
+enabled: true
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-Test
+  provider: Microsoft-Windows-Test
+  etwEventIds: [1, 2]
+  etwExcludedEventIds: [3]
+  etwCaptureStacks: true
+  etwStackEventIds: [4]
+  etwExcludedStackEventIds: [5]
+  etwProcessIds: [1234]
+  etwProcessNames: [notepad.exe]
+  etwEnableInContainers: true
+  etwEnableSourceContainerTracking: true
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  format: ndjson
+  preserveOriginalFieldNames: true
+filter:
+  language: kql
+  query: Etw | take 1
+""");
+
+            var profile = new YamlResourceProfileLoader().LoadFile(path);
+
+            CollectionAssert.AreEqual(new[] { 1, 2 }, profile.Resource.EtwEventIds);
+            CollectionAssert.AreEqual(new[] { 3 }, profile.Resource.EtwExcludedEventIds);
+            Assert.IsTrue(profile.Resource.EtwCaptureStacks);
+            CollectionAssert.AreEqual(new[] { 4 }, profile.Resource.EtwStackEventIds);
+            CollectionAssert.AreEqual(new[] { 5 }, profile.Resource.EtwExcludedStackEventIds);
+            CollectionAssert.AreEqual(new[] { 1234 }, profile.Resource.EtwProcessIds);
+            CollectionAssert.AreEqual(new[] { "notepad.exe" }, profile.Resource.EtwProcessNames);
+            Assert.IsTrue(profile.Resource.EtwEnableInContainers);
+            Assert.IsTrue(profile.Resource.EtwEnableSourceContainerTracking);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [TestMethod]
     public void LoadDirectory_WarnsAndSkipsInvalidOptionalProfile()
     {

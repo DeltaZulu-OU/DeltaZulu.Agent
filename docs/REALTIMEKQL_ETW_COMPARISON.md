@@ -2,7 +2,8 @@
 
 This note tracks the ETW behavior that DeltaZulu intentionally keeps close to
 [`microsoft/KqlTools/Source/RealTimeKqlLibrary`](https://github.com/microsoft/KqlTools/tree/master/Source/RealTimeKqlLibrary) and the places where DeltaZulu
-still differs.
+still differs. Library boundary decisions for TraceEvent, Tx, and P/Invoke live
+in [`docs/adr/0001-windows-eventing-library-boundaries.md`](adr/0001-windows-eventing-library-boundaries.md).
 
 ## Behavior kept aligned
 
@@ -55,6 +56,20 @@ profiles, `resource.session` names the DeltaZulu-owned session and
 as a session, that is expected unless someone created a trace session with that
 exact name; it does not prove the provider is unavailable.
 
+
+## Managed provider enablement options
+
+DeltaZulu managed ETW profiles can now express the provider-side options that map to `EnableTraceEx2` / `ENABLE_TRACE_PARAMETERS` through TraceEvent's `TraceEventProviderOptions`. Use these only with `resource.mode: managed`; attach mode still observes whatever an external controller enabled.
+
+Supported profile keys under `resource` are:
+
+- `etwEventIds` / `etwExcludedEventIds` for EVENT_FILTER_TYPE_EVENT_ID include and exclude filters.
+- `etwCaptureStacks`, `etwStackEventIds`, and `etwExcludedStackEventIds` for stack collection. Capture stack data sparingly because ETW can drop events whose extended data pushes the event above the 64 KB event-size limit.
+- `etwProcessIds` and `etwProcessNames` for provider scope filters.
+- `etwEnableInContainers` and `etwEnableSourceContainerTracking` for container-aware provider enablement where supported by the OS and provider.
+
+Kernel providers still use TraceEvent's kernel enable path. For example, `Microsoft-Windows-Kernel-Process` continues to enable `KernelTraceEventParser.Keywords.Process` rather than the user-provider `EnableTraceEx2` option path.
+
 ## Built-in ETW profile availability
 
 The built-in kernel-process ETW profile uses managed mode because DeltaZulu owns
@@ -78,7 +93,12 @@ DeltaZulu should not define a fixed query schema for ETW input at the edge. ETW
 has a reliable header/envelope, but provider payloads are event/version-specific.
 For profile KQL, keep the input native: query the fields emitted by Tx.Windows for
 the selected session/provider, and preserve provider-specific fields without
-mapping them into Windows Event Log aliases.
+mapping them into Windows Event Log aliases. Prefer native numeric identity such
+as `ProviderGuid`, `ProviderName`, `EventId`, `Opcode`, `Version`, `Keywords`,
+`Task`, and `Level` for cheap source-side filtering. Any field that DeltaZulu
+resolves, normalizes, enriches, labels, or correlates, including `OperationName`,
+must be documented as DeltaZulu-derived schema rather than provider-native data;
+see [ETW schema boundaries and DeltaZulu enrichment fields](ETW_SCHEMA_BOUNDARIES.md).
 
 A conservative Bronze ETW envelope is still useful as a downstream storage
 contract, but it should be introduced separately from the live input adapter. The

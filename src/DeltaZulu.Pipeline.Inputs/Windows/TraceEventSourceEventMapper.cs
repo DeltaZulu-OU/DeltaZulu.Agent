@@ -1,38 +1,83 @@
+using System.Reflection;
+using DeltaZulu.Pipeline.Core.Etw;
 using Microsoft.Diagnostics.Tracing;
 
 namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 internal static class TraceEventSourceEventMapper
 {
-    public static IReadOnlyDictionary<string, object?> ToDictionary(TraceEvent data)
+    private static readonly IEtwPayloadMaterializer PayloadMaterializer = new TraceEventPayloadMaterializer();
+
+    // Keep this mapper limited to the ETW envelope and provider payload fields.
+    // Resolver, enrichment, and normalized DeltaZulu fields must be added by an
+    // explicit schema extension with provenance metadata.
+    public static IReadOnlyDictionary<string, object?> ToDictionary(
+        TraceEvent data,
+        IReadOnlySet<string>? selectedPayloadFields = null)
     {
-        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        var envelope = ToEnvelope(data);
+        var fields = new Dictionary<string, object?>(envelope.ToDictionary(), StringComparer.OrdinalIgnoreCase)
         {
-            ["ProviderName"] = data.ProviderName,
-            ["EventId"] = (int)data.ID,
-            ["EventName"] = data.EventName,
-            ["OpcodeName"] = data.OpcodeName,
-            ["Level"] = data.Level.ToString(),
-            ["Keywords"] = data.Keywords,
-            ["TimeStamp"] = data.TimeStamp,
-            ["ProcessId"] = data.ProcessID,
-            ["ThreadId"] = data.ThreadID,
-            ["ActivityId"] = data.ActivityID
+            ["EventName"] = data.EventName
         };
 
-        foreach (var payloadName in data.PayloadNames)
+        foreach (var payloadField in PayloadMaterializer.MaterializeSelected(data, selectedPayloadFields))
         {
-            try
-            {
-                fields[payloadName] = data.PayloadByName(payloadName);
-            }
-            catch
-            {
-                // Some providers expose payload slots that cannot be decoded on every event version.
-                // Keep the envelope and any readable payload fields instead of dropping the event.
-            }
+            fields[payloadField.Key] = payloadField.Value;
         }
 
         return fields.AsReadOnly();
+    }
+
+    internal static NativeEtwEnvelope ToEnvelope(TraceEvent data) => new()
+    {
+        ProviderGuid = data.ProviderGuid,
+        ProviderName = data.ProviderName,
+        EventId = (int)data.ID,
+        Opcode = (int)data.Opcode,
+        OpcodeName = data.OpcodeName,
+        Version = data.Version,
+        Task = (int)data.Task,
+        TaskName = data.TaskName,
+        Level = (int)data.Level,
+        LevelName = data.Level.ToString(),
+        Keywords = (long)data.Keywords,
+        TimestampUtc = data.TimeStamp,
+        ProcessId = data.ProcessID,
+        ThreadId = data.ThreadID,
+        ActivityId = data.ActivityID,
+        RelatedActivityId = GetOptional<Guid?>(data, "RelatedActivityID", "RelatedActivityId"),
+        Channel = GetOptional<int?>(data, "Channel"),
+        ProcessorId = GetOptional<int?>(data, "ProcessorNumber", "ProcessorId"),
+        TimestampRaw = GetOptional<long?>(data, "TimeStampQPC", "TimeStampRaw"),
+        PayloadLength = GetOptional<int?>(data, "EventDataLength", "PayloadLength")
+    };
+
+    private static T? GetOptional<T>(TraceEvent data, params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            var property = data.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+            if (property is null)
+            {
+                continue;
+            }
+
+            var value = property.GetValue(data);
+            if (value is null)
+            {
+                return default;
+            }
+
+            if (value is T typed)
+            {
+                return typed;
+            }
+
+            var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+            return (T)Convert.ChangeType(value, targetType);
+        }
+
+        return default;
     }
 }
