@@ -21,7 +21,7 @@ DeltaZulu.Agent currently has three executable hosts:
 | --- | --- | --- |
 | `dzagentctl` | `src/DeltaZulu.Agent.Cli` | Thin exploration CLI for schemas, inline KQL, profile testing, and NDJSON console/file export. |
 | `dzagentd` | `src/DeltaZulu.Agent.Daemon` | YAML-configured daemon host. Production role is RELP forwarding; collector-style mode is for local validation and controlled lab tests. |
-| `dzdemo-collector` | `src/DeltaZulu.Demo.Collector` | Local validation pipeline wrapper with MessagePack RELP input, a no-filter pass-through profile, and console NDJSON output. |
+| `dzagentd` collector config | `config/dzcollector.yaml` | Local validation pipeline mode with MessagePack RELP input, pass-through filtering, and console/file NDJSON output. |
 
 `dzagentctl` is intentionally convenient for development. `dzagentd` is intentionally smaller: it has no inline query mode, schema listing, table renderer, or ad-hoc export command. Daemon source selection belongs in YAML and resource profiles.
 
@@ -127,7 +127,7 @@ This monitor is deliberately not a normal input source and does not produce endp
 
 ## Daemon roles and coordination
 
-`dzagentd` is the forwarding service boundary. It discovers enabled resource profiles from `profilesPath`, uses each profile's `resource` block as the input declaration, applies the profile KQL filter/projection, then encodes delivery batches with MessagePack and sends them over RELP when `pipeline.output.mode: forward`. The demo collector remains the lab receiver: RELP MessagePack input, no KQL filtering, and console output. The merged `DeltaZulu.Agent.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Agent.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Agent.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Agent.Pipeline/Ndjson` under the `DeltaZulu.Agent.Pipeline.Ndjson` namespace so inputs and outputs do not depend on each other.
+`dzagentd` is the forwarding service boundary. It discovers enabled resource profiles from `profilesPath`, uses each profile's `resource` block as the input declaration, applies the profile KQL filter/projection, then encodes delivery batches with MessagePack and sends them over RELP when `pipeline.output.mode: forward`. Daemon collector mode is the lab receiver: RELP MessagePack input, pass-through filtering, and configurable console/file NDJSON output via `config/dzcollector.yaml`. The merged `DeltaZulu.Agent.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Agent.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Agent.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Agent.Pipeline/Ndjson` under the `DeltaZulu.Agent.Pipeline.Ndjson` namespace so inputs and outputs do not depend on each other.
 
 Coordination remains configuration-file based for the current split. The forwarder output path already owns durable queue state in `DeltaZulu.DurableBuffer`, while daemon configuration owns source/profile/output selection; no synchronous request/response decisions are required on the hot path. Named pipes or another IPC channel should only be introduced later for live reconfiguration, administrative health queries, or explicit control-plane commands that cannot be expressed safely by replacing configuration and restarting the supervised daemon process.
 
@@ -177,7 +177,7 @@ The agent is transitioning from a monolithic streaming ETL binary into a modular
 
 Inventory collectors follow a scan-and-report pattern with their own scheduling, separate from the reactive streaming pipeline. They produce discrete state snapshots, not continuous event streams. The server populates inventory tables from these reports, and the data is also exposed locally as KQL-queryable tables for IOC enrichment.
 
-The `dzagentctl` CLI and pipeline-backed `dzdemo-collector` remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration. See [`ROADMAP.md`](ROADMAP.md) for the extraction plan, migration sequence, and service roadmaps.
+The `dzagentctl` CLI and `dzagentd` collector configuration remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration. See [`ROADMAP.md`](ROADMAP.md) for the extraction plan, migration sequence, and service roadmaps.
 
 ## Enrichment
 

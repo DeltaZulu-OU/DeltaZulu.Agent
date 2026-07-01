@@ -10,7 +10,7 @@ public sealed class ConsoleNdjsonSink : IOutputWriter
     private readonly JsonSerializerOptions _jsonOptions;
     public string Name { get; }
 
-    public ConsoleNdjsonSink(string name = "ndjson-console", bool prettyPrint = true)
+    public ConsoleNdjsonSink(string name = "ndjson-console", bool prettyPrint = false)
     {
         Name = name;
         _jsonOptions = NdjsonSerializerOptions.CreateDefault();

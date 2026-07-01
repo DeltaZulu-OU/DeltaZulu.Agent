@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Run as Collector": {
+      "commandName": "Project",
+      "commandLineArgs": "config/dzcollector.yaml",
+      "workingDirectory": "../..",
+      "dotnetRunMessages": true
+    },
+    "Run as Agent": {
+      "commandName": "Project",
+      "commandLineArgs": "config/dzagent.yaml",
+      "workingDirectory": "../..",
+      "dotnetRunMessages": true
+    }
+  }
+}

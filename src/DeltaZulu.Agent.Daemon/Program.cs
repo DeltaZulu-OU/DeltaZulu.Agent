@@ -1,8 +1,10 @@
 using DeltaZulu.Agent.Runtime;
 using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Pipeline.Inputs.Auditd;
+using DeltaZulu.Pipeline.Inputs.Relp;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
@@ -20,7 +22,7 @@ namespace DeltaZulu.Agent.Daemon;
 
 internal static class Program
 {
-    private const string DefaultConfigPath = "config/dzagentd.yaml";
+    private const string DefaultConfigPath = "config/dzagent.yaml";
 
     public static async Task<int> Main(string[] args)
     {
@@ -95,7 +97,7 @@ internal static class Program
 
             if (token is not "--console")
             {
-                throw new ArgumentException($"unknown daemon option '{token}'. Only --config is supported; this executable is forwarder-only.");
+                throw new ArgumentException($"unknown daemon option '{token}'. Only --config is supported; this executable is configuration-driven.");
             }
         }
 
@@ -106,10 +108,10 @@ internal static class Program
     {
         Console.WriteLine("""
 Usage:
-  dzagentd --config <dzagentd.yaml>
-  dzagentd <dzagentd.yaml>
+  dzagentd --config <config.yaml>
+  dzagentd <config.yaml>
 
-This executable is service-shaped from the start: it hosts only the DeltaZulu forwarder pipeline and has no query, table, JSON export, or schema commands. It can run interactively during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
+This executable is service-shaped from the start: it hosts configured DeltaZulu daemon pipelines and has no query, table, JSON export, or schema commands. Run it with config/dzagent.yaml for agent forwarding or config/dzcollector.yaml for local RELP receiver validation.
 """);
         Console.Out.Flush();
     }
@@ -139,6 +141,50 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         return Task.Run(() => runtime.Run(stoppingToken), stoppingToken);
     }
 
+
+    private IReadOnlyList<ProfileBinding> CreateRelpCollectorBindings(ForwarderDaemonConfiguration configuration)
+    {
+        var executor = new PassthroughProfileExecutor();
+        _disposables.Add(executor);
+        logger.LogInformation(
+            "Configured RELP collector input for daemon {AgentId} on {Address}:{Port}.",
+            configuration.Id,
+            configuration.RelpInput.Address,
+            configuration.RelpInput.Port);
+
+        return [new ProfileBinding(
+            new RelpInput(new RelpInputConfiguration {
+                Address = configuration.RelpInput.Address,
+                Port = configuration.RelpInput.Port,
+                UseTls = configuration.RelpInput.UseTls,
+                ServerCertificatePath = configuration.RelpInput.ServerCertificatePath,
+                ServerCertificatePassword = configuration.RelpInput.ServerCertificatePassword
+            }, $"{configuration.Id}-relp-collector"),
+            CreateCollectorProfile(),
+            executor)];
+    }
+
+    private static ResourceProfile CreateCollectorProfile() => new() {
+        Id = "daemon-relp-collector.passthrough",
+        Name = "Daemon RELP collector passthrough",
+        Version = "1.0.0",
+        Resource = new ResourceDescriptor {
+            Platform = "portable",
+            Family = "relp"
+        },
+        Input = new ResourceInputContract {
+            Table = "Source"
+        },
+        Output = new ResourceOutputContract {
+            Format = "ndjson",
+            PreserveOriginalFieldNames = true,
+            PreserveRawEvent = true,
+            MetadataEnvelope = true,
+            EventEnvelope = true,
+            OnNoMatch = "emit"
+        }
+    };
+
     private void ApplyResourceQuotas(ForwarderDaemonConfiguration configuration)
     {
         if (configuration.ResourceQuotas.CpuPercent is not { } cpuPercent)
@@ -167,6 +213,11 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
     private IReadOnlyList<ProfileBinding> CreateBindings(ForwarderDaemonConfiguration configuration)
     {
+        if (configuration.Pipeline.Input.Mode.Equals("relp", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateRelpCollectorBindings(configuration);
+        }
+
         var loadResult = new YamlResourceProfileLoader().LoadDirectory(configuration.ProfilesPath);
         foreach (var warning in loadResult.Warnings)
         {
@@ -347,8 +398,8 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
     private IOutputWriter CreateOutputSink(ForwarderDaemonConfiguration configuration) =>
         configuration.Pipeline.Output.Mode.ToLowerInvariant() switch {
-            "console" => new ConsoleNdjsonSink(),
-            "file" => new NdjsonFileSink(configuration.Pipeline.Output.File!),
+            "console" => new ConsoleNdjsonSink(prettyPrint: configuration.Pipeline.Output.PrettyPrint),
+            "file" => new NdjsonFileSink(configuration.Pipeline.Output.File!, prettyPrint: configuration.Pipeline.Output.PrettyPrint),
             _ => CreateRelpSink(configuration)
         };
 
@@ -379,8 +430,8 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         }
 
         IOutputWriter diagnosticSink = string.IsNullOrWhiteSpace(configuration.Diagnostics.File)
-            ? new ConsoleNdjsonSink()
-            : new NdjsonFileSink(configuration.Diagnostics.File);
+            ? new ConsoleNdjsonSink(prettyPrint: configuration.Diagnostics.PrettyPrint)
+            : new NdjsonFileSink(configuration.Diagnostics.File, prettyPrint: configuration.Diagnostics.PrettyPrint);
         _disposables.Add(diagnosticSink);
         _disposables.Add(new RelpHealthReporter(
             relpSink,
@@ -444,4 +495,19 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                     StringComparer.OrdinalIgnoreCase),
             _ => null
         };
+}
+
+internal sealed class PassthroughProfileExecutor : IProfileExecutor
+{
+    public IObservable<ResourceOutputRecord> Execute(
+        IObservable<SourceEvent> source,
+        ResourceProfile profile,
+        CancellationToken cancellationToken = default) =>
+        System.Reactive.Linq.Observable.Select(
+            source,
+            sourceEvent => ResourceOutputRecord.FromSource(sourceEvent, profile.Id, profile.Version));
+
+    public void Dispose()
+    {
+    }
 }

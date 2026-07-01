@@ -2,7 +2,7 @@
 
 DeltaZulu.Agent forwards filtered resource records through `DeltaZulu.DurableBuffer` and a TCP tunnel. The agent is a RELP client/forwarder; it is not a syslog daemon or production receiver. Use a dedicated receiver such as rsyslog or syslog-ng at the network edge and route accepted payloads into the downstream collector pipeline.
 
-These examples are operational starting points for lab validation. Validate plain RELP first, then enable TLS with a certificate policy that matches `config/dzagentd.yaml`.
+These examples are operational starting points for lab validation. Validate plain RELP first, then enable TLS with a certificate policy that matches `config/dzagent.yaml`.
 
 ## Ports and payload model
 
@@ -136,11 +136,11 @@ log {
    - `Thumbprint` for lab or pinned deployments where the receiver certificate thumbprint is explicitly allowed.
    - `Disabled` only for isolated diagnostics; do not use it for production traffic.
 4. Keep a persistent `buffer.path` on durable local storage.
-5. Run the demo collector smoke test before using a production receiver, then run the receiver with a small host-neutral syslog fixture and confirm the output file receives MessagePack delivery batches.
+5. Run the daemon collector smoke test before using a production receiver, then run the receiver with a small host-neutral syslog fixture and confirm the output file receives MessagePack delivery batches.
 
 ## Validation notes
 
 - Receiver snippets should preserve the RELP message body without parsing or rewriting it.
 - Restrict listener firewall rules to known agent hosts.
 - Monitor agent diagnostics for accepted, sent, acknowledged, retried, dead-lettered, rejected, and oldest-buffered-age counters.
-- Keep the pipeline-backed demo collector limited to local validation; production receivers should be separately operated and monitored.
+- Keep daemon collector mode limited to local validation; production receivers should be separately operated and monitored.

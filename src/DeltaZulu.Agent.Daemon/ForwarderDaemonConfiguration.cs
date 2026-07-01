@@ -11,6 +11,7 @@ public sealed record ForwarderDaemonConfiguration
     public ForwarderDaemonPipelineConfiguration Pipeline { get; init; } = new();
     public RelpBufferConfiguration Buffer { get; init; } = new();
     public RelpTransportConfiguration Relp { get; init; } = new();
+    public ForwarderDaemonRelpInputConfiguration RelpInput { get; init; } = new();
     public ForwarderDaemonTunnelConfiguration Tunnel { get; init; } = new();
     public ForwarderDaemonDiagnosticsConfiguration Diagnostics { get; init; } = new();
     public ForwarderDaemonResourceQuotaConfiguration ResourceQuotas { get; init; } = new();
@@ -28,6 +29,15 @@ public sealed record ForwarderDaemonPipelineInputConfiguration
     public string Mode { get; init; } = "profiles";
 }
 
+public sealed record ForwarderDaemonRelpInputConfiguration
+{
+    public string Address { get; init; } = "127.0.0.1";
+    public int Port { get; init; } = 6514;
+    public bool UseTls { get; init; }
+    public string? ServerCertificatePath { get; init; }
+    public string? ServerCertificatePassword { get; init; }
+}
+
 public sealed record ForwarderDaemonPipelineFilterConfiguration
 {
     public string Mode { get; init; } = "profiles";
@@ -39,6 +49,7 @@ public sealed record ForwarderDaemonPipelineOutputConfiguration
     public string Encoding { get; init; } = "messagepack";
     public string Transport { get; init; } = "relp";
     public string? File { get; init; }
+    public bool PrettyPrint { get; init; }
 }
 
 public sealed record ForwarderDaemonTunnelConfiguration
@@ -57,6 +68,7 @@ public sealed record ForwarderDaemonDiagnosticsConfiguration
 {
     public double? IntervalSeconds { get; init; }
     public string? File { get; init; }
+    public bool PrettyPrint { get; init; }
 }
 
 public sealed record ForwarderDaemonResourceQuotaConfiguration
@@ -75,31 +87,69 @@ public sealed class YamlForwarderDaemonConfigurationLoader
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var prefix = string.IsNullOrWhiteSpace(path) ? "Agent daemon configuration" : $"Agent daemon configuration '{path}'";
-        YamlRelpOutputConfigurationLoader.Validate(new RelpOutputConfiguration {
-            Id = configuration.Id,
-            Buffer = configuration.Buffer,
-            Relp = configuration.Relp
-        }, path);
+        var inputMode = configuration.Pipeline.Input.Mode.ToLowerInvariant();
+        if (inputMode == "profiles")
+        {
+            YamlRelpOutputConfigurationLoader.Validate(new RelpOutputConfiguration {
+                Id = configuration.Id,
+                Buffer = configuration.Buffer,
+                Relp = configuration.Relp
+            }, path);
+        }
 
         if (string.IsNullOrWhiteSpace(configuration.ProfilesPath))
         {
             throw new InvalidDataException($"{prefix} profilesPath is required.");
         }
 
-        if (!configuration.Pipeline.Input.Mode.Equals("profiles", StringComparison.OrdinalIgnoreCase))
+        if (inputMode is not ("profiles" or "relp"))
         {
-            throw new InvalidDataException($"{prefix} pipeline.input.mode must be 'profiles'.");
+            throw new InvalidDataException($"{prefix} pipeline.input.mode must be one of: profiles, relp.");
         }
 
-        if (!configuration.Pipeline.Filter.Mode.Equals("profiles", StringComparison.OrdinalIgnoreCase))
+        var filterMode = configuration.Pipeline.Filter.Mode.ToLowerInvariant();
+        if (filterMode is not ("profiles" or "passthrough"))
         {
-            throw new InvalidDataException($"{prefix} pipeline.filter.mode must be 'profiles'.");
+            throw new InvalidDataException($"{prefix} pipeline.filter.mode must be one of: profiles, passthrough.");
+        }
+
+        if (inputMode == "profiles" && filterMode != "profiles")
+        {
+            throw new InvalidDataException($"{prefix} pipeline.filter.mode must be 'profiles' when pipeline.input.mode is profiles.");
+        }
+
+        if (inputMode == "relp" && filterMode != "passthrough")
+        {
+            throw new InvalidDataException($"{prefix} pipeline.filter.mode must be 'passthrough' when pipeline.input.mode is relp.");
         }
 
         var outputMode = configuration.Pipeline.Output.Mode.ToLowerInvariant();
         if (outputMode is not ("forward" or "console" or "file"))
         {
             throw new InvalidDataException($"{prefix} pipeline.output.mode must be one of: forward, console, file.");
+        }
+
+        if (inputMode == "relp" && outputMode == "forward")
+        {
+            throw new InvalidDataException($"{prefix} pipeline.output.mode cannot be forward when pipeline.input.mode is relp.");
+        }
+
+        if (inputMode == "relp")
+        {
+            if (configuration.RelpInput.Port is < 1 or > 65535)
+            {
+                throw new InvalidDataException($"{prefix} relpInput.port must be between 1 and 65535.");
+            }
+
+            if (string.IsNullOrWhiteSpace(configuration.RelpInput.Address))
+            {
+                throw new InvalidDataException($"{prefix} relpInput.address is required.");
+            }
+
+            if (configuration.RelpInput.UseTls && string.IsNullOrWhiteSpace(configuration.RelpInput.ServerCertificatePath))
+            {
+                throw new InvalidDataException($"{prefix} relpInput.serverCertificatePath is required when relpInput.useTls is true.");
+            }
         }
 
         if (outputMode == "forward")

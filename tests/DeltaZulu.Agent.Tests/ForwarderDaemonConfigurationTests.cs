@@ -51,6 +51,45 @@ public sealed class ForwarderDaemonConfigurationTests
         Assert.AreEqual(20, configuration.ResourceQuotas.CpuPercent);
     }
 
+    [TestMethod]
+    public void Validate_AllowsRelpCollectorInputWithConsoleOutput()
+    {
+        var configuration = new ForwarderDaemonConfiguration {
+            Pipeline = new ForwarderDaemonPipelineConfiguration {
+                Input = new ForwarderDaemonPipelineInputConfiguration { Mode = "relp" },
+                Filter = new ForwarderDaemonPipelineFilterConfiguration { Mode = "passthrough" },
+                Output = new ForwarderDaemonPipelineOutputConfiguration {
+                    Mode = "console",
+                    Encoding = "ndjson",
+                    Transport = "console",
+                    PrettyPrint = true
+                }
+            },
+            RelpInput = new ForwarderDaemonRelpInputConfiguration {
+                Address = "127.0.0.1",
+                Port = 6514
+            }
+        };
+
+        YamlForwarderDaemonConfigurationLoader.Validate(configuration, "dzcollector.yaml");
+    }
+
+    [TestMethod]
+    public void Validate_RejectsForwardOutputForRelpCollectorInput()
+    {
+        var configuration = new ForwarderDaemonConfiguration {
+            Pipeline = new ForwarderDaemonPipelineConfiguration {
+                Input = new ForwarderDaemonPipelineInputConfiguration { Mode = "relp" },
+                Filter = new ForwarderDaemonPipelineFilterConfiguration { Mode = "passthrough" },
+                Output = new ForwarderDaemonPipelineOutputConfiguration { Mode = "forward" }
+            }
+        };
+
+        var exception = Assert.ThrowsExactly<InvalidDataException>(() =>
+            YamlForwarderDaemonConfigurationLoader.Validate(configuration, "dzcollector.yaml"));
+        Assert.Contains("pipeline.output.mode cannot be forward", exception.Message);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public TemporaryDirectory()

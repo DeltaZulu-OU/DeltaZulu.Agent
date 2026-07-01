@@ -2,7 +2,7 @@
 
 DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records as MessagePack `DeliveryBatch` payloads through `DeltaZulu.DurableBuffer` and a RELP.Net-backed transport adapter.
 
-This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a separate `dzagentd` daemon host for service deployment, and a `dzdemo-collector` pipeline wrapper for local RELP validation.
+This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a separate `dzagentd` daemon host for service deployment, and a `dzagentd` collector configuration for local RELP validation.
 
 
 ## Command line tool
@@ -48,9 +48,7 @@ dzagentctl syslog /var/log/auth.log --profile profiles/linux/syslog/sshd.yaml
 dzagentctl csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
 dzagentctl syslogserver --address 127.0.0.1 --port 5514
 dzagentctl fifo /run/deltazulu/logs.fifo json fifo.ndjson --kql "Source | project ReceivedAt, RawMessage, Message"
-dzdemo-collector --address 127.0.0.1 --port 6514
-# Add -p (or --pretty) to pretty-print each received JSON object for easier reading.
-dzdemo-collector --address 127.0.0.1 --port 6514 -p
+dzagentd --config config/dzcollector.yaml
 ```
 
 
@@ -59,22 +57,22 @@ dzdemo-collector --address 127.0.0.1 --port 6514 -p
 
 ## Daemon operating modes
 
-`dzagentd` runs the forwarding side of the local RELP smoke test: it discovers enabled resource profiles from `profilesPath`, reads each profile's resource input, applies the profile KQL filter, encodes delivery batches with MessagePack, and sends them over RELP. Use the dedicated `dzdemo-collector` executable for the receiving side of local validation.
+`dzagentd` runs the forwarding side of the local RELP smoke test: it discovers enabled resource profiles from `profilesPath`, reads each profile's resource input, applies the profile KQL filter, encodes delivery batches with MessagePack, and sends them over RELP. Run the same `dzagentd` executable with `config/dzcollector.yaml` for the receiving side of local validation.
 
 The current coordination contract is configuration files plus process supervision. The buffer is the durable handoff and retry state for RELP output, so named pipes, a local database, or other IPC are not required for the initial split. Add IPC only when live reload or command/control operations require runtime mutation without restarting the daemon.
 
 ```bash
 # Forwarding instance
-dzagentd --config config/dzagentd.yaml
+dzagentd --config config/dzagent.yaml
 
 # Receiving side for local validation
-dzdemo-collector --port 6514
+dzagentd --config config/dzcollector.yaml
 ```
 
-`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally non-exploratory: it has no inline query, schema listing, table output, JSON export, or other ad-hoc exploration commands. Its production role is forwarding; use `dzdemo-collector` for local receiver validation and controlled lab receiver tests. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
+`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally non-exploratory: it has no inline query, schema listing, table output, JSON export, or other ad-hoc exploration commands. Its production role is forwarding; use `config/dzcollector.yaml` for local receiver validation and controlled lab receiver tests. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
 
 ```bash
-dzagentd --config config/dzagentd.yaml
+dzagentd --config config/dzagent.yaml
 ```
 
 The daemon configuration points at a resource profile directory and owns only pipeline transport/runtime settings. Enabled profiles under `profilesPath` define the input resource (`resource.family`, `resource.channel`, `resource.session`, `resource.provider`) and the KQL filter/projection, so daemon YAML no longer duplicates a separate `sources` list. Forwarding is explicitly configured as `pipeline.output.encoding: messagepack` over `pipeline.output.transport: relp`.
@@ -108,15 +106,17 @@ During development, set `relp.tls.clientCertificateEnabled: false` to keep certi
 
 If RELP-over-TLS and future C2/control-plane traffic must share the same public address and port, terminate both protocols behind a TLS-aware edge proxy on 443 and route by SNI or ALPN rather than opening additional listener ports. For example, publish `relp-ingest.example.com:443` for RELP-over-TLS and `agent-api.example.com:443` for C2/HTTPS, both resolving to the same edge. The edge can then forward RELP traffic to the RELP receiver and C2 traffic to the control-plane service on private backend ports. Do not multiplex cleartext protocols on 443; keep TLS mandatory at the edge and restrict outbound firewall rules to destination TCP/443.
 
-For local RELP validation, the pipeline-backed demo collector still defaults to 6514 so developers can run it without privileged port binding; production deployments should override the collector or edge listener to 443.
+For local RELP validation, the daemon collector configuration defaults to 6514 so developers can run it without privileged port binding; production deployments should override the collector or edge listener to 443.
 
-## Demo collector
+## Daemon collector mode
 
-For local forwarder validation, use the pipeline-backed `dzdemo-collector` executable from `src/DeltaZulu.Demo.Collector`. It is a standard runtime pipeline instance with a MessagePack RELP input, no KQL filter, and console NDJSON output; RELP acknowledgements are handled by the shared RELP input adapter. Add `-p` or `--pretty` when you want each received JSON object expanded across multiple indented lines for readability.
+For local forwarder validation, run `dzagentd` with `config/dzcollector.yaml`. It is a standard runtime pipeline instance with a MessagePack RELP input, pass-through filtering, and configurable console/file NDJSON output; RELP acknowledgements are handled by the shared RELP input adapter. Set `pipeline.output.prettyPrint: true` when you want each received JSON object expanded across multiple indented lines for readability.
 
 ```bash
-dzdemo-collector --address 127.0.0.1 --port 6514
+dzagentd --config config/dzcollector.yaml
 ```
+
+Visual Studio users can select the shared `Agent + Collector` solution launch profile to start both daemon instances together under the debugger. The profile launches `Run as Collector` first, then `Run as Agent`, using the two daemon launch profiles in `src/DeltaZulu.Agent.Daemon/Properties/launchSettings.json`.
 
 Windows process creation examples:
 
@@ -185,7 +185,6 @@ src/
     Relp/
     MessagePack/
   DeltaZulu.Agent.Daemon/
-  DeltaZulu.Demo.Collector/
   DeltaZulu.Agent.Inputs/
     Relp/
     Syslog/

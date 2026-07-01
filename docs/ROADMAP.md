@@ -1,6 +1,6 @@
 # Roadmap
 
-DeltaZulu.Agent has moved from the initial library-and-buffer spike into a working split-host architecture: `dzagentctl` for exploration, `dzagentd` for YAML-configured daemon operation, and `dzdemo-collector` for local RELP validation. This document is the single planning, status, and validation reference for the agent docs. The architecture details live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+DeltaZulu.Agent has moved from the initial library-and-buffer spike into a working split-host architecture: `dzagentctl` for exploration, `dzagentd` for YAML-configured daemon operation, and `dzagentd` collector mode for local RELP validation. This document is the single planning, status, and validation reference for the agent docs. The architecture details live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 
 ## Documentation consistency assessment
@@ -9,7 +9,7 @@ This roadmap now treats documentation alignment as the first planning step befor
 
 | Question | Answer from the docs/repo | Alignment decision |
 | --- | --- | --- |
-| Why did docs call `dzagentd` forwarder-only while also describing a collector-style daemon configuration? | `ARCHITECTURE.md` and `README.md` both describe `sources[].input: relp` with console/file output for validation. | Use "production forwarding role" for `dzagentd`; reserve collector-style mode for local validation and controlled labs. |
+| Why did docs call `dzagentd` forwarding-role while also describing a collector-style daemon configuration? | `ARCHITECTURE.md` and `README.md` both describe `sources[].input: relp` with console/file output for validation. | Use "production forwarding role" for `dzagentd`; reserve collector-style mode for local validation and controlled labs. |
 | Why did docs mention `RELP.Net` and `external/RELP.Net`? | The current `.gitmodules` declares `external/DeltaZulu.Relp` and `external/DeltaZulu.DurableBuffer`; `src/DeltaZulu.Agent.Outputs` references `DeltaZulu.Relp`. | Refer to the transport dependency as `DeltaZulu.Relp` and initialize both direct submodules. |
 | Why did the roadmap list Domain/Application/Core projects? | Current project files use `DeltaZulu.Agent.Pipeline` and `DeltaZulu.Agent.Runtime`; no `DeltaZulu.Agent.Core` project is present. | Describe the implemented split by actual project names. |
 | Why is pipeline extraction still P0 when stabilization also remains P0? | Extraction changes repository boundaries and can destabilize forwarding; stabilization protects the working data path. | Gate extraction behind explicit readiness tasks and keep forwarding stabilization first in execution order. |
@@ -31,7 +31,7 @@ This roadmap now treats documentation alignment as the first planning step befor
 
 Implemented foundation:
 
-- .NET 10 solution split across Pipeline, Runtime, KQL, Outputs, Daemon, CLI, input adapters, Demo Collector, and external Buffer/RELP submodule projects.
+- .NET 10 solution split across Pipeline, Runtime, KQL, Outputs, Daemon, CLI, input adapters, Daemon collector mode, and external Buffer/RELP submodule projects.
 - `System.Reactive` based input/runtime flow without custom observable infrastructure.
 - Resource-profile YAML model, loader, validation, WMI host conditions, and KQL execution seam using `Microsoft.Rx.Kql`.
 - NDJSON file/console sinks for the exploration CLI.
@@ -42,8 +42,8 @@ Implemented foundation:
 - Windows Event Log named XML `EventData` extraction as nested payload fields and top-level convenience fields.
 - Sample Linux, Windows Event Log, auditd, and ETW profiles.
 - Shared application runtime that binds inputs, optional profiles, and outputs.
-- Split hosts: `dzagentctl` for exploration, `dzagentd` for YAML-configured daemon operation, and `dzdemo-collector` for local RELP validation.
-- YAML daemon configuration in `config/dzagentd.yaml` for sources, buffer, RELP endpoints/TLS policy, and diagnostics.
+- Split hosts: `dzagentctl` for exploration, `dzagentd` for YAML-configured daemon operation, and `dzagentd` collector mode for local RELP validation.
+- YAML daemon configurations in `config/dzagent.yaml` and `config/dzcollector.yaml` for sources, buffer, RELP endpoints/TLS policy, and diagnostics.
 - `DeltaZulu.DurableBuffer` durable chunk storage, checksums, atomic file transitions, retry, backpressure, recovery, metrics, and dead-letter support.
 - RELP-neutral delivery records, batches, ACKs, transport port, buffered forwarder sink, DeltaZulu.Relp adapter, ordered endpoint failover groundwork, and forwarder health snapshots.
 - Stable `DeliveryId` per delivery envelope for at-least-once server deduplication.
@@ -72,7 +72,7 @@ DeltaZulu.Agent is transitioning from a monolithic streaming ETL agent into a mo
 - **Metrics service**: Sends periodic heartbeat and operational telemetry to the server. Forwards pipeline health metrics (buffer state, source status, delivery counters) alongside agent-level metrics (version, platform, uptime).
 - **CMDB-lite inventory service**: Runs scheduled local inventory scans (users, software, browser extensions, hardware, ARP table, network interfaces) and sends snapshot reports as structured log events. The server populates inventory tables from these reports. Inventory data is also available locally as KQL-queryable tables for IOC enrichment.
 
-The `dzagentctl` exploration CLI and `dzdemo-collector` validation receiver remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration.
+The `dzagentctl` exploration CLI and `dzagentd` collector configuration validation receiver remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration.
 
 ## Completed forwarder-first outcomes
 
@@ -81,7 +81,7 @@ The old forwarder-first plan is complete and no longer maintained as a separate 
 - RELP-neutral `DeliveryRecord`, `DeliveryBatch`, `DeliveryAck`, and transport boundary.
 - Buffered forwarder path using `DeltaZulu.DurableBuffer` as the durability/backpressure layer.
 - DeltaZulu.Relp-backed transport adapter hidden behind the transport boundary.
-- Separate `dzdemo-collector` executable for local validation.
+- Single `dzagentd` executable with a collector configuration for local validation.
 - Stable delivery IDs and metadata preservation across KQL projections.
 - Forwarder health observations.
 - Split `dzagentctl` exploration CLI and `dzagentd` daemon host.
@@ -104,7 +104,7 @@ Goal: protect the working production forwarding path before starting extraction 
 - [ ] Keep `dzagentd` focused on configured long-running daemon work: sources, optional profiles, durable enqueue, RELP dispatch, diagnostics, and lab-only collector-style validation.
   - Instruction: do not add inline query, schema listing, table rendering, or ad-hoc export commands to `dzagentd`; keep those in `dzagentctl`.
   - Acceptance: README and architecture host-role text continue to separate CLI exploration from daemon configuration.
-- [ ] Exercise daemon smoke tests against `dzdemo-collector`.
+- [ ] Exercise daemon smoke tests against `dzagentd` collector mode.
   - Instruction: cover successful send, retry, permanent failure, dead-letter, and restart-recovery scenarios.
   - Acceptance: a documented smoke-test transcript identifies the daemon config, collector command, observed ACK/retry/dead-letter behavior, and cleanup commands.
 - [ ] Preserve delivery metadata outside user-controlled KQL projections.
@@ -113,7 +113,7 @@ Goal: protect the working production forwarding path before starting extraction 
 - [ ] Tie future source checkpoint advancement to durable enqueue rather than network ACK.
   - Instruction: checkpoint only after the source event has been represented in durable buffer state; do not wait for RELP ACK before source advancement.
   - Acceptance: design notes and tests distinguish source checkpointing from transport acknowledgement.
-- [ ] Keep operator examples aligned with `config/dzagentd.yaml`.
+- [ ] Keep operator examples aligned with `config/dzagent.yaml`.
   - Instruction: update examples in README and this roadmap whenever daemon config keys or default buffer paths change.
   - Acceptance: smoke-test examples run from a clean checkout and include commands to remove temporary logs, configs, and buffer directories.
 
@@ -178,17 +178,17 @@ dotnet run --project src/DeltaZulu.Agent.Cli -- eventlog Security table --kql "S
 
 Use optional or lab-only resources for Sysmon, PowerShell, SMB, and Defender examples unless those logs are guaranteed to exist on the validation host.
 
-### Forwarder and demo collector smoke test
+### Forwarder and daemon collector smoke test
 
 Use two terminals on a .NET 10-capable host:
 
 ```bash
 # terminal 1
-dotnet run --project src/DeltaZulu.Demo.Collector -- --address 127.0.0.1 --port 6514
+dotnet run --project src/DeltaZulu.Agent.Daemon -- config/dzcollector.yaml
 
 # terminal 2
 printf '<34>1 2026-06-23T12:00:00Z host app 123 ID47 - test message\n' > /tmp/dzagent-smoke.log
-cp config/dzagentd.yaml /tmp/dzagentd-smoke.yaml
+cp config/dzagent.yaml /tmp/dzagentd-smoke.yaml
 python3 - <<'PYAML'
 from pathlib import Path
 p = Path('/tmp/dzagentd-smoke.yaml')
@@ -207,7 +207,7 @@ rm -f /tmp/dzagentd-smoke.yaml
 rm -rf ./buffer/agentd-smoke
 ```
 
-The demo collector is only a local validation receiver. It is not a production collector, daemon, SIEM, or syslog daemon replacement.
+Daemon collector mode is only a local validation receiver. It is not a production collector, SIEM, or syslog daemon replacement.
 
 ## P0: Pipeline extraction readiness
 
@@ -233,7 +233,7 @@ The pipeline repository owns its own submodule references to `DeltaZulu.DurableB
 
 - `DeltaZulu.Agent.Daemon`: Refactored from a production-forwarding daemon into the orchestrator/watchdog. Supervises the pipeline, policy service, metrics service, and inventory service as managed hosted services.
 - `DeltaZulu.Agent.Cli`: Exploration CLI. References the pipeline submodule for input/profile/KQL operations.
-- `DeltaZulu.Demo.Collector`: Local RELP validation receiver.
+- `DeltaZulu.Agent.Daemon collector config`: Local RELP validation receiver.
 - New agent-level projects for policy, metrics, and inventory services.
 
 ### Test split

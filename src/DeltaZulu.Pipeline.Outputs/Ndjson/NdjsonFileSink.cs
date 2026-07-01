@@ -14,7 +14,7 @@ public sealed class NdjsonFileSink : IOutputWriter
 
     public string Name { get; }
 
-    public NdjsonFileSink(string path, string name = "ndjson-file")
+    public NdjsonFileSink(string path, string name = "ndjson-file", bool prettyPrint = false)
     {
         Name = name;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".");
@@ -26,6 +26,7 @@ public sealed class NdjsonFileSink : IOutputWriter
             Options = FileOptions.SequentialScan
         });
         _jsonOptions = NdjsonSerializerOptions.CreateDefault();
+        _jsonOptions.WriteIndented = prettyPrint;
     }
 
     public void OnNext(ResourceOutputRecord value)
