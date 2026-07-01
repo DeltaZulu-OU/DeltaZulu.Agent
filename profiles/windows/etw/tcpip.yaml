@@ -26,4 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-TCPIP"
-    | where EventId in (10, 11, 12, 13, 14, 15, 16, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33, 34)
+    | where EventId in (1300, 1341, 1364, 1365) or EventName has_any ("Connect", "Endpoint", "Summary", "Rundown")

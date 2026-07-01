@@ -26,3 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Kernel-Process"
+    | where EventName in~ ("ProcessStart", "ProcessStop", "ImageLoad", "ImageUnload") or EventId in (1, 2, 5, 6)

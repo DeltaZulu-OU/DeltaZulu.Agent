@@ -26,4 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-AppLocker"
-    | where EventId in (8003, 8004, 8006, 8007, 8021, 8022, 8024, 8025)
+    | where EventId in (8004, 8007, 8022, 8025, 8027)

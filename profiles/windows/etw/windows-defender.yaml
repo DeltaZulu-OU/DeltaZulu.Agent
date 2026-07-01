@@ -25,5 +25,5 @@ filter:
   language: kql
   query: |
     Etw
-    | where ProviderName =~ "Microsoft-Windows-Defender"
-    | where EventId in (5000, 5001, 1116, 1117)
+    | where ProviderName in~ ("Microsoft-Windows-Windows Defender", "Microsoft-Windows-Defender")
+    | where EventId in (1015, 1116, 1117, 5007)

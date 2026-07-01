@@ -26,4 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-PowerShell"
-    | where EventId in (4103, 4104, 4105, 4106)
+    | where EventId in (4103, 4104)

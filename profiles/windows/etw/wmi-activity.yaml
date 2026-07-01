@@ -26,4 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-WMI-Activity"
-    | where EventId in (11, 22)
+    | where EventId in (5857, 5858, 5859, 5860, 5861)

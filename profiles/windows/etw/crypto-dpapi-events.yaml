@@ -26,4 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Crypto-DPAPI-Events"
-    | where EventId in (1, 2, 3, 4, 5, 4097, 4098, 8193, 8194, 8195, 8196, 8197, 8198, 16385)
+    | where EventId in (4097, 4098, 8193, 8194, 8195, 8196)

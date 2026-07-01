@@ -26,4 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-DotNETRuntime"
-    | where EventId in (80, 141, 151, 154, 155, 156, 157, 158, 250, 251, 252, 253, 254) or EventId >= 280
+    | where EventId in (80, 141, 151, 154, 155, 156, 157, 158)

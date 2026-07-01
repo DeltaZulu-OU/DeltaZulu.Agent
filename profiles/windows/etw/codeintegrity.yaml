@@ -26,4 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-CodeIntegrity"
-    | where EventId in (3023, 3036, 3076, 3077)
+    | where EventId in (3033, 3034, 3076, 3077, 3089, 3099)

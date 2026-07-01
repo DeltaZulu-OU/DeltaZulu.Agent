@@ -26,3 +26,4 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-DNS-Client"
+    | where EventId in (1013, 1015, 1016, 1024, 1025, 1026)
