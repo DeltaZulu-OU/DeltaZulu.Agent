@@ -12,6 +12,7 @@ using DeltaZulu.Pipeline.Outputs.Ndjson;
 using DeltaZulu.Pipeline.Prefilter;
 
 #if WINDOWS
+using DeltaZulu.Pipeline.Core.Windows;
 using DeltaZulu.Pipeline.Inputs.Windows;
 #endif
 
@@ -44,6 +45,11 @@ internal static partial class Program
             {
                 ListSchemas(args);
                 return 0;
+            }
+
+            if (IsProviderCommand(args[0]))
+            {
+                return RunProviderCommand(args);
             }
 
             var plan = CliPlan.Parse(args);
@@ -375,6 +381,88 @@ internal static partial class Program
     }
 
     private static bool IsSchemaCommand(string value) => value is "schema" or "schemas" or "resources" or "list-schemas" or "list-resources";
+
+    private static bool IsProviderCommand(string value) => value is "provider" or "providers";
+
+    private static int RunProviderCommand(string[] args)
+    {
+#if WINDOWS
+        var format = "table";
+        var positionals = new List<string>();
+        for (var i = 1; i < args.Length; i++)
+        {
+            if (args[i].Equals("json", StringComparison.OrdinalIgnoreCase) || args[i].Equals("table", StringComparison.OrdinalIgnoreCase))
+            {
+                format = args[i].ToLowerInvariant();
+            }
+            else if (!args[i].StartsWith('-'))
+            {
+                positionals.Add(args[i]);
+            }
+            else
+            {
+                throw new ArgumentException($"unknown provider option '{args[i]}'");
+            }
+        }
+
+        var reader = new WindowsProviderMetadataReader();
+
+        if (args[0] == "providers")
+        {
+            var names = reader.ListProviderNames();
+            if (format == "json")
+            {
+                Console.WriteLine(JsonSerializer.Serialize(names, NdjsonSerializerOptions.CreateDefault()));
+            }
+            else
+            {
+                foreach (var name in names)
+                {
+                    Console.WriteLine(name);
+                }
+            }
+
+            Console.Out.Flush();
+            return 0;
+        }
+
+        if (positionals.Count == 0)
+        {
+            throw new ArgumentException("provider requires a provider name or GUID, e.g. 'dzagentctl provider Microsoft-Windows-Sysmon'.");
+        }
+
+        var target = positionals[0];
+        var providerName = target;
+        if (Guid.TryParse(target, out var guid))
+        {
+            providerName = reader.ResolveProviderNameByGuid(guid)
+                ?? throw new ArgumentException($"No registered provider found with GUID '{guid}'.");
+        }
+
+        var definitions = reader.ReadProvider(providerName);
+        if (format == "json")
+        {
+            Console.WriteLine(JsonSerializer.Serialize(definitions, NdjsonSerializerOptions.CreateDefault()));
+            Console.Out.Flush();
+            return 0;
+        }
+
+        Console.WriteLine("channel\tprovider\teventId\ttemplateFields");
+        foreach (var definition in definitions.OrderBy(d => d.Channel, StringComparer.OrdinalIgnoreCase).ThenBy(d => d.EventId))
+        {
+            var fields = string.Join(", ", definition.Fields.Select(f => f.Name));
+            Console.WriteLine($"{definition.Channel}\t{definition.Provider}\t{definition.EventId}\t{fields}");
+        }
+
+        Console.Out.Flush();
+        return 0;
+#else
+        _ = args;
+        Console.Error.WriteLine("provider inspection is only available on Windows.");
+        Console.Error.Flush();
+        return 1;
+#endif
+    }
 
     private static void ListSchemas(string[] args)
     {

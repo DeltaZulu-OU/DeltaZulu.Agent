@@ -1,4 +1,8 @@
+using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Checkpoints;
+using DeltaZulu.Pipeline.Core.Windows;
+using System.ComponentModel;
 using System.Diagnostics.Eventing.Reader;
 using System.Xml.Linq;
 using System.Reactive.Disposables;
@@ -11,20 +15,54 @@ public sealed class WindowsEventLogInput : ISourceInput
     public const string DisabledChannelErrorFragment = "exists on this host but its channel is disabled";
     private readonly string _requestedLogName;
     private readonly TimeSpan _pollInterval;
+    private readonly PollRetryPolicy _retryPolicy;
+    private readonly EventLogStartPosition _startPosition;
+    private readonly long? _configuredRecordId;
+    private readonly TimeSpan? _lookback;
+    private readonly ISourceCheckpointStore _checkpointStore;
+    private readonly string _checkpointKey;
     private string? _resolvedLogName;
+    private int _subscribed;
     public string Name { get; }
 
-    public WindowsEventLogInput(string logName, string? name = null, TimeSpan? pollInterval = null)
+    public WindowsEventLogInput(
+        string logName,
+        string? name = null,
+        TimeSpan? pollInterval = null,
+        PollRetryPolicy? retryPolicy = null,
+        EventLogStartPosition startPosition = EventLogStartPosition.FromNow,
+        long? recordId = null,
+        TimeSpan? lookback = null,
+        ISourceCheckpointStore? checkpointStore = null,
+        string? checkpointKey = null)
     {
         _requestedLogName = logName;
         _pollInterval = pollInterval ?? TimeSpan.FromSeconds(1);
+        _retryPolicy = retryPolicy ?? new PollRetryPolicy();
+        _startPosition = startPosition;
+        _configuredRecordId = recordId;
+        _lookback = lookback;
+        _checkpointStore = checkpointStore ?? NullSourceCheckpointStore.Instance;
         Name = name ?? logName;
+        _checkpointKey = checkpointKey ?? $"windows.eventlog.{Name}";
     }
 
     public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => System.Reactive.Linq.Observable.Create<SourceEvent>(observer => {
+        // Guard against a second concurrent subscription starting its own poll loop with an
+        // independent record cursor on the same instance. Only one active subscription is allowed.
+        if (Interlocked.CompareExchange(ref _subscribed, 1, 0) != 0)
+        {
+            observer.OnError(new InvalidOperationException($"Windows Event Log input '{Name}' is already open; each instance supports a single active subscription."));
+            return Disposable.Empty;
+        }
+
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _ = Task.Run(() => PollAsync(observer, cts.Token), cts.Token);
-        return Disposable.Create(() => cts.Cancel());
+        return Disposable.Create(() => {
+            cts.Cancel();
+            cts.Dispose();
+            Interlocked.Exchange(ref _subscribed, 0);
+        });
     });
 
     private async Task PollAsync(IObserver<SourceEvent> observer, CancellationToken cancellationToken)
@@ -33,15 +71,59 @@ public sealed class WindowsEventLogInput : ISourceInput
         {
             if (!TryResolveLogName(out var logName, out var errorMessage))
             {
+                // A missing/disabled/inaccessible channel is a configuration error, not a transient
+                // read failure, so it terminates the stream immediately rather than being retried.
                 observer.OnError(new InvalidOperationException(errorMessage ?? $"Unable to resolve Windows Event Log '{_requestedLogName}'."));
                 return;
             }
 
-            var lastRecordId = ReadLatestRecordId(logName);
+            long lastRecordId = 0;
+            long lastPersisted = -1;
+            var initialized = false;
+            var consecutiveFailures = 0;
+
             while (!cancellationToken.IsCancellationRequested)
             {
-                lastRecordId = ReadNewEvents(observer, logName, lastRecordId);
-                await Task.Delay(_pollInterval, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    if (!initialized)
+                    {
+                        lastRecordId = InitializeCursor(observer, logName);
+                        initialized = true;
+                    }
+
+                    lastRecordId = ReadNewEvents(observer, logName, lastRecordId);
+
+                    // Persist the resume point only after the batch's synchronous handoff returns.
+                    // Because OnNext blocks until each record reaches the durable buffer, this
+                    // coincides with the durable-enqueue advancement boundary in the current pipeline.
+                    if (lastRecordId != lastPersisted)
+                    {
+                        _checkpointStore.Save(_checkpointKey, lastRecordId.ToString());
+                        lastPersisted = lastRecordId;
+                    }
+
+                    consecutiveFailures = 0;
+                    await Task.Delay(_pollInterval, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (IsTransientReadError(ex))
+                {
+                    // Transient read failures (channel momentarily locked, provider metadata not yet
+                    // available) must not kill the stream. Back off and retry until the failure count
+                    // crosses the escalation threshold, at which point the channel is treated as broken.
+                    consecutiveFailures++;
+                    if (_retryPolicy.ShouldEscalate(consecutiveFailures))
+                    {
+                        observer.OnError(CreatePollingException(ex, consecutiveFailures));
+                        return;
+                    }
+
+                    await Task.Delay(_retryPolicy.GetBackoffDelay(consecutiveFailures), cancellationToken).ConfigureAwait(false);
+                }
             }
 
             observer.OnCompleted();
@@ -56,10 +138,56 @@ public sealed class WindowsEventLogInput : ISourceInput
         }
     }
 
-    private Exception CreatePollingException(Exception exception)
+    private static bool IsTransientReadError(Exception exception) =>
+        exception is EventLogException or Win32Exception;
+
+    private Exception CreatePollingException(Exception exception, int? consecutiveFailures = null)
     {
         var logName = string.IsNullOrWhiteSpace(_resolvedLogName) ? _requestedLogName : _resolvedLogName;
-        return new InvalidOperationException($"Windows Event Log input '{Name}' failed while reading '{logName}': {exception.Message}", exception);
+        var suffix = consecutiveFailures is { } count
+            ? $" after {count} consecutive read failures"
+            : string.Empty;
+        return new InvalidOperationException($"Windows Event Log input '{Name}' failed while reading '{logName}'{suffix}: {exception.Message}", exception);
+    }
+
+    private long InitializeCursor(IObserver<SourceEvent> observer, string logName)
+    {
+        var token = _checkpointStore.TryLoad(_checkpointKey, out var loaded) ? loaded : null;
+        var resolved = EventLogStartPositionResolver.Resolve(_startPosition, _configuredRecordId, _lookback, token);
+
+        return resolved.Kind switch
+        {
+            ResolvedStartKind.Newest => ReadLatestRecordId(logName),
+            ResolvedStartKind.Oldest => 0,
+            ResolvedStartKind.AfterRecordId => resolved.RecordId,
+            ResolvedStartKind.Lookback => SeekLookback(observer, logName, resolved.Lookback),
+            _ => ReadLatestRecordId(logName)
+        };
+    }
+
+    private long SeekLookback(IObserver<SourceEvent> observer, string logName, TimeSpan window)
+    {
+        var windowMs = (long)Math.Max(0, window.TotalMilliseconds);
+        var queryText = $"*[System[TimeCreated[timediff(@SystemTime) <= {windowMs}]]]";
+        var query = new EventLogQuery(logName, PathType.LogName, queryText);
+        using var reader = new EventLogReader(query);
+
+        var newestRecordId = 0L;
+        for (var record = reader.ReadEvent(); record is not null; record = reader.ReadEvent())
+        {
+            using (record)
+            {
+                if (record.RecordId is long recordId)
+                {
+                    newestRecordId = Math.Max(newestRecordId, recordId);
+                }
+
+                observer.OnNext(WindowsSourceEventMapper.FromDictionary(ToDictionary(record), "WindowsEventLog", logName, nameof(WindowsEventLogInput)));
+            }
+        }
+
+        // No events in the window: start from the current tail rather than replaying the whole channel.
+        return newestRecordId > 0 ? newestRecordId : ReadLatestRecordId(logName);
     }
 
     private long ReadLatestRecordId(string logName)
@@ -224,9 +352,13 @@ public sealed class WindowsEventLogInput : ISourceInput
 
     private static string ExpandLogAlias(string logName) => logName.ToLowerInvariant() switch
     {
+        "security" => "Security",
         "sysmon" => "Microsoft-Windows-Sysmon/Operational",
         "sysmon-operational" => "Microsoft-Windows-Sysmon/Operational",
-        "security" => "Security",
+        "powershell-operational" => "Microsoft-Windows-PowerShell/Operational",
+        "powershell-core-operational" => "PowerShellCore/Operational",
+        "applocker-exe-and-dll" => "Microsoft-Windows-AppLocker/EXE and DLL",
+        "applocker-msi-and-script" => "Microsoft-Windows-AppLocker/MSI and Script",
         _ => logName
     };
 
@@ -248,6 +380,10 @@ public sealed class WindowsEventLogInput : ISourceInput
 
     private static IReadOnlyDictionary<string, object?> ToDictionary(EventRecord record)
     {
+        // The display-name properties (LevelDisplayName, OpcodeDisplayName, TaskDisplayName,
+        // KeywordsDisplayNames) resolve provider manifest metadata lazily and throw when that
+        // metadata is missing on the host. Each read is isolated so a single unresolved event
+        // degrades to its numeric/base fields instead of terminating collection.
         var fields = new Dictionary<string, object?>(16, StringComparer.OrdinalIgnoreCase)
         {
             ["ProviderName"] = record.ProviderName,
@@ -255,16 +391,16 @@ public sealed class WindowsEventLogInput : ISourceInput
             ["Qualifiers"] = record.Qualifiers,
             ["Channel"] = record.LogName,
             ["RecordId"] = record.RecordId,
-            ["Level"] = record.LevelDisplayName ?? record.Level?.ToString(),
-            ["Opcode"] = record.OpcodeDisplayName ?? record.Opcode?.ToString(),
-            ["Task"] = record.TaskDisplayName ?? record.Task?.ToString(),
-            ["Keywords"] = record.KeywordsDisplayNames is null ? null : string.Join(",", record.KeywordsDisplayNames),
+            ["Level"] = SafeGet(() => record.LevelDisplayName) ?? record.Level?.ToString(),
+            ["Opcode"] = SafeGet(() => record.OpcodeDisplayName) ?? record.Opcode?.ToString(),
+            ["Task"] = SafeGet(() => record.TaskDisplayName) ?? record.Task?.ToString(),
+            ["Keywords"] = SafeGet(() => record.KeywordsDisplayNames is null ? null : string.Join(",", record.KeywordsDisplayNames)),
             ["MachineName"] = record.MachineName,
             ["ProcessId"] = record.ProcessId,
             ["ThreadId"] = record.ThreadId,
             ["TimeCreated"] = record.TimeCreated,
             ["EventData"] = record.Properties.Select(property => property.Value).ToArray(),
-            ["RawEvent"] = SafeFormat(record.ToXml)
+            ["RawEvent"] = SafeGet(record.ToXml)
         };
 
         if (fields["RawEvent"] is string xml)
@@ -280,7 +416,7 @@ public sealed class WindowsEventLogInput : ISourceInput
             }
         }
 
-        var message = SafeFormat(record.FormatDescription);
+        var message = SafeGet(record.FormatDescription);
         if (!string.IsNullOrWhiteSpace(message))
         {
             fields["Message"] = message;
@@ -330,9 +466,16 @@ public sealed class WindowsEventLogInput : ISourceInput
         }
     }
 
-    private static string? SafeFormat(Func<string> formatter)
+    /// <summary>
+    /// Evaluates a Windows Event Log property/formatting accessor, returning <see langword="null"/>
+    /// when the underlying provider metadata cannot be resolved on this host. Isolates
+    /// <see cref="EventLogException"/> and <see cref="Win32Exception"/> so a single unresolvable
+    /// field does not terminate the collection loop.
+    /// </summary>
+    private static string? SafeGet(Func<string?> accessor)
     {
-        try { return formatter(); }
+        try { return accessor(); }
         catch (EventLogException) { return null; }
+        catch (Win32Exception) { return null; }
     }
 }
