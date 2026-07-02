@@ -1,3 +1,6 @@
+schemaVersion: 1
+id: windows.etw.applocker
+name: Microsoft AppLocker ETW policy events
 version: 1.0.0
 enabled: true
 mandatory: true

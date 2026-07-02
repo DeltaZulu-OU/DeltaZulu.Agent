@@ -1,3 +1,6 @@
+schemaVersion: 1
+id: windows.etw.dotnet-runtime
+name: Microsoft .NET Runtime ETW execution events
 version: 1.0.0
 enabled: true
 mandatory: true

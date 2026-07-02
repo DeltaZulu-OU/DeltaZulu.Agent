@@ -1,3 +1,6 @@
+schemaVersion: 1
+id: windows.etw.crypto-dpapi-events
+name: Microsoft Crypto DPAPI ETW protection events
 version: 1.0.0
 enabled: true
 mandatory: true
