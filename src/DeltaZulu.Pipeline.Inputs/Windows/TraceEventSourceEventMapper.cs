@@ -21,12 +21,9 @@ internal static class TraceEventSourceEventMapper
             ["EventName"] = data.EventName
         };
 
-        var eventData = PayloadMaterializer.MaterializeSelected(data, selectedPayloadFields);
-        fields["EventData"] = eventData;
-
-        foreach (var payloadField in eventData)
+        foreach (var payloadField in PayloadMaterializer.MaterializeSelected(data, selectedPayloadFields))
         {
-            fields.TryAdd(payloadField.Key, payloadField.Value);
+            fields[payloadField.Key] = payloadField.Value;
         }
 
         return fields.AsReadOnly();
