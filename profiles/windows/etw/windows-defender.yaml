@@ -26,4 +26,5 @@ filter:
   query: |
     Etw
     | where ProviderName in~ ("Microsoft-Windows-Windows Defender", "Microsoft-Windows-Defender")
+    // Keep Defender threat, remediation, behavioral, and configuration-change events; omit routine health/update chatter.
     | where EventId in (1015, 1116, 1117, 5007)

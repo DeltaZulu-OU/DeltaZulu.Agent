@@ -1,6 +1,3 @@
-schemaVersion: 1
-id: windows.etw.dns-client
-name: Microsoft DNS Client ETW resource filter
 version: 1.0.0
 enabled: true
 mandatory: true
@@ -26,4 +23,5 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-DNS-Client"
+    // Keep DNS timeout/name-error/malformed-query task families; omit successful-query churn from browsers, update agents, and cloud services.
     | where EventId in (1013, 1015, 1016, 1024, 1025, 1026)

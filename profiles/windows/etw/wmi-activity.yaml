@@ -26,4 +26,5 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-WMI-Activity"
+    // Keep WMI provider/activity/subscription events including 5861 persistence evidence; suppress benign 5858 patterns downstream by tool/namespace rather than dropping the ID.
     | where EventId in (5857, 5858, 5859, 5860, 5861)

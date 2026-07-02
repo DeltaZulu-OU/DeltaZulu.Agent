@@ -1,6 +1,3 @@
-schemaVersion: 1
-id: windows.etw.kernel-file
-name: Windows Kernel File ETW resource filter
 version: 1.0.0
 enabled: true
 mandatory: true
@@ -26,4 +23,5 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Kernel-File"
+    // Keep create/write/rename/delete-style file semantics; omit blanket read/open/close noise that dominates baseline file telemetry.
     | where EventId in (12, 14, 17, 23, 26, 27, 30, 31, 32, 33, 34)

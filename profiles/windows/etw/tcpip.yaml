@@ -24,6 +24,7 @@ output:
 filter:
   language: kql
   query: |
-    Etw
+   Etw
     | where ProviderName =~ "Microsoft-Windows-TCPIP"
+    // Keep connection summary/rundown and endpoint/connect-style activity; omit full send/receive-path packet telemetry for baseline cost control.
     | where EventId in (1300, 1341, 1364, 1365) or EventName has_any ("Connect", "Endpoint", "Summary", "Rundown")

@@ -1,6 +1,3 @@
-schemaVersion: 1
-id: windows.etw.dotnet-runtime
-name: Microsoft .NET Runtime ETW diagnostics
 version: 1.0.0
 enabled: true
 mandatory: true
@@ -26,4 +23,5 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-DotNETRuntime"
+    // Keep loader/JIT/exception-oriented CLR events; omit GC, heap, allocation, and rundown telemetry that is too costly for routine detection.
     | where EventId in (80, 141, 151, 154, 155, 156, 157, 158)

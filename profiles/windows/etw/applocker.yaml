@@ -1,6 +1,3 @@
-schemaVersion: 1
-id: windows.etw.applocker
-name: Microsoft AppLocker ETW policy events
 version: 1.0.0
 enabled: true
 mandatory: true
@@ -26,4 +23,5 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-AppLocker"
+    // Keep block/deny outcomes for baseline collection; audit-only allow/would-block events are left for short baselining runs to avoid noisy allow telemetry.
     | where EventId in (8004, 8007, 8022, 8025, 8027)

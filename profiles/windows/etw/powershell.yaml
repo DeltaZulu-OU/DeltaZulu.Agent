@@ -1,6 +1,3 @@
-schemaVersion: 1
-id: windows.etw.powershell
-name: Microsoft PowerShell ETW script and module logging
 version: 1.0.0
 enabled: true
 mandatory: true
@@ -26,4 +23,5 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-PowerShell"
+    // Keep module and script-block logging for detection; omit verbose lifecycle/progress events that are less useful for baseline collection.
     | where EventId in (4103, 4104)
