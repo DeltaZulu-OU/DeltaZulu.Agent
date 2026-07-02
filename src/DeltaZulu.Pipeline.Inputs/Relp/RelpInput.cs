@@ -191,9 +191,11 @@ public sealed class RelpInput : ISourceInput
             ParserName = nameof(RelpInput),
             RawPreserved = true,
             Properties = new Dictionary<string, object?> {
-                ["relp.deliveryId"] = deliveryRecord.DeliveryId,
-                ["relp.recordId"] = deliveryRecord.RecordId,
-                ["relp.createdAt"] = deliveryRecord.CreatedAt
+                ["relp"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
+                    ["deliveryID"] = deliveryRecord.DeliveryId,
+                    ["recordId"] = deliveryRecord.RecordId,
+                    ["createdAt"] = deliveryRecord.CreatedAt
+                }
             }
         };
 

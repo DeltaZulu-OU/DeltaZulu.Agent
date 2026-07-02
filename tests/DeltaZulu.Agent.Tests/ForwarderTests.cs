@@ -191,6 +191,39 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
+    public void RelpInput_ToSourceEvent_AddsNestedRelpMetadata()
+    {
+        var createdAt = DateTimeOffset.Parse("2026-07-02T07:21:49.4311395+00:00");
+        var deliveryRecord = new DeliveryRecord {
+            DeliveryId = "351ddc6968b94697b9369fe81bc9c14f",
+            AgentId = "agent-01",
+            SourceId = "Syslog:auth.log",
+            ProfileId = "linux.sshd",
+            RecordId = "05f821f93196441ab90bcd64395a836e",
+            CreatedAt = createdAt,
+            Record = new ResourceOutputRecord {
+                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
+                Event = new Dictionary<string, object?> { ["Message"] = "hello" }
+            }
+        };
+        var relpInput = new RelpInput(new RelpInputConfiguration());
+
+        var method = typeof(RelpInput).GetMethod("ToSourceEvent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.IsNotNull(method);
+        var sourceEvent = Assert.IsInstanceOfType<SourceEvent>(method.Invoke(relpInput, [deliveryRecord]));
+        var metadata = sourceEvent.Metadata.ToDictionary();
+
+        Assert.IsFalse(metadata.ContainsKey("relp.deliveryId"));
+        Assert.IsFalse(metadata.ContainsKey("relp.recordId"));
+        Assert.IsFalse(metadata.ContainsKey("relp.createdAt"));
+
+        var relp = Assert.IsInstanceOfType<Dictionary<string, object?>>(metadata["relp"]);
+        Assert.AreEqual("351ddc6968b94697b9369fe81bc9c14f", relp["deliveryID"]);
+        Assert.AreEqual("05f821f93196441ab90bcd64395a836e", relp["recordId"]);
+        Assert.AreEqual(createdAt, relp["createdAt"]);
+    }
+
+    [TestMethod]
     public void RelpHealthReporter_EmitHealthSnapshot_WritesToDiagnosticSink()
     {
         using var directory = new TemporaryDirectory();
