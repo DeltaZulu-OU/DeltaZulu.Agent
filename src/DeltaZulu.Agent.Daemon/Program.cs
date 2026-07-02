@@ -10,7 +10,7 @@ using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
 using DeltaZulu.Pipeline.Outputs.Relp;
 using DeltaZulu.Pipeline.Tunnel;
-using DeltaZulu.Platform.Prefilter;
+using DeltaZulu.Pipeline.Prefilter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

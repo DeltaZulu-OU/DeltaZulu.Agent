@@ -56,7 +56,7 @@ public sealed class ProfileTests
     public void Validate_AcceptsAnyConditionTypeWithQuery()
     {
         // Core validates condition shape only; whether a condition.type has a registered
-        // evaluator on this host/platform is decided by DeltaZulu.Platform.Prefilter at runtime.
+        // evaluator on this host/platform is decided by DeltaZulu.Pipeline.Prefilter at runtime.
         var profile = CreateValidProfile();
         profile.Condition = new ResourceCondition { Type = "systemd-unit", Query = "sshd.service" };
 

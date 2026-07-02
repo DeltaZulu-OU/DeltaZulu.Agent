@@ -9,7 +9,7 @@ using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
-using DeltaZulu.Platform.Prefilter;
+using DeltaZulu.Pipeline.Prefilter;
 
 #if WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
