@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Etw;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Profiles;
 using Microsoft.Diagnostics.Tracing.Session;
 using System.Reactive.Linq;
 using System.Security.Principal;
@@ -10,12 +12,21 @@ namespace DeltaZulu.Pipeline.Inputs.Windows;
 public sealed class EtwSessionInput : ISourceInput
 {
     private readonly string _sessionName;
+    private readonly NativeEtwIdentityFilter? _nativeFilter;
+    private readonly EtwCollectorMetrics? _metrics;
     private readonly Action<string>? _warn;
     public string Name { get; }
 
     public EtwSessionInput(string sessionName, string? name = null, Action<string>? warn = null)
+        : this(sessionName, resource: null, name: name, metrics: null, warn: warn)
+    {
+    }
+
+    public EtwSessionInput(string sessionName, ResourceDescriptor? resource, string? name = null, EtwCollectorMetrics? metrics = null, Action<string>? warn = null)
     {
         _sessionName = sessionName;
+        _nativeFilter = resource is null ? null : EtwNativeFilterCompiler.Compile(resource);
+        _metrics = metrics;
         _warn = warn;
         Name = name ?? $"etw{sessionName}";
     }
@@ -35,7 +46,7 @@ public sealed class EtwSessionInput : ISourceInput
                 var session = new TraceEventSession(_sessionName, TraceEventSessionOptions.Attach);
                 return Observable.Using(
                     () => session,
-                    attached => TraceEventSessionObservable.FromSession(attached, Name, nameof(EtwSessionInput), _warn));
+                    attached => TraceEventSessionObservable.FromSession(attached, Name, nameof(EtwSessionInput), _nativeFilter, _metrics, _warn));
             }
             catch (Win32Exception ex)
             {

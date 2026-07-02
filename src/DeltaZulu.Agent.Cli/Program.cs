@@ -279,7 +279,7 @@ internal static partial class Program
             "eventlog" => new WindowsEventLogInput(plan.InputArgument ?? profile?.Resource.Channel ?? throw new ArgumentException("eventlog profiles require resource.channel or a target <logname> argument.")),
             "evtx" => new EvtxFileInput(plan.InputArgument ?? throw new ArgumentException("evtx requires <file.evtx>")),
             "etl" => new EtlFileInput(plan.InputArgument ?? throw new ArgumentException("etl requires <file.etl>"), warn: WarnStderr),
-            "etw" => new EtwSessionInput(plan.InputArgument ?? throw new ArgumentException("etw requires <session>"), warn: WarnStderr),
+            "etw" => new EtwSessionInput(plan.InputArgument ?? profile?.Resource.Session ?? throw new ArgumentException("etw requires <session>"), profile?.Resource, warn: WarnStderr),
 #else
             "eventlog" or "evtx" or "etl" or "etw" => throw new PlatformNotSupportedException($"{inputCommand} is available from the net10.0-windows build."),
 #endif

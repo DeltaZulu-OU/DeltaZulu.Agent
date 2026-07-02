@@ -31,11 +31,14 @@ public sealed class ResourceDescriptor
     public string? Channel { get; set; }
     public string? Session { get; set; }
     public string? Provider { get; set; }
+    public Guid? ProviderGuid { get; set; }
     public string Mode { get; set; } = "attach";
     public string? Scope { get; set; }
     public List<string> RecordTypes { get; set; } = [];
     public List<int> EtwEventIds { get; set; } = [];
     public List<int> EtwExcludedEventIds { get; set; } = [];
+    public List<int> EtwOpcodes { get; set; } = [];
+    public List<int> EtwVersions { get; set; } = [];
     public bool EtwCaptureStacks { get; set; }
     public List<int> EtwStackEventIds { get; set; } = [];
     public List<int> EtwExcludedStackEventIds { get; set; } = [];

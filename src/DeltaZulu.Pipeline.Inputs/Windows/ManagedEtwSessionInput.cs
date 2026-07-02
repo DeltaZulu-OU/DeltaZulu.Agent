@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Etw;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Profiles;
 using Microsoft.Diagnostics.Tracing;
@@ -27,19 +28,23 @@ public sealed class ManagedEtwSessionInput : ISourceInput
     private readonly string _sessionName;
     private readonly string _providerName;
     private readonly ResourceDescriptor? _resource;
+    private readonly NativeEtwIdentityFilter? _nativeFilter;
+    private readonly EtwCollectorMetrics? _metrics;
     private readonly Action<string>? _warn;
     public string Name { get; }
 
     public ManagedEtwSessionInput(string sessionName, string providerName, string? name = null, Action<string>? warn = null)
-        : this(sessionName, providerName, resource: null, name, warn)
+        : this(sessionName, providerName, resource: null, name: name, metrics: null, warn: warn)
     {
     }
 
-    public ManagedEtwSessionInput(string sessionName, string providerName, ResourceDescriptor? resource, string? name = null, Action<string>? warn = null)
+    public ManagedEtwSessionInput(string sessionName, string providerName, ResourceDescriptor? resource, string? name = null, EtwCollectorMetrics? metrics = null, Action<string>? warn = null)
     {
         _sessionName = sessionName;
         _providerName = providerName;
         _resource = resource;
+        _nativeFilter = resource is null ? null : EtwNativeFilterCompiler.Compile(resource);
+        _metrics = metrics;
         _warn = warn;
         Name = name ?? $"etw{sessionName}";
     }
@@ -59,7 +64,7 @@ public sealed class ManagedEtwSessionInput : ISourceInput
 
         return Observable.Using(
             CreateSession,
-            session => TraceEventSessionObservable.FromSession(session, Name, nameof(ManagedEtwSessionInput), _warn));
+            session => TraceEventSessionObservable.FromSession(session, Name, nameof(ManagedEtwSessionInput), _nativeFilter, _metrics, _warn));
     }
 
     private TraceEventSession CreateSession()

@@ -61,6 +61,7 @@ public sealed class NativeEtwIdentityFilter
     public string? ProviderName { get; init; }
     public Guid? ProviderGuid { get; init; }
     public IReadOnlySet<int> EventIds { get; init; } = new HashSet<int>();
+    public IReadOnlySet<int> ExcludedEventIds { get; init; } = new HashSet<int>();
     public IReadOnlySet<int> Opcodes { get; init; } = new HashSet<int>();
     public IReadOnlySet<int> Versions { get; init; } = new HashSet<int>();
     public long? RequiredKeywords { get; init; }
@@ -83,6 +84,11 @@ public sealed class NativeEtwIdentityFilter
             return false;
         }
 
+        if (ExcludedEventIds.Contains(envelope.EventId))
+        {
+            return false;
+        }
+
         if (Opcodes.Count > 0 && !Opcodes.Contains(envelope.Opcode))
         {
             return false;
@@ -94,5 +100,47 @@ public sealed class NativeEtwIdentityFilter
         }
 
         return !RequiredKeywords.HasValue || (envelope.Keywords & RequiredKeywords.Value) != 0;
+    }
+
+    public bool Matches(
+        string providerName,
+        Guid providerGuid,
+        int eventId,
+        int opcode,
+        int version,
+        long keywords)
+    {
+        if (!string.IsNullOrWhiteSpace(ProviderName) &&
+            !providerName.Equals(ProviderName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (ProviderGuid.HasValue && providerGuid != ProviderGuid.Value)
+        {
+            return false;
+        }
+
+        if (EventIds.Count > 0 && !EventIds.Contains(eventId))
+        {
+            return false;
+        }
+
+        if (ExcludedEventIds.Contains(eventId))
+        {
+            return false;
+        }
+
+        if (Opcodes.Count > 0 && !Opcodes.Contains(opcode))
+        {
+            return false;
+        }
+
+        if (Versions.Count > 0 && !Versions.Contains(version))
+        {
+            return false;
+        }
+
+        return !RequiredKeywords.HasValue || (keywords & RequiredKeywords.Value) != 0;
     }
 }

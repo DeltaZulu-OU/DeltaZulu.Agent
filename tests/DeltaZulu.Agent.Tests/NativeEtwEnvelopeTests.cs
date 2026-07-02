@@ -31,6 +31,55 @@ public sealed class NativeEtwEnvelopeTests
         Assert.IsFalse(filter.Matches(envelope));
     }
 
+
+    [TestMethod]
+    public void NativeEtwIdentityFilter_HonorsEventIdAllowAndDenyLists()
+    {
+        var filter = new NativeEtwIdentityFilter {
+            EventIds = new HashSet<int> { 1, 2 },
+            ExcludedEventIds = new HashSet<int> { 2 }
+        };
+
+        Assert.IsTrue(filter.Matches(CreateEnvelope(eventId: 1)));
+        Assert.IsFalse(filter.Matches(CreateEnvelope(eventId: 2)));
+        Assert.IsFalse(filter.Matches(CreateEnvelope(eventId: 3)));
+    }
+
+    [TestMethod]
+    public void EtwNativeFilterCompiler_ReturnsNullWhenProfileHasNoNativeConstraints()
+    {
+        var profile = new DeltaZulu.Pipeline.Core.Profiles.ResourceProfile {
+            Resource = new DeltaZulu.Pipeline.Core.Profiles.ResourceDescriptor { Family = "etw" }
+        };
+
+        Assert.IsNull(EtwNativeFilterCompiler.Compile(profile));
+    }
+
+    [TestMethod]
+    public void EtwNativeFilterCompiler_CompilesProviderEventOpcodeAndVersionConstraints()
+    {
+        var providerGuid = Guid.Parse("90cbdc39-4a3e-11d1-84f4-0000f80464e3");
+        var profile = new DeltaZulu.Pipeline.Core.Profiles.ResourceProfile {
+            Resource = new DeltaZulu.Pipeline.Core.Profiles.ResourceDescriptor {
+                Family = "etw",
+                Provider = "Microsoft-Windows-Kernel-File",
+                ProviderGuid = providerGuid,
+                EtwEventIds = [10, 11],
+                EtwExcludedEventIds = [11],
+                EtwOpcodes = [67],
+                EtwVersions = [3]
+            }
+        };
+
+        var filter = EtwNativeFilterCompiler.Compile(profile);
+
+        Assert.IsNotNull(filter);
+        Assert.IsTrue(filter.Matches("Microsoft-Windows-Kernel-File", providerGuid, 10, 67, 3, 0));
+        Assert.IsFalse(filter.Matches("Microsoft-Windows-Kernel-File", providerGuid, 11, 67, 3, 0));
+        Assert.IsFalse(filter.Matches("Other", providerGuid, 10, 67, 3, 0));
+        Assert.IsFalse(filter.Matches("Microsoft-Windows-Kernel-File", providerGuid, 10, 68, 3, 0));
+    }
+
     [TestMethod]
     public void NativeEtwEnvelope_ToDictionary_IncludesForensicIdentityFields()
     {
@@ -54,11 +103,11 @@ public sealed class NativeEtwEnvelopeTests
         Assert.AreEqual(128, fields["PayloadLength"]);
     }
 
-    private static NativeEtwEnvelope CreateEnvelope(int opcode, int version, long keywords) => new()
+    private static NativeEtwEnvelope CreateEnvelope(int opcode = 67, int version = 3, long keywords = 0x10, int eventId = 0) => new()
     {
         ProviderGuid = Guid.Parse("90cbdc39-4a3e-11d1-84f4-0000f80464e3"),
         ProviderName = "Microsoft-Windows-Kernel-File",
-        EventId = 0,
+        EventId = eventId,
         Opcode = opcode,
         OpcodeName = "ReadFile",
         Version = version,
