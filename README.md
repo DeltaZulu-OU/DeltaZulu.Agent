@@ -106,7 +106,7 @@ During development, set `relp.tls.clientCertificateEnabled: false` to keep certi
 
 If RELP-over-TLS and future C2/control-plane traffic must share the same public address and port, terminate both protocols behind a TLS-aware edge proxy on 443 and route by SNI or ALPN rather than opening additional listener ports. For example, publish `relp-ingest.example.com:443` for RELP-over-TLS and `agent-api.example.com:443` for C2/HTTPS, both resolving to the same edge. The edge can then forward RELP traffic to the RELP receiver and C2 traffic to the control-plane service on private backend ports. Do not multiplex cleartext protocols on 443; keep TLS mandatory at the edge and restrict outbound firewall rules to destination TCP/443.
 
-For local RELP validation, the daemon collector configuration defaults to 6514 so developers can run it without privileged port binding; production deployments should override the collector or edge listener to 443.
+For local RELP validation, the daemon collector configuration defaults to 2514 to avoid both privileged-port requirements and common Windows excluded ranges that can reserve 6514; production deployments should override the collector or edge listener to 443.
 
 ## Daemon collector mode
 

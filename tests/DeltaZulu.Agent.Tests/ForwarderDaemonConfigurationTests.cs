@@ -6,6 +6,15 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ForwarderDaemonConfigurationTests
 {
     [TestMethod]
+    public void DefaultConfiguration_UsesWindowsFriendlyLocalRelpPort()
+    {
+        var configuration = new ForwarderDaemonConfiguration();
+
+        Assert.AreEqual(2514, configuration.RelpInput.Port);
+        Assert.AreEqual(2514, configuration.Relp.Endpoints[0].Port);
+    }
+
+    [TestMethod]
     [DataRow(0)]
     [DataRow(101)]
     public void Validate_RejectsResourceQuotaCpuPercentOutsideSupportedRange(int cpuPercent)
@@ -17,7 +26,7 @@ public sealed class ForwarderDaemonConfigurationTests
         };
 
         var exception = Assert.ThrowsExactly<InvalidDataException>(() =>
-            YamlForwarderDaemonConfigurationLoader.Validate(configuration, "dzagentd.yaml"));
+            YamlForwarderDaemonConfigurationLoader.Validate(configuration, "dzagent.yaml"));
         Assert.Contains("resourceQuotas.cpuPercent must be between 1 and 100", exception.Message);
     }
 
@@ -25,7 +34,7 @@ public sealed class ForwarderDaemonConfigurationTests
     public void YamlForwarderDaemonConfigurationLoader_LoadFile_LoadsResourceQuotaCpuPercent()
     {
         using var directory = new TemporaryDirectory();
-        var configPath = Path.Combine(directory.Path, "dzagentd.yaml");
+        var configPath = Path.Combine(directory.Path, "dzagent.yaml");
         File.WriteAllText(configPath, """
             id: test-agent
             profilesPath: profiles

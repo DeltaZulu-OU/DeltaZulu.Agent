@@ -2,13 +2,13 @@
 
 DeltaZulu.Agent forwards filtered resource records through `DeltaZulu.DurableBuffer` and a TCP tunnel. The agent is a RELP client/forwarder; it is not a syslog daemon or production receiver. Use a dedicated receiver such as rsyslog or syslog-ng at the network edge and route accepted payloads into the downstream collector pipeline.
 
-These examples are operational starting points for lab validation. Validate plain RELP first, then enable TLS with a certificate policy that matches `config/dzagent.yaml`.
+These examples are operational starting points for lab validation. Validate plain RELP first on the repo default `2514`, then enable TLS with a certificate policy that matches `config/dzagent.yaml`. Avoid using `6514` for local plain RELP on Windows hosts where Hyper-V/WinNAT often reserves adjacent excluded port ranges.
 
 ## Ports and payload model
 
 | Mode | Typical port | Agent setting | Receiver expectation |
 | --- | --- | --- | --- |
-| Plain RELP | `2514` or lab-only `6514` | `relp.useTls: false` | RELP over TCP; protect with host firewall or private network. |
+| Plain RELP | `2514` | `relp.useTls: false` | RELP over TCP; protect with host firewall or private network. |
 | RELP/TLS | `6514` | `relp.useTls: true` | Receiver presents a certificate trusted by system trust or the configured thumbprint allow-list. |
 
 The forwarded RELP message body is a MessagePack `DeliveryBatch` envelope, not a normalized syslog event. Keep the receiver rule simple: accept RELP, write the raw binary message unchanged, and let downstream systems decode the delivery envelope with the shared DeltaZulu MessagePack codec.

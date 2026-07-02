@@ -165,7 +165,7 @@ relp:
     certificateValidation: SystemTrust
   endpoints:
     - host: 127.0.0.1
-      port: 6514
+      port: 2514
 diagnostics:
   intervalSeconds: 60
 ```

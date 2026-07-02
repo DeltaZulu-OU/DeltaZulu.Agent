@@ -45,7 +45,16 @@ public sealed class RelpInput : ISourceInput
     public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var listener = new TcpListener(IPAddress.Parse(_configuration.Address), _configuration.Port);
-        listener.Start();
+        try
+        {
+            listener.Start();
+        }
+        catch (SocketException ex)
+        {
+            listener.Stop();
+            linkedCts.Dispose();
+            throw CreateListenerStartException(ex);
+        }
 
         _ = Task.Run(async () => {
             try
@@ -72,6 +81,18 @@ public sealed class RelpInput : ISourceInput
             linkedCts.Dispose();
         });
     });
+
+    private InvalidOperationException CreateListenerStartException(SocketException ex)
+    {
+        var endpoint = $"{_configuration.Address}:{_configuration.Port}";
+        var message = ex.SocketErrorCode == SocketError.AccessDenied
+            ? $"RELP input could not bind to {endpoint} because the operating system denied access to the socket. "
+                + "Choose another relpInput.port/address or remove the OS port reservation/firewall policy that blocks this endpoint. "
+                + "On Windows, check excluded TCP port ranges with: netsh interface ipv4 show excludedportrange protocol=tcp."
+            : $"RELP input could not bind to {endpoint}: {ex.Message}";
+
+        return new InvalidOperationException(message, ex);
+    }
 
     private async Task HandleClientAsync(TcpClient client, IObserver<SourceEvent> observer, CancellationToken cancellationToken)
     {

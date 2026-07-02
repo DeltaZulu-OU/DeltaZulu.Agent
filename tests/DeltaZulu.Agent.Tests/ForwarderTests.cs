@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
+using System.Reactive.Linq;
 using System.Text.Json;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
@@ -516,6 +517,30 @@ public sealed class ForwarderTests
             Port = 6514,
             UseTls = true
         }));
+
+    [TestMethod]
+    public void RelpInput_Open_WhenBindFails_ReportsEndpointContext()
+    {
+        var occupiedListener = new TcpListener(IPAddress.Loopback, 0);
+        occupiedListener.Start();
+        try
+        {
+            var port = ((IPEndPoint)occupiedListener.LocalEndpoint).Port;
+            var relpInput = new RelpInput(new RelpInputConfiguration {
+                Address = IPAddress.Loopback.ToString(),
+                Port = port
+            });
+
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => relpInput.Open().Subscribe(_ => { }));
+
+            Assert.Contains($"{IPAddress.Loopback}:{port}", exception.Message);
+            Assert.IsInstanceOfType<SocketException>(exception.InnerException);
+        }
+        finally
+        {
+            occupiedListener.Stop();
+        }
+    }
 
     [TestMethod]
     public void YamlRelpOutputConfigurationLoader_LoadFile_RejectsInvalidEndpoint()

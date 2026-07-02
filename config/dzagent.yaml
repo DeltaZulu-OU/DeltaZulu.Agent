@@ -48,7 +48,7 @@ relp:
   endpoints:
     # Local demo collector default. Replace with your production collector host.
     - host: 127.0.0.1
-      port: 6514
+      port: 2514
 
 # Optional Windows-only resource quotas for low-resource environments.
 # Uncomment cpuPercent to hard-cap the daemon process CPU usage with a

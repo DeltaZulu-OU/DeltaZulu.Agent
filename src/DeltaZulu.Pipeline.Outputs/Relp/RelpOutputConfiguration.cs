@@ -48,7 +48,7 @@ public sealed record RelpTransportConfiguration
 {
     public bool UseTls { get; init; }
     public RelpTlsConfiguration Tls { get; init; } = new();
-    public List<RelpEndpoint> Endpoints { get; init; } = [new RelpEndpoint { Host = "127.0.0.1", Port = 6514 }];
+    public List<RelpEndpoint> Endpoints { get; init; } = [new RelpEndpoint { Host = "127.0.0.1", Port = 2514 }];
 }
 
 public sealed record RelpTlsConfiguration

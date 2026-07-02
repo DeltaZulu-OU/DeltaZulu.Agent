@@ -17,7 +17,6 @@
   <ItemGroup>
     <Content Include="..\..\config\dzagent.yaml" Link="config\dzagent.yaml" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\config\dzcollector.yaml" Link="config\dzcollector.yaml" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\config\dzagentd.yaml" Link="config\dzagentd.yaml" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\profiles\**\*" Link="profiles\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>

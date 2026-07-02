@@ -32,7 +32,7 @@ public sealed record ForwarderDaemonPipelineInputConfiguration
 public sealed record ForwarderDaemonRelpInputConfiguration
 {
     public string Address { get; init; } = "127.0.0.1";
-    public int Port { get; init; } = 6514;
+    public int Port { get; init; } = 2514;
     public bool UseTls { get; init; }
     public string? ServerCertificatePath { get; init; }
     public string? ServerCertificatePassword { get; init; }
