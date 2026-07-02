@@ -25,32 +25,34 @@ public sealed record NativeEtwEnvelope
 
     public IReadOnlyDictionary<string, object?> ToDictionary()
     {
-        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-        {
-            [nameof(ProviderGuid)] = ProviderGuid,
-            [nameof(ProviderName)] = ProviderName,
-            [nameof(EventId)] = EventId,
-            ["EventName"] = null,
-            [nameof(Opcode)] = Opcode,
-            [nameof(OpcodeName)] = OpcodeName,
-            [nameof(Version)] = Version,
-            [nameof(Task)] = Task,
-            [nameof(TaskName)] = TaskName,
-            ["LevelCode"] = Level,
-            ["Level"] = LevelName,
-            [nameof(Keywords)] = Keywords,
-            ["TimeStamp"] = TimestampUtc,
-            [nameof(TimestampRaw)] = TimestampRaw,
-            [nameof(ProcessId)] = ProcessId,
-            [nameof(ThreadId)] = ThreadId,
-            [nameof(ActivityId)] = ActivityId,
-            [nameof(RelatedActivityId)] = RelatedActivityId,
-            [nameof(Channel)] = Channel,
-            [nameof(ProcessorId)] = ProcessorId,
-            [nameof(PayloadLength)] = PayloadLength
-        };
-
+        var fields = new Dictionary<string, object?>(21, StringComparer.OrdinalIgnoreCase);
+        AddTo(fields);
         return fields;
+    }
+
+    public void AddTo(IDictionary<string, object?> fields)
+    {
+        fields[nameof(ProviderGuid)] = ProviderGuid;
+        fields[nameof(ProviderName)] = ProviderName;
+        fields[nameof(EventId)] = EventId;
+        fields["EventName"] = null;
+        fields[nameof(Opcode)] = Opcode;
+        fields[nameof(OpcodeName)] = OpcodeName;
+        fields[nameof(Version)] = Version;
+        fields[nameof(Task)] = Task;
+        fields[nameof(TaskName)] = TaskName;
+        fields["LevelCode"] = Level;
+        fields["Level"] = LevelName;
+        fields[nameof(Keywords)] = Keywords;
+        fields["TimeStamp"] = TimestampUtc;
+        fields[nameof(TimestampRaw)] = TimestampRaw;
+        fields[nameof(ProcessId)] = ProcessId;
+        fields[nameof(ThreadId)] = ThreadId;
+        fields[nameof(ActivityId)] = ActivityId;
+        fields[nameof(RelatedActivityId)] = RelatedActivityId;
+        fields[nameof(Channel)] = Channel;
+        fields[nameof(ProcessorId)] = ProcessorId;
+        fields[nameof(PayloadLength)] = PayloadLength;
     }
 }
 

@@ -248,7 +248,7 @@ public sealed class WindowsEventLogInput : ISourceInput
 
     private static IReadOnlyDictionary<string, object?> ToDictionary(EventRecord record)
     {
-        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        var fields = new Dictionary<string, object?>(16, StringComparer.OrdinalIgnoreCase)
         {
             ["ProviderName"] = record.ProviderName,
             ["EventId"] = record.Id,

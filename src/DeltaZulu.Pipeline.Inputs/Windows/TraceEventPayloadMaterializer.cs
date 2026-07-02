@@ -4,18 +4,19 @@ namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 internal interface IEtwPayloadMaterializer
 {
-    IReadOnlyDictionary<string, object?> MaterializeSelected(
+    void AddSelected(
         TraceEvent data,
-        IReadOnlySet<string>? selectedPayloadFields);
+        IReadOnlySet<string>? selectedPayloadFields,
+        IDictionary<string, object?> destination);
 }
 
 internal sealed class TraceEventPayloadMaterializer : IEtwPayloadMaterializer
 {
-    public IReadOnlyDictionary<string, object?> MaterializeSelected(
+    public void AddSelected(
         TraceEvent data,
-        IReadOnlySet<string>? selectedPayloadFields)
+        IReadOnlySet<string>? selectedPayloadFields,
+        IDictionary<string, object?> destination)
     {
-        var payload = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         var materializeAll = selectedPayloadFields is null || selectedPayloadFields.Count == 0;
 
         foreach (var payloadName in data.PayloadNames)
@@ -27,7 +28,7 @@ internal sealed class TraceEventPayloadMaterializer : IEtwPayloadMaterializer
 
             try
             {
-                payload[payloadName] = data.PayloadByName(payloadName);
+                destination[payloadName] = data.PayloadByName(payloadName);
             }
             catch
             {
@@ -35,7 +36,5 @@ internal sealed class TraceEventPayloadMaterializer : IEtwPayloadMaterializer
                 // Keep the envelope and any readable payload fields instead of dropping the event.
             }
         }
-
-        return payload;
     }
 }

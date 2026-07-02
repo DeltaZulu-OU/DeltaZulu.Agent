@@ -16,17 +16,23 @@ internal static class TraceEventSourceEventMapper
         IReadOnlySet<string>? selectedPayloadFields = null)
     {
         var envelope = ToEnvelope(data);
-        var fields = new Dictionary<string, object?>(envelope.ToDictionary(), StringComparer.OrdinalIgnoreCase)
-        {
-            ["EventName"] = data.EventName
-        };
+        var fields = new Dictionary<string, object?>(EstimateFieldCapacity(data, selectedPayloadFields), StringComparer.OrdinalIgnoreCase);
+        envelope.AddTo(fields);
+        fields["EventName"] = data.EventName;
 
-        foreach (var payloadField in PayloadMaterializer.MaterializeSelected(data, selectedPayloadFields))
-        {
-            fields[payloadField.Key] = payloadField.Value;
-        }
+        PayloadMaterializer.AddSelected(data, selectedPayloadFields, fields);
 
-        return fields.AsReadOnly();
+        return fields;
+    }
+
+    private static int EstimateFieldCapacity(TraceEvent data, IReadOnlySet<string>? selectedPayloadFields)
+    {
+        const int EnvelopeFieldCount = 21;
+        var payloadFieldCount = selectedPayloadFields is { Count: > 0 }
+            ? selectedPayloadFields.Count
+            : data.PayloadNames.Length;
+
+        return EnvelopeFieldCount + payloadFieldCount;
     }
 
     internal static NativeEtwEnvelope ToEnvelope(TraceEvent data) => new()

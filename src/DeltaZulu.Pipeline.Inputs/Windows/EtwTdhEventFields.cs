@@ -15,20 +15,20 @@ internal static class EtwTdhEventFields
         catch (Exception ex) when (IsUnmaterializableTdhEvent(ex))
         {
             onDropped?.Invoke(ex);
-            materialized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase).AsReadOnly();
+            materialized = new Dictionary<string, object?>(0, StringComparer.OrdinalIgnoreCase);
             return false;
         }
     }
 
     private static IReadOnlyDictionary<string, object?> Materialize(IDictionary<string, object> fields)
     {
-        var materialized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        var materialized = new Dictionary<string, object?>(fields.Count, StringComparer.OrdinalIgnoreCase);
         foreach (var field in fields)
         {
             materialized[field.Key] = field.Value;
         }
 
-        return materialized.AsReadOnly();
+        return materialized;
     }
 
     private static bool IsUnmaterializableTdhEvent(Exception exception) =>
