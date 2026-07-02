@@ -35,17 +35,13 @@ public sealed class ResourceDescriptor
     public string Mode { get; set; } = "attach";
     public string? Scope { get; set; }
     public List<string> RecordTypes { get; set; } = [];
-    public List<int> EtwEventIds { get; set; } = [];
-    public List<int> EtwExcludedEventIds { get; set; } = [];
-    public List<int> EtwOpcodes { get; set; } = [];
-    public List<int> EtwVersions { get; set; } = [];
-    public bool EtwCaptureStacks { get; set; }
-    public List<int> EtwStackEventIds { get; set; } = [];
-    public List<int> EtwExcludedStackEventIds { get; set; } = [];
-    public List<int> EtwProcessIds { get; set; } = [];
-    public List<string> EtwProcessNames { get; set; } = [];
-    public bool EtwEnableInContainers { get; set; }
-    public bool EtwEnableSourceContainerTracking { get; set; }
+
+    /// <summary>
+    /// Opaque, family-specific resource knobs (e.g. ETW event/opcode filters). Core does not
+    /// interpret these; each input family adapts its own slice via an
+    /// <c>IResourceOptionsAdapter&lt;TOptions&gt;</c> implementation.
+    /// </summary>
+    public Dictionary<string, object?> Options { get; set; } = [];
 }
 
 public sealed class ResourceInputContract

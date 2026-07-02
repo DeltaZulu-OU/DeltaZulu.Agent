@@ -9,6 +9,7 @@ using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
+using DeltaZulu.Platform.Prefilter;
 
 #if WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
@@ -18,6 +19,8 @@ namespace DeltaZulu.Agent.Cli;
 
 internal static partial class Program
 {
+    private static readonly ResourceProfilePrefilter Prefilter = new(DefaultConditionEvaluators.ForCurrentPlatform());
+
     private const string Version = "0.1.0";
 
     public static int Main(string[] args)
@@ -361,46 +364,14 @@ internal static partial class Program
 
     private static bool IsProfileConditionSatisfied(ResourceProfile profile)
     {
-        if (profile.Condition is null)
+        var satisfied = Prefilter.IsSatisfied(profile, out var warning);
+        if (!string.IsNullOrWhiteSpace(warning))
         {
-            return true;
+            Console.Error.WriteLine($"warning: {warning}");
+            Console.Error.Flush();
         }
 
-        if (!profile.Condition.Type.Equals("wmi", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-#if WINDOWS
-        var scopePath = string.IsNullOrWhiteSpace(profile.Condition.ScopePath)
-            ? @"\\.\root\cimv2"
-            : profile.Condition.ScopePath;
-
-        if (WmiCondition.TryExists(profile.Condition.Query, out var result, out var error, scopePath))
-        {
-            return result;
-        }
-
-        var message = $"profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}";
-        if (profile.Condition.Mandatory)
-        {
-            throw new InvalidOperationException(message, error);
-        }
-
-        Console.Error.WriteLine($"warning: {message}");
-        Console.Error.Flush();
-        return false;
-#else
-        var message = $"profile '{profile.Id}' WMI condition skipped because this build does not include Windows WMI support.";
-        if (profile.Condition.Mandatory)
-        {
-            throw new PlatformNotSupportedException(message);
-        }
-
-        Console.Error.WriteLine($"warning: {message}");
-        Console.Error.Flush();
-        return false;
-#endif
+        return satisfied;
     }
 
     private static bool IsSchemaCommand(string value) => value is "schema" or "schemas" or "resources" or "list-schemas" or "list-resources";

@@ -63,13 +63,11 @@ public sealed class ResourceProfileValidator
 
         if (profile.Condition is not null)
         {
+            // Core validates shape only. Whether a given condition.type has a registered
+            // evaluator on this host/platform is a pre-filter concern, not a schema concern.
             if (string.IsNullOrWhiteSpace(profile.Condition.Type))
             {
                 errors.Add("condition.type is required when condition is specified.");
-            }
-            else if (!profile.Condition.Type.Equals("wmi", StringComparison.OrdinalIgnoreCase))
-            {
-                errors.Add("Only condition.type: wmi is supported in this implementation.");
             }
 
             if (string.IsNullOrWhiteSpace(profile.Condition.Query))

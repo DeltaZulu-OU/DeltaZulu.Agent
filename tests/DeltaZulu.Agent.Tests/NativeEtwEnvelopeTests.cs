@@ -64,10 +64,12 @@ public sealed class NativeEtwEnvelopeTests
                 Family = "etw",
                 Provider = "Microsoft-Windows-Kernel-File",
                 ProviderGuid = providerGuid,
-                EtwEventIds = [10, 11],
-                EtwExcludedEventIds = [11],
-                EtwOpcodes = [67],
-                EtwVersions = [3]
+                Options = new Dictionary<string, object?> {
+                    ["eventIds"] = new List<object?> { 10, 11 },
+                    ["excludedEventIds"] = new List<object?> { 11 },
+                    ["opcodes"] = new List<object?> { 67 },
+                    ["versions"] = new List<object?> { 3 }
+                }
             }
         };
 

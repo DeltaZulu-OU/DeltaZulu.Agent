@@ -16,5 +16,6 @@
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Daemon\DeltaZulu.Agent.Daemon.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Tunnel\DeltaZulu.Pipeline.Tunnel.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Platform.Prefilter\DeltaZulu.Platform.Prefilter.csproj" />
   </ItemGroup>
 </Project>

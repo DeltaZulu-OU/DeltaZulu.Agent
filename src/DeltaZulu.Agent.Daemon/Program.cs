@@ -10,6 +10,7 @@ using DeltaZulu.Pipeline.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
 using DeltaZulu.Pipeline.Outputs.Relp;
 using DeltaZulu.Pipeline.Tunnel;
+using DeltaZulu.Platform.Prefilter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -120,6 +121,7 @@ This executable is service-shaped from the start: it hosts configured DeltaZulu 
 internal sealed class ForwarderDaemonService(string configPath, ILogger<ForwarderDaemonService> logger) : BackgroundService
 {
     private readonly List<IDisposable> _disposables = [];
+    private readonly ResourceProfilePrefilter _prefilter = new(DefaultConditionEvaluators.ForCurrentPlatform());
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -291,58 +293,8 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
 #endif
 
-    private bool IsProfileConditionSatisfied(ResourceProfile profile, out string? warning)
-    {
-        warning = null;
-
-        if (profile.Condition is null)
-        {
-            return true;
-        }
-
-        if (!profile.Condition.Type.Equals("wmi", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-#if WINDOWS
-        var scopePath = string.IsNullOrWhiteSpace(profile.Condition.ScopePath)
-            ? @"\\.\root\cimv2"
-            : profile.Condition.ScopePath;
-
-        if (WmiCondition.TryExists(profile.Condition.Query, out var result, out var error, scopePath))
-        {
-            if (result)
-            {
-                return true;
-            }
-
-            if (!profile.Mandatory)
-            {
-                warning = $"Skipping optional daemon profile '{profile.Id}' because WMI condition is not satisfied";
-                return false;
-            }
-
-            throw new InvalidDataException($"Daemon profile '{profile.Id}' requires WMI condition but it is not satisfied");
-        }
-
-        if (!profile.Mandatory)
-        {
-            warning = $"Skipping optional daemon profile '{profile.Id}' because WMI condition could not be evaluated: {error?.Message ?? "unknown error"}";
-            return false;
-        }
-
-        throw new InvalidDataException($"Daemon profile '{profile.Id}' WMI condition could not be evaluated: {error?.Message ?? "unknown error"}", error);
-#else
-        if (!profile.Mandatory)
-        {
-            warning = $"Skipping optional daemon profile '{profile.Id}' because WMI condition is not supported on this platform";
-            return false;
-        }
-
-        throw new PlatformNotSupportedException($"Daemon profile '{profile.Id}' requires WMI condition but this is not a Windows platform");
-#endif
-    }
+    private bool IsProfileConditionSatisfied(ResourceProfile profile, out string? warning) =>
+        _prefilter.IsSatisfied(profile, out warning);
 
     private static bool IsProfileForCurrentPlatform(ResourceProfile profile)
     {

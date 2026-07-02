@@ -4,6 +4,8 @@ namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public static class EtwNativeFilterCompiler
 {
+    private static readonly EtwResourceOptionsAdapter OptionsAdapter = new();
+
     public static NativeEtwIdentityFilter? Compile(ResourceProfile profile) => Compile(profile.Resource);
 
     public static NativeEtwIdentityFilter? Compile(ResourceDescriptor resource)
@@ -13,12 +15,14 @@ public static class EtwNativeFilterCompiler
             return null;
         }
 
+        var options = OptionsAdapter.Adapt(resource);
+
         var hasProviderName = !string.IsNullOrWhiteSpace(resource.Provider);
         var hasProviderGuid = resource.ProviderGuid.HasValue;
-        var hasAllowedEventIds = resource.EtwEventIds.Count > 0;
-        var hasExcludedEventIds = resource.EtwExcludedEventIds.Count > 0;
-        var hasOpcodes = resource.EtwOpcodes.Count > 0;
-        var hasVersions = resource.EtwVersions.Count > 0;
+        var hasAllowedEventIds = options.EventIds.Count > 0;
+        var hasExcludedEventIds = options.ExcludedEventIds.Count > 0;
+        var hasOpcodes = options.Opcodes.Count > 0;
+        var hasVersions = options.Versions.Count > 0;
 
         if (!hasProviderName && !hasProviderGuid && !hasAllowedEventIds && !hasExcludedEventIds && !hasOpcodes && !hasVersions)
         {
@@ -28,10 +32,10 @@ public static class EtwNativeFilterCompiler
         return new NativeEtwIdentityFilter {
             ProviderName = hasProviderName ? resource.Provider : null,
             ProviderGuid = resource.ProviderGuid,
-            EventIds = resource.EtwEventIds.ToHashSet(),
-            ExcludedEventIds = resource.EtwExcludedEventIds.ToHashSet(),
-            Opcodes = resource.EtwOpcodes.ToHashSet(),
-            Versions = resource.EtwVersions.ToHashSet()
+            EventIds = options.EventIds.ToHashSet(),
+            ExcludedEventIds = options.ExcludedEventIds.ToHashSet(),
+            Opcodes = options.Opcodes.ToHashSet(),
+            Versions = options.Versions.ToHashSet()
         };
     }
 }

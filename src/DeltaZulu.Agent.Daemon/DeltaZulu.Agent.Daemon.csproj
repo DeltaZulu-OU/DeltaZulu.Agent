@@ -26,5 +26,6 @@
     <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
     <ProjectReference Include="..\DeltaZulu.Pipeline.Tunnel\DeltaZulu.Pipeline.Tunnel.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Platform.Prefilter\DeltaZulu.Platform.Prefilter.csproj" />
   </ItemGroup>
 </Project>

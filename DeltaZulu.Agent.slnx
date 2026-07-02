@@ -9,5 +9,6 @@
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Tunnel/DeltaZulu.Pipeline.Tunnel.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Outputs/DeltaZulu.Pipeline.Outputs.csproj" />
+  <Project Path="src/DeltaZulu.Platform.Prefilter/DeltaZulu.Platform.Prefilter.csproj" />
   <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
 </Solution>

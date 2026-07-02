@@ -48,8 +48,21 @@ public sealed class ProfileTests
 
         var errors = new ResourceProfileValidator().Validate(profile);
 
-        CollectionAssert.Contains(errors.ToList(), "Only condition.type: wmi is supported in this implementation.");
+        Assert.HasCount(1, errors);
         CollectionAssert.Contains(errors.ToList(), "condition.query is required when condition is specified.");
+    }
+
+    [TestMethod]
+    public void Validate_AcceptsAnyConditionTypeWithQuery()
+    {
+        // Core validates condition shape only; whether a condition.type has a registered
+        // evaluator on this host/platform is decided by DeltaZulu.Platform.Prefilter at runtime.
+        var profile = CreateValidProfile();
+        profile.Condition = new ResourceCondition { Type = "systemd-unit", Query = "sshd.service" };
+
+        var errors = new ResourceProfileValidator().Validate(profile);
+
+        Assert.IsEmpty(errors);
     }
 
     [TestMethod]
@@ -83,7 +96,7 @@ public sealed class ProfileTests
 
 
     [TestMethod]
-    public void LoadFile_LoadsManagedEtwProviderEnablementOptions()
+    public void LoadFile_LoadsFamilySpecificResourceOptionsAsOpaqueBag()
     {
         var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.yaml");
         try
@@ -100,15 +113,16 @@ resource:
   mode: managed
   session: DeltaZulu-Test
   provider: Microsoft-Windows-Test
-  etwEventIds: [1, 2]
-  etwExcludedEventIds: [3]
-  etwCaptureStacks: true
-  etwStackEventIds: [4]
-  etwExcludedStackEventIds: [5]
-  etwProcessIds: [1234]
-  etwProcessNames: [notepad.exe]
-  etwEnableInContainers: true
-  etwEnableSourceContainerTracking: true
+  options:
+    eventIds: [1, 2]
+    excludedEventIds: [3]
+    captureStacks: true
+    stackEventIds: [4]
+    excludedStackEventIds: [5]
+    processIds: [1234]
+    processNames: [notepad.exe]
+    enableInContainers: true
+    enableSourceContainerTracking: true
 input:
   table: Etw
   schema: WindowsEtw.Native
@@ -122,15 +136,17 @@ filter:
 
             var profile = new YamlResourceProfileLoader().LoadFile(path);
 
-            CollectionAssert.AreEqual(new[] { 1, 2 }, profile.Resource.EtwEventIds);
-            CollectionAssert.AreEqual(new[] { 3 }, profile.Resource.EtwExcludedEventIds);
-            Assert.IsTrue(profile.Resource.EtwCaptureStacks);
-            CollectionAssert.AreEqual(new[] { 4 }, profile.Resource.EtwStackEventIds);
-            CollectionAssert.AreEqual(new[] { 5 }, profile.Resource.EtwExcludedStackEventIds);
-            CollectionAssert.AreEqual(new[] { 1234 }, profile.Resource.EtwProcessIds);
-            CollectionAssert.AreEqual(new[] { "notepad.exe" }, profile.Resource.EtwProcessNames);
-            Assert.IsTrue(profile.Resource.EtwEnableInContainers);
-            Assert.IsTrue(profile.Resource.EtwEnableSourceContainerTracking);
+            // Core only knows about the opaque Options bag; ETW-specific interpretation is the
+            // job of DeltaZulu.Pipeline.Inputs.Etw.EtwResourceOptionsAdapter (see its own tests).
+            CollectionAssert.AreEqual(new[] { 1, 2 }, profile.Resource.Options.GetIntList("eventIds"));
+            CollectionAssert.AreEqual(new[] { 3 }, profile.Resource.Options.GetIntList("excludedEventIds"));
+            Assert.IsTrue(profile.Resource.Options.GetBool("captureStacks"));
+            CollectionAssert.AreEqual(new[] { 4 }, profile.Resource.Options.GetIntList("stackEventIds"));
+            CollectionAssert.AreEqual(new[] { 5 }, profile.Resource.Options.GetIntList("excludedStackEventIds"));
+            CollectionAssert.AreEqual(new[] { 1234 }, profile.Resource.Options.GetIntList("processIds"));
+            CollectionAssert.AreEqual(new[] { "notepad.exe" }, profile.Resource.Options.GetStringList("processNames"));
+            Assert.IsTrue(profile.Resource.Options.GetBool("enableInContainers"));
+            Assert.IsTrue(profile.Resource.Options.GetBool("enableSourceContainerTracking"));
         }
         finally
         {

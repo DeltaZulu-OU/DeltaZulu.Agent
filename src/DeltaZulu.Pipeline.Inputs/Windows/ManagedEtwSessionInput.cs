@@ -187,6 +187,8 @@ public sealed class ManagedEtwSessionInput : ISourceInput
         session.EnableProvider(_providerName, TraceEventLevel.Verbose, ulong.MaxValue, BuildProviderOptions(_resource));
     }
 
+    private static readonly EtwResourceOptionsAdapter OptionsAdapter = new();
+
     internal static TraceEventProviderOptions? BuildProviderOptions(ResourceDescriptor? resource)
     {
         if (resource is null)
@@ -194,54 +196,56 @@ public sealed class ManagedEtwSessionInput : ISourceInput
             return null;
         }
 
+        var etwOptions = OptionsAdapter.Adapt(resource);
+
         var options = new TraceEventProviderOptions
         {
-            StacksEnabled = resource.EtwCaptureStacks,
-            EnableInContainers = resource.EtwEnableInContainers,
-            EnableSourceContainerTracking = resource.EtwEnableSourceContainerTracking
+            StacksEnabled = etwOptions.CaptureStacks,
+            EnableInContainers = etwOptions.EnableInContainers,
+            EnableSourceContainerTracking = etwOptions.EnableSourceContainerTracking
         };
 
-        if (resource.EtwProcessIds.Count > 0)
+        if (etwOptions.ProcessIds.Count > 0)
         {
-            options.ProcessIDFilter = resource.EtwProcessIds;
+            options.ProcessIDFilter = etwOptions.ProcessIds;
         }
 
-        if (resource.EtwProcessNames.Count > 0)
+        if (etwOptions.ProcessNames.Count > 0)
         {
-            options.ProcessNameFilter = resource.EtwProcessNames;
+            options.ProcessNameFilter = etwOptions.ProcessNames;
         }
 
-        if (resource.EtwEventIds.Count > 0)
+        if (etwOptions.EventIds.Count > 0)
         {
-            options.EventIDsToEnable = resource.EtwEventIds;
+            options.EventIDsToEnable = etwOptions.EventIds;
         }
 
-        if (resource.EtwExcludedEventIds.Count > 0)
+        if (etwOptions.ExcludedEventIds.Count > 0)
         {
-            options.EventIDsToDisable = resource.EtwExcludedEventIds;
+            options.EventIDsToDisable = etwOptions.ExcludedEventIds;
         }
 
-        if (resource.EtwStackEventIds.Count > 0)
+        if (etwOptions.StackEventIds.Count > 0)
         {
-            options.EventIDStacksToEnable = resource.EtwStackEventIds;
+            options.EventIDStacksToEnable = etwOptions.StackEventIds;
         }
 
-        if (resource.EtwExcludedStackEventIds.Count > 0)
+        if (etwOptions.ExcludedStackEventIds.Count > 0)
         {
-            options.EventIDStacksToDisable = resource.EtwExcludedStackEventIds;
+            options.EventIDStacksToDisable = etwOptions.ExcludedStackEventIds;
         }
 
-        return HasProviderOptions(resource) ? options : null;
+        return HasProviderOptions(etwOptions) ? options : null;
     }
 
-    private static bool HasProviderOptions(ResourceDescriptor resource) =>
-        resource.EtwCaptureStacks ||
-        resource.EtwEnableInContainers ||
-        resource.EtwEnableSourceContainerTracking ||
-        resource.EtwProcessIds.Count > 0 ||
-        resource.EtwProcessNames.Count > 0 ||
-        resource.EtwEventIds.Count > 0 ||
-        resource.EtwExcludedEventIds.Count > 0 ||
-        resource.EtwStackEventIds.Count > 0 ||
-        resource.EtwExcludedStackEventIds.Count > 0;
+    private static bool HasProviderOptions(EtwResourceOptions options) =>
+        options.CaptureStacks ||
+        options.EnableInContainers ||
+        options.EnableSourceContainerTracking ||
+        options.ProcessIds.Count > 0 ||
+        options.ProcessNames.Count > 0 ||
+        options.EventIds.Count > 0 ||
+        options.ExcludedEventIds.Count > 0 ||
+        options.StackEventIds.Count > 0 ||
+        options.ExcludedStackEventIds.Count > 0;
 }
