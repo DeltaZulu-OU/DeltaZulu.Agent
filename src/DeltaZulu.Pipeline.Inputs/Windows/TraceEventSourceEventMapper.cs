@@ -1,5 +1,5 @@
 using System.Reflection;
-using DeltaZulu.Pipeline.Core.Etw;
+using DeltaZulu.Pipeline.Inputs.Etw;
 using Microsoft.Diagnostics.Tracing;
 
 namespace DeltaZulu.Pipeline.Inputs.Windows;

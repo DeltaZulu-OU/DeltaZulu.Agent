@@ -232,7 +232,7 @@ introduced, and stability.
 DeltaZulu keeps ETW callback work minimal: copy native identifiers and payload
 fields, enqueue compact records, and perform expensive resolver/enrichment work
 outside the callback. The portable resolver primitives live in
-`DeltaZulu.Pipeline.Core.Etw` so they can be unit-tested without a Windows ETW
+`DeltaZulu.Pipeline.Inputs.Etw` so they can be unit-tested without a Windows ETW
 session.
 
 Initial implemented primitives are:

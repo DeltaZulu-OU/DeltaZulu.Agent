@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Core.Etw;
+namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public enum EtwSessionHealthStatus
 {

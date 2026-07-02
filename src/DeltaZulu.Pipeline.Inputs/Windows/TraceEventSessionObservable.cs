@@ -1,4 +1,4 @@
-using DeltaZulu.Pipeline.Core.Etw;
+using DeltaZulu.Pipeline.Inputs.Etw;
 using DeltaZulu.Pipeline.Core.Events;
 using Microsoft.Diagnostics.Tracing.Session;
 using System.Reactive.Disposables;

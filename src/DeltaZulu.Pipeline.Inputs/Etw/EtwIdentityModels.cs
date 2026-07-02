@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Core.Etw;
+namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public enum FileResolutionSource
 {
@@ -58,7 +58,7 @@ public sealed record FileIdentityResolution(
         FileIdentityKey key,
         DateTimeOffset observedAtUtc) => new(
             path,
-            global::DeltaZulu.Pipeline.Core.Etw.FileResolutionSource.NativePayload,
+            global::DeltaZulu.Pipeline.Inputs.Etw.FileResolutionSource.NativePayload,
             ResolutionConfidence.High,
             0,
             key.ToString(),
@@ -77,7 +77,7 @@ public sealed record FileIdentityResolution(
 
     public static FileIdentityResolution Unresolved(FileIdentityKey key) => new(
         null,
-        global::DeltaZulu.Pipeline.Core.Etw.FileResolutionSource.Unknown,
+        global::DeltaZulu.Pipeline.Inputs.Etw.FileResolutionSource.Unknown,
         ResolutionConfidence.Unknown,
         null,
         key.ToString(),

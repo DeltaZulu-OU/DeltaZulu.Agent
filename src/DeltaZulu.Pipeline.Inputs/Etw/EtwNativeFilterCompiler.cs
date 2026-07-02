@@ -1,6 +1,6 @@
 using DeltaZulu.Pipeline.Core.Profiles;
 
-namespace DeltaZulu.Pipeline.Core.Etw;
+namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public static class EtwNativeFilterCompiler
 {

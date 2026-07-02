@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace DeltaZulu.Pipeline.Core.Etw;
+namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public sealed class ThreadIdentityResolver
 {

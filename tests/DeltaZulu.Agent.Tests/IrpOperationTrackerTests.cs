@@ -1,4 +1,4 @@
-using DeltaZulu.Pipeline.Core.Etw;
+using DeltaZulu.Pipeline.Inputs.Etw;
 
 namespace DeltaZulu.Agent.Tests;
 

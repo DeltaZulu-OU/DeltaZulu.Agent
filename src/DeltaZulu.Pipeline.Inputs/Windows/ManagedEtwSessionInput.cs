@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Etw;
+using DeltaZulu.Pipeline.Inputs.Etw;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Profiles;
 using Microsoft.Diagnostics.Tracing;
