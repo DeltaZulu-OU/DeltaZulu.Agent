@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -8,6 +9,7 @@ public static class NdjsonSerializerOptions
     public static JsonSerializerOptions CreateDefault() => new JsonSerializerOptions() {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         PropertyNamingPolicy = null,
         DictionaryKeyPolicy = null,
         ReferenceHandler = ReferenceHandler.IgnoreCycles

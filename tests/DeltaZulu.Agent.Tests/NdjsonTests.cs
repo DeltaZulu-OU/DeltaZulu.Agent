@@ -18,6 +18,29 @@ public sealed class NdjsonTests
         Assert.IsFalse(json.Contains(Environment.NewLine, StringComparison.Ordinal));
     }
 
+
+    [TestMethod]
+    public void CreateDefault_WritesUtf8AndHtmlSensitiveCharactersWithoutUnicodeEscapes()
+    {
+        var json = JsonSerializer.Serialize(new { Message = "one+two café <tag> & value" }, NdjsonSerializerOptions.CreateDefault());
+
+        Assert.Contains("one+two café <tag> & value", json);
+        Assert.IsFalse(json.Contains("\\u002B", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(json.Contains("\\u00E9", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(json.Contains("\\u003C", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(json.Contains("\\u003E", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(json.Contains("\\u0026", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void CreateDefault_StillEscapesJsonControlCharacters()
+    {
+        var json = JsonSerializer.Serialize(new { Message = "quote \" slash \\ newline\n carriage\r" }, NdjsonSerializerOptions.CreateDefault());
+
+        Assert.Contains("quote \\\" slash \\\\ newline\\n carriage\\r", json);
+        Assert.IsFalse(json.Contains(Environment.NewLine, StringComparison.Ordinal));
+    }
+
     [TestMethod]
     public void CreateDefault_IgnoresObjectCycles()
     {
