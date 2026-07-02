@@ -94,6 +94,26 @@ public sealed class KqlTests
     }
 
     [TestMethod]
+    public void NormalizeQueryForRxKql_RewritesHasAnyOutsideStrings()
+    {
+        const string query = "Source | where Message has_any (\"Failed password\", \"Accepted password\") or EventName HAS_ANY (\"Connect\", \"Endpoint\") | project Message";
+
+        var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
+
+        Assert.AreEqual("Source | where (Message has \"Failed password\" or Message has \"Accepted password\") or (EventName has \"Connect\" or EventName has \"Endpoint\") | project Message", result);
+    }
+
+    [TestMethod]
+    public void NormalizeQueryForRxKql_DoesNotRewriteHasAnyInsideStrings()
+    {
+        const string query = "Source | where Message == 'has_any (\"x\")' | project Message";
+
+        var result = ResourceKqlProfileExecutor.NormalizeQueryForRxKql(query);
+
+        Assert.AreEqual(query, result);
+    }
+
+    [TestMethod]
     public void NormalizeQueryForRxKql_DoesNotRewriteIdentifierSubstrings()
     {
         const string query = "EventLog | where Annotationnotin == 'x' | where notinValue == 'notin'";

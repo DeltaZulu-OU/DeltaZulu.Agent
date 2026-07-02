@@ -90,7 +90,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
             normalized.Append(current);
         }
 
-        return normalized.ToString();
+        return RewriteHasAnyExpressions(normalized.ToString());
     }
 
     public void Dispose()
@@ -215,6 +215,283 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
             return disposables;
         });
+    }
+
+
+    private static string RewriteHasAnyExpressions(string query)
+    {
+        const string hasAnyOperator = "has_any";
+        var rewritten = new StringBuilder(query.Length);
+        var searchStart = 0;
+
+        while (TryFindKeywordOutsideStrings(query, hasAnyOperator, searchStart, out var operatorIndex))
+        {
+            var leftStart = FindLeftOperandStart(query, operatorIndex);
+            var leftOperand = query[leftStart..operatorIndex].Trim();
+            var valuesStart = SkipWhitespace(query, operatorIndex + hasAnyOperator.Length);
+
+            if (leftOperand.Length == 0 || valuesStart >= query.Length || query[valuesStart] != '(' || !TryFindMatchingParenthesis(query, valuesStart, out var valuesEnd))
+            {
+                rewritten.Append(query, searchStart, operatorIndex + hasAnyOperator.Length - searchStart);
+                searchStart = operatorIndex + hasAnyOperator.Length;
+                continue;
+            }
+
+            var values = SplitTopLevelCommaSeparatedValues(query[(valuesStart + 1)..valuesEnd]);
+            if (values.Count == 0)
+            {
+                rewritten.Append(query, searchStart, valuesEnd + 1 - searchStart);
+                searchStart = valuesEnd + 1;
+                continue;
+            }
+
+            rewritten.Append(query, searchStart, leftStart - searchStart);
+            rewritten.Append('(');
+            for (var i = 0; i < values.Count; i++)
+            {
+                if (i > 0)
+                {
+                    rewritten.Append(" or ");
+                }
+
+                rewritten.Append(leftOperand);
+                rewritten.Append(" has ");
+                rewritten.Append(values[i]);
+            }
+
+            rewritten.Append(')');
+            searchStart = valuesEnd + 1;
+        }
+
+        rewritten.Append(query, searchStart, query.Length - searchStart);
+        return rewritten.ToString();
+    }
+
+    private static bool TryFindKeywordOutsideStrings(string text, string keyword, int startIndex, out int keywordIndex)
+    {
+        var inSingleQuotedString = false;
+        var inDoubleQuotedString = false;
+
+        for (var i = startIndex; i < text.Length; i++)
+        {
+            var current = text[i];
+
+            if (current == '\'' && !inDoubleQuotedString)
+            {
+                if (inSingleQuotedString && i + 1 < text.Length && text[i + 1] == '\'')
+                {
+                    i++;
+                    continue;
+                }
+
+                inSingleQuotedString = !inSingleQuotedString;
+                continue;
+            }
+
+            if (current == '"' && !inSingleQuotedString)
+            {
+                if (inDoubleQuotedString && i + 1 < text.Length && text[i + 1] == '"')
+                {
+                    i++;
+                    continue;
+                }
+
+                inDoubleQuotedString = !inDoubleQuotedString;
+                continue;
+            }
+
+            if (!inSingleQuotedString && !inDoubleQuotedString && IsKeywordAt(text, i, keyword))
+            {
+                keywordIndex = i;
+                return true;
+            }
+        }
+
+        keywordIndex = -1;
+        return false;
+    }
+
+    private static int FindLeftOperandStart(string text, int operatorIndex)
+    {
+        var index = operatorIndex - 1;
+        while (index >= 0 && char.IsWhiteSpace(text[index]))
+        {
+            index--;
+        }
+
+        var parenDepth = 0;
+        for (; index >= 0; index--)
+        {
+            var current = text[index];
+            if (current == ')')
+            {
+                parenDepth++;
+                continue;
+            }
+
+            if (current == '(')
+            {
+                if (parenDepth == 0)
+                {
+                    return index + 1;
+                }
+
+                parenDepth--;
+                continue;
+            }
+
+            if (parenDepth == 0)
+            {
+                if (current == '|')
+                {
+                    return index + 1;
+                }
+
+                if (IsLogicalOperatorEndingAt(text, index + 1, "where") || IsLogicalOperatorEndingAt(text, index + 1, "and") || IsLogicalOperatorEndingAt(text, index + 1, "or"))
+                {
+                    return SkipWhitespace(text, index + 1);
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private static bool IsLogicalOperatorEndingAt(string text, int endIndex, string keyword)
+    {
+        var startIndex = endIndex - keyword.Length;
+        return startIndex >= 0 && IsKeywordAt(text, startIndex, keyword);
+    }
+
+    private static int SkipWhitespace(string text, int index)
+    {
+        while (index < text.Length && char.IsWhiteSpace(text[index]))
+        {
+            index++;
+        }
+
+        return index;
+    }
+
+    private static bool TryFindMatchingParenthesis(string text, int openParenIndex, out int closeParenIndex)
+    {
+        var inSingleQuotedString = false;
+        var inDoubleQuotedString = false;
+        var depth = 0;
+
+        for (var i = openParenIndex; i < text.Length; i++)
+        {
+            var current = text[i];
+            if (current == '\'' && !inDoubleQuotedString)
+            {
+                if (inSingleQuotedString && i + 1 < text.Length && text[i + 1] == '\'')
+                {
+                    i++;
+                    continue;
+                }
+
+                inSingleQuotedString = !inSingleQuotedString;
+                continue;
+            }
+
+            if (current == '"' && !inSingleQuotedString)
+            {
+                if (inDoubleQuotedString && i + 1 < text.Length && text[i + 1] == '"')
+                {
+                    i++;
+                    continue;
+                }
+
+                inDoubleQuotedString = !inDoubleQuotedString;
+                continue;
+            }
+
+            if (inSingleQuotedString || inDoubleQuotedString)
+            {
+                continue;
+            }
+
+            if (current == '(')
+            {
+                depth++;
+            }
+            else if (current == ')' && --depth == 0)
+            {
+                closeParenIndex = i;
+                return true;
+            }
+        }
+
+        closeParenIndex = -1;
+        return false;
+    }
+
+    private static List<string> SplitTopLevelCommaSeparatedValues(string values)
+    {
+        var result = new List<string>();
+        var inSingleQuotedString = false;
+        var inDoubleQuotedString = false;
+        var depth = 0;
+        var start = 0;
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            var current = values[i];
+            if (current == '\'' && !inDoubleQuotedString)
+            {
+                if (inSingleQuotedString && i + 1 < values.Length && values[i + 1] == '\'')
+                {
+                    i++;
+                    continue;
+                }
+
+                inSingleQuotedString = !inSingleQuotedString;
+                continue;
+            }
+
+            if (current == '"' && !inSingleQuotedString)
+            {
+                if (inDoubleQuotedString && i + 1 < values.Length && values[i + 1] == '"')
+                {
+                    i++;
+                    continue;
+                }
+
+                inDoubleQuotedString = !inDoubleQuotedString;
+                continue;
+            }
+
+            if (inSingleQuotedString || inDoubleQuotedString)
+            {
+                continue;
+            }
+
+            if (current == '(')
+            {
+                depth++;
+            }
+            else if (current == ')')
+            {
+                depth--;
+            }
+            else if (current == ',' && depth == 0)
+            {
+                AddValue(values, start, i, result);
+                start = i + 1;
+            }
+        }
+
+        AddValue(values, start, values.Length, result);
+        return result;
+    }
+
+    private static void AddValue(string values, int start, int end, List<string> result)
+    {
+        var value = values[start..end].Trim();
+        if (value.Length > 0)
+        {
+            result.Add(value);
+        }
     }
 
     private static bool IsKeywordAt(string text, int index, string keyword)
