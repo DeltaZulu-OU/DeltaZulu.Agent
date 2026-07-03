@@ -1,10 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Text;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Inputs.Common;
 
 namespace DeltaZulu.Pipeline.Inputs.Syslog;
 
@@ -24,36 +23,15 @@ public sealed class TcpSyslogInput : ISourceInput
         _parser = new LightweightSyslogParser();
     }
 
-    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
-        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var listener = new TcpListener(_address, _port);
-        listener.Start();
-
-        _ = Task.Run(async () => {
-            try
-            {
-                while (!linkedCts.IsCancellationRequested)
-                {
-                    var client = await listener.AcceptTcpClientAsync(linkedCts.Token).ConfigureAwait(false);
-                    _ = Task.Run(() => ReadClientAsync(client, observer, linkedCts.Token), linkedCts.Token);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                observer.OnCompleted();
-            }
-            catch (Exception ex)
-            {
-                observer.OnError(ex);
-            }
-        }, linkedCts.Token);
-
-        return Disposable.Create(() => {
-            linkedCts.Cancel();
-            listener.Stop();
-            linkedCts.Dispose();
-        });
-    });
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) =>
+        TcpListenerSourceInput.Create(
+            createListener: () => {
+                var listener = new TcpListener(_address, _port);
+                listener.Start();
+                return listener;
+            },
+            handleClientAsync: ReadClientAsync,
+            cancellationToken);
 
     private async Task ReadClientAsync(TcpClient client, IObserver<SourceEvent> observer, CancellationToken cancellationToken)
     {

@@ -2,8 +2,6 @@ using System.Collections;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
@@ -12,6 +10,7 @@ using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Core.Relp;
+using DeltaZulu.Pipeline.Inputs.Common;
 using MessagePack;
 
 namespace DeltaZulu.Pipeline.Inputs.Relp;
@@ -42,45 +41,24 @@ public sealed class RelpInput : ISourceInput
         _serverCertificate = LoadServerCertificate(configuration);
     }
 
-    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
-        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var listener = new TcpListener(IPAddress.Parse(_configuration.Address), _configuration.Port);
-        try
-        {
-            listener.Start();
-        }
-        catch (SocketException ex)
-        {
-            listener.Stop();
-            linkedCts.Dispose();
-            throw CreateListenerStartException(ex);
-        }
-
-        _ = Task.Run(async () => {
-            try
-            {
-                while (!linkedCts.IsCancellationRequested)
+    public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) =>
+        TcpListenerSourceInput.Create(
+            createListener: () => {
+                var listener = new TcpListener(IPAddress.Parse(_configuration.Address), _configuration.Port);
+                try
                 {
-                    var client = await listener.AcceptTcpClientAsync(linkedCts.Token).ConfigureAwait(false);
-                    _ = Task.Run(() => HandleClientAsync(client, observer, linkedCts.Token), linkedCts.Token);
+                    listener.Start();
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                observer.OnCompleted();
-            }
-            catch (Exception ex)
-            {
-                observer.OnError(ex);
-            }
-        }, linkedCts.Token);
+                catch (SocketException ex)
+                {
+                    listener.Stop();
+                    throw CreateListenerStartException(ex);
+                }
 
-        return Disposable.Create(() => {
-            linkedCts.Cancel();
-            listener.Stop();
-            linkedCts.Dispose();
-        });
-    });
+                return listener;
+            },
+            handleClientAsync: HandleClientAsync,
+            cancellationToken);
 
     private InvalidOperationException CreateListenerStartException(SocketException ex)
     {

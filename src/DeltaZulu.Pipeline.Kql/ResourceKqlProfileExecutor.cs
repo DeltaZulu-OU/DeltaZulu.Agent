@@ -127,6 +127,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(profile);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
         if (!profile.Enabled)
         {
@@ -140,7 +141,10 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
             var inputTableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? observableName : profile.Input.Table;
             var queryPath = CreateTemporaryQueryFile(profile, observableName, inputTableName);
             var disposables = new CompositeDisposable();
-            var errorSignaled = 0;
+
+            // Guards every terminal notification sent to `observer` (error, source completion, or
+            // cancellation) so exactly one of them wins, regardless of which fires first.
+            var terminalSignaled = 0;
             ResourceMetadata? capturedMetadata = null;
 
             var kqlRows = new Subject<IDictionary<string, object>>();
@@ -158,7 +162,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
                 foreach (var failedQuery in hub._node.FailedKqlQueryList)
                 {
-                    if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                    if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
                     {
                         observer.OnError(failedQuery.FailureReason);
                     }
@@ -170,7 +174,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                 }
 
                 hub._node.KqlKqlQueryFailed += (_, args) => {
-                    if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                    if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
                     {
                         observer.OnError(args.Exception);
                     }
@@ -193,21 +197,47 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                         TryNotifyKqlRows(kqlRows, rows => rows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow())));
                     },
                     error => {
-                        if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                        // Notify `observer` first: Rx's Subscribe(onNext, onError, onCompleted)
+                        // auto-detaches (disposes `disposables`, including `kqlRows`) as soon as
+                        // OnError is delivered, so by the time we reach TryNotifyKqlRows below,
+                        // kqlRows is already disposed and the call is a harmlessly-swallowed
+                        // ObjectDisposedException. Notifying kqlRows first would instead forward
+                        // the error into a still-live KqlNodeHub, whose internal KqlNode subscribes
+                        // without an error handler -- Rx's default unhandled-OnError behavior is to
+                        // rethrow, which would escape this callback entirely.
+                        if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
                         {
                             observer.OnError(error);
                         }
 
                         TryNotifyKqlRows(kqlRows, rows => rows.OnError(error));
                     },
-                    () => TryNotifyKqlRows(kqlRows, rows => rows.OnCompleted()));
+                    () => {
+                        TryNotifyKqlRows(kqlRows, rows => rows.OnCompleted());
+
+                        // The KQL hub processes rows synchronously as they're pushed, so once the
+                        // source completes and the hub has been told, every resulting output row has
+                        // already reached `observer` -- it's safe to complete the outer observer here
+                        // rather than only on cancellation, which otherwise never fires for finite
+                        // sources (e.g. a single Observable.Return per event) until the whole pipeline
+                        // shuts down.
+                        if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
+                        {
+                            observer.OnCompleted();
+                        }
+                    });
                 disposables.Add(sourceSubscription);
 
-                disposables.Add(cancellationToken.Register(observer.OnCompleted));
+                disposables.Add(cancellationToken.Register(() => {
+                    if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
+                    {
+                        observer.OnCompleted();
+                    }
+                }));
             }
             catch (Exception ex)
             {
-                if (Interlocked.Exchange(ref errorSignaled, 1) == 0)
+                if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
                 {
                     observer.OnError(ex);
                 }

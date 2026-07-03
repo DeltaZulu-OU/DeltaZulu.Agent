@@ -28,13 +28,21 @@ internal sealed class HotSwappableProfileExecutor : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
+        lock (_reloadGate)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
         }
 
-        _disposed = true;
         _profiles.ProfileChanged -= OnProfileChanged;
+
+        // Wait for any in-flight ExecuteOne call to reach MarkCompleted before disposing _drained,
+        // otherwise a still-running execution can call _drained.Set() on an already-disposed handle.
+        _drained.Wait();
         _drained.Dispose();
     }
 

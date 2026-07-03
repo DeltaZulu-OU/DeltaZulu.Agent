@@ -29,7 +29,7 @@ public sealed class BufferedRelpSink : IOutputWriter
             new RelpDeliveryRecordSerializer(),
             new RelpChunkSender(_transport));
         _activitySubscription = _host.Events.Subscribe(new ActivityTimestampObserver(RecordActivity));
-        _host.StartAsync(cancellationToken).AsTask().GetAwaiter().GetResult();
+        _host.StartAsync(cancellationToken).GetAwaiter().GetResult();
     }
 
     public string Name => "buffered-relp";
@@ -54,7 +54,7 @@ public sealed class BufferedRelpSink : IOutputWriter
 
         var result = _host.Buffer.WriteAsync(
             DeliveryRecord.FromResourceOutput(value),
-            _cancellationToken).AsTask().GetAwaiter().GetResult();
+            _cancellationToken).GetAwaiter().GetResult();
 
         if (!result.IsAccepted)
         {
@@ -63,7 +63,7 @@ public sealed class BufferedRelpSink : IOutputWriter
         }
     }
 
-    public void OnCompleted() => _host.StopAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
+    public void OnCompleted() => _host.StopAsync(_cancellationToken).GetAwaiter().GetResult();
 
     public void OnError(Exception error)
     {
@@ -78,9 +78,9 @@ public sealed class BufferedRelpSink : IOutputWriter
             return;
         }
 
-        _host.StopAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
+        _host.StopAsync(_cancellationToken).GetAwaiter().GetResult();
         _activitySubscription.Dispose();
-        _host.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        _host.DisposeAsync().GetAwaiter().GetResult();
         DisposeTransport();
     }
 
@@ -98,7 +98,7 @@ public sealed class BufferedRelpSink : IOutputWriter
         switch (_transport)
         {
             case IAsyncDisposable asyncDisposable:
-                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                asyncDisposable.DisposeAsync().GetAwaiter().GetResult();
                 break;
 
             case IDisposable disposable:
