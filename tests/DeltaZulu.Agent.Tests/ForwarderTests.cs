@@ -686,7 +686,13 @@ public sealed class ForwarderTests
                     ChunksDeliveredTotal = 9,
                     ChunksFailedTotal = 1,
                     ChunksRetryScheduledTotal = 2,
-                    ChunksDeadLetteredTotal = 0
+                    ChunksDeadLetteredTotal = 0,
+                    DeadLetterBytesLimit = 10_000,
+                    DeadLetterBytesUsed = 0,
+                    ChunksDeadLetterEvictedTotal = 0,
+                    QuarantineBytesLimit = 10_000,
+                    QuarantineBytesUsed = 0,
+                    ChunksQuarantineEvictedTotal = 0
                 },
                 LastForwarderActivityUtc = now
             }
