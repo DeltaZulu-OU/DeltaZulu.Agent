@@ -1,6 +1,11 @@
 <Solution>
-  <Project Path="../DeltaZulu.DurableBuffer/src/DeltaZulu.DurableBuffer/DeltaZulu.DurableBuffer.csproj" />
-  <Project Path="external/DeltaZulu.Relp/src/DeltaZulu.Relp/DeltaZulu.Relp.csproj" />
+  <Folder Name="/External/">
+    <Project Path="../DeltaZulu.DurableBuffer/src/DeltaZulu.DurableBuffer/DeltaZulu.DurableBuffer.csproj" />
+    <Project Path="external/DeltaZulu.Relp/src/DeltaZulu.Relp/DeltaZulu.Relp.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
+  </Folder>
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Inputs/DeltaZulu.Pipeline.Inputs.csproj" />
@@ -10,5 +15,4 @@
   <Project Path="src/DeltaZulu.Pipeline.Tunnel/DeltaZulu.Pipeline.Tunnel.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Outputs/DeltaZulu.Pipeline.Outputs.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Prefilter/DeltaZulu.Pipeline.Prefilter.csproj" />
-  <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
 </Solution>
