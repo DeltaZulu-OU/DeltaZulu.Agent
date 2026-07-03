@@ -1,0 +1,33 @@
+schemaVersion: 1
+id: windows.eventlog.dnsserver-audit
+name: DNS Server Audit Event Log plugin configuration
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-DNSServer/Audit
+condition:
+  type: wmi
+  query: select * from Win32_ServerFeature where ID=13
+  mandatory: false
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Microsoft-Windows-DNSServer/Audit"
+    // WEC DNS baseline: 541 records serverlevelplugindll changes on scope .; channel ACL may need Event Log Readers access.
+    | where EventId == 541
+    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, SettingName, SettingValue, Scope, User, ProcessId, _metadata

@@ -1,0 +1,35 @@
+schemaVersion: 1
+id: windows.etw.dns-server
+name: Microsoft DNS Server ETW analytics
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-DNS-Server
+  provider: Microsoft-Windows-DNSServer
+condition:
+  type: wmi
+  query: select * from Win32_ServerFeature where ID=13
+  mandatory: false
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Etw
+    | where ProviderName =~ "Microsoft-Windows-DNSServer"
+    // Keep DNS Server plugin load/configuration events from the WEC DNS baseline: 150/770 plugin DLL state and 541 serverlevelplugindll audit changes.
+    | where EventId in (150, 541, 770)
+    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, ClientIP, ClientIp, QueryName, QueryType, ResponseCode, SettingName, SettingValue, PluginDll, Keyword, Keywords, _metadata

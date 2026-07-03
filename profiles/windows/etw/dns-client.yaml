@@ -26,5 +26,9 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-DNS-Client"
-    // Keep DNS timeout/name-error/malformed-query task families; omit successful-query churn from browsers, update agents, and cloud services.
-    | where EventId in (1013, 1015, 1016, 1024, 1025, 1026)
+    // 3008: DNS Client Query Completed; suppress local machine, empty-result, and local suffix resolution noise.
+    | where EventId == 3008
+    | where QueryOptions != "140737488355328"
+    | where QueryResults != ""
+    | where not(DnsName endswith ".local" or DnsName endswith ".localdomain" or DnsName endswith ".lan" or QueryName endswith ".local" or QueryName endswith ".localdomain" or QueryName endswith ".lan")
+    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, DnsName, QueryName, QueryType, QueryOptions, QueryResults, ResponseCode, Status, Image, CommandLine, _metadata

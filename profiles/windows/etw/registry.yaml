@@ -1,0 +1,33 @@
+schemaVersion: 1
+id: windows.etw.registry
+name: Microsoft Registry ETW persistence activity
+version: 1.0.0
+enabled: true
+mandatory: true
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-Registry
+  provider: Microsoft-Windows-Registry
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Etw
+    | where ProviderName =~ "Microsoft-Windows-Registry"
+    // Keep write/delete/persistence-oriented registry events focused on Wazuh FIM autorun, shell, policy, TLS, USB, PowerShell/IE extension, and Sysmon rule keys.
+    | where EventId in (10, 11, 12)
+    | where RegistryPath has_any (@"\Run", @"\RunOnce", @"\RunServices", @"\RunServicesOnce", @"\Policies\Explorer\Run", @"\Policies\System\Scripts", @"\Winlogon", @"\Image File Execution Options", @"\Imagefileexecutionoptions", @"\Wbem\Subscription", @"\Shell Folders", @"\User Shell Folders", @"\Session Manager", @"\SCHANNEL", @"\FipsAlgorithmPolicy", @"\Cryptography\Configuration\SSL", @"\Classes\Mscfile\Shell\Open\Command", @"\App Paths\Control.exe", @"\Classes\Exefile\Shell\Runas\Command\IsolatedCommand", @"\Enum\USB", @"\Enum\USBTor", @"\Environment", @"\Control Panel\Desktop\Scrnsave.exe", @"\Command Processor\Autorun", @"\Internet Explorer\Desktop\Components", @"\Internet Explorer\Explorer Bars", @"\Internet Explorer\Extensions", @"\Internet Explorer\Toolbar", @"\Keyboard Layout", @"\Services\SysmonDrv\Parameters\Rules", @"\Microsoft Defender") or KeyName has_any (@"\Run", @"\RunOnce", @"\RunServices", @"\RunServicesOnce", @"\Policies\Explorer\Run", @"\Policies\System\Scripts", @"\Winlogon", @"\Image File Execution Options", @"\Imagefileexecutionoptions", @"\Wbem\Subscription", @"\Shell Folders", @"\User Shell Folders", @"\Session Manager", @"\SCHANNEL", @"\FipsAlgorithmPolicy", @"\Cryptography\Configuration\SSL", @"\Classes\Mscfile\Shell\Open\Command", @"\App Paths\Control.exe", @"\Classes\Exefile\Shell\Runas\Command\IsolatedCommand", @"\Enum\USB", @"\Enum\USBTor", @"\Environment", @"\Control Panel\Desktop\Scrnsave.exe", @"\Command Processor\Autorun", @"\Internet Explorer\Desktop\Components", @"\Internet Explorer\Explorer Bars", @"\Internet Explorer\Extensions", @"\Internet Explorer\Toolbar", @"\Keyboard Layout", @"\Services\SysmonDrv\Parameters\Rules", @"\Microsoft Defender")
+    | where not(RegistryPath has_any (@"\Session Manager\Power", @"\Services\VSS\Diag") or KeyName has_any (@"\Session Manager\Power", @"\Services\VSS\Diag"))
+    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, RegistryPath, KeyName, ValueName, Operation, Status, Image, CommandLine, _metadata

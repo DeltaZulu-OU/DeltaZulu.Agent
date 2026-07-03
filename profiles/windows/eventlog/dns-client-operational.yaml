@@ -24,3 +24,8 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-DNS-Client/Operational"
+    // 3008: DNS Client Query Completed; suppress local machine and empty-result resolution noise from the WEC baseline.
+    | where EventId == 3008
+    | where QueryOptions != "140737488355328"
+    | where QueryResults != ""
+    | project TimeCreated, ProviderName, EventId, EventName, QueryName, QueryType, QueryOptions, QueryResults, ResponseCode, Status, ProcessId, Image, CommandLine, _metadata

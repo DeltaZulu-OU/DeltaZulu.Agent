@@ -1,0 +1,33 @@
+schemaVersion: 1
+id: windows.eventlog.dns-server
+name: DNS Server Event Log plugin events
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: DNS Server
+condition:
+  type: wmi
+  query: select * from Win32_ServerFeature where ID=13
+  mandatory: false
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "DNS Server"
+    // WEC DNS baseline: 150 failed plugin DLL load/initialization and 770 plugin DLL loaded.
+    | where EventId in (150, 770)
+    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, PluginDll, ProcessId, _metadata

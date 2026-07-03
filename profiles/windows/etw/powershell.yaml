@@ -26,5 +26,7 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-PowerShell"
-    // Keep module and script-block logging for detection; omit verbose lifecycle/progress events that are less useful for baseline collection.
+    // Keep module and script-block logging; suppress benign interactive help/discovery commands.
     | where EventId in (4103, 4104)
+    | where not(ScriptBlockText has_any ("Get-Help", "Get-Command", "Update-Help") or CommandLine has_any ("Get-Help", "Get-Command", "Update-Help"))
+    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, User, UserId, ScriptBlockText, CommandLine, HostApplication, EngineVersion, ParentImage, _metadata

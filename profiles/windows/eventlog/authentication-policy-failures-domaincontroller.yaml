@@ -1,0 +1,32 @@
+schemaVersion: 1
+id: windows.eventlog.authentication-policy-failures-domaincontroller
+name: NTLM Authentication Policy Failures Domain Controller Event Log
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-Authentication/AuthenticationPolicyFailures-DomainController
+condition:
+  type: wmi
+  query: select * from Win32_OperatingSystem where ProductType=2
+  mandatory: false
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Microsoft-Windows-Authentication/AuthenticationPolicyFailures-DomainController"
+    | where ProviderName =~ "Microsoft-Windows-NTLM"
+    | project TimeCreated, ProviderName, EventId, EventName, Level, Task, Opcode, Keywords, EventData, Message, MachineName, SubjectUserName, TargetUserName, Status, _metadata

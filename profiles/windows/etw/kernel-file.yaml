@@ -26,5 +26,9 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Kernel-File"
-    // Keep create/write/rename/delete-style file semantics; omit blanket read/open/close noise that dominates baseline file telemetry.
+    // Keep create/write/rename/delete semantics, then narrow routine collection to Wazuh/Defender-style FIM directories rather than individual files.
     | where EventId in (12, 14, 17, 23, 26, 27, 30, 31, 32, 33, 34)
+    | where TargetFilename has_any (@"\Windows\System32\drivers\etc", @"\Windows\SysNative\drivers\etc", @"\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup", @"\Windows\System32\WindowsPowerShell\v1.0", @"\Windows\SysNative\WindowsPowerShell\v1.0", @"\Program Files\PowerShell\7", @"\Documents\PowerShell", @"\Documents\WindowsPowerShell", @"\Windows\System32\wbem", @"\Windows\SysNative\wbem", @"\Windows\SysNative\GroupPolicy", @"\Downloads")
+    | where not(TargetFilename has_any (@"\harmonybackup", @"\programdata\checkpoint\identitycollector", @"\programdata\checkpoint\dbstore", @"\program files (x86)\ossec-agent\", @"\program files (x86)\systemscheduler\events", @"\mk_agent\alertfiles"))
+    | where not(TargetFilename endswith ".wal" or TargetFilename endswith ".db-wal" or TargetFilename endswith ".db")
+    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, Image, CommandLine, ParentImage, ParentCommandLine, TargetFilename, FileName, FileObject, IrpPtr, _metadata

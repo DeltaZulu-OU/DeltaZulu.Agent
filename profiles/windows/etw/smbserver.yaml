@@ -1,0 +1,36 @@
+schemaVersion: 1
+id: windows.etw.smbserver
+name: Microsoft SMB Server ETW share access
+version: 1.0.0
+enabled: true
+mandatory: true
+resource:
+  platform: windows
+  family: etw
+  mode: managed
+  session: DeltaZulu-SMBServer
+  provider: Microsoft-Windows-SMBServer
+condition:
+  type: wmi
+  query: select * from Win32_ServerFeature where ID=255
+  mandatory: false
+input:
+  table: Etw
+  schema: WindowsEtw.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    Etw
+    | where ProviderName =~ "Microsoft-Windows-SMBServer"
+    // Keep share/connect-style events and suppress approved backup/sync shares.
+    | where EventId in (1001, 1002, 1003)
+    | where not(ShareName in~ (@"\\fileserver\backup", @"\\fileserver\sync"))
+    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, RemoteHost, ClientName, ShareName, FilePath, Status, Image, ParentImage, _metadata

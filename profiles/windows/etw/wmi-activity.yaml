@@ -26,5 +26,7 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-WMI-Activity"
-    // Keep WMI provider/activity/subscription events including 5861 persistence evidence; suppress benign 5858 patterns downstream by tool/namespace rather than dropping the ID.
+    // Keep provider/activity/subscription events; reduce routine root\cimv2 service noise while retaining non-service use.
     | where EventId in (5857, 5858, 5859, 5860, 5861)
+    | where Namespace !startswith "root\cimv2" or not(User in~ ("SYSTEM", "LOCAL SERVICE", "NETWORK SERVICE"))
+    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, User, Namespace, Query, Operation, ClientProcessId, Image, CommandLine, _metadata

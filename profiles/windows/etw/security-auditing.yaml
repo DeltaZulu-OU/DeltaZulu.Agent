@@ -26,5 +26,6 @@ filter:
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Security-Auditing"
-    // Keep a curated Security audit baseline; omit object-access and firewall allow events such as 4662/5156 unless scoped to high-value roles.
+    // Keep core logon/process/admin/account/task/Kerberos audit events; omit object-access and firewall allow noise unless role-scoped elsewhere.
     | where EventId in (1102, 4624, 4625, 4672, 4688, 4697, 4698, 4702, 4719, 4720, 4722, 4723, 4724, 4725, 4726, 4728, 4729, 4732, 4768, 4769, 4771, 4776)
+    | project TimeCreated, ProviderName, EventId, EventName, SubjectUserName, SubjectDomainName, TargetUserName, TargetDomainName, ProcessName, NewProcessName, CommandLine, ParentProcessName, IpAddress, Status, LogonType, TaskName, ServiceName, _metadata
