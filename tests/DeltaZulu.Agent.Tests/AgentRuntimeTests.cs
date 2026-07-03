@@ -213,7 +213,8 @@ public sealed class AgentRuntimeTests
         var runTask = Task.Run(() => runtime.Run(TestContext.CancellationToken));
         Assert.IsTrue(input.Opened.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
         source.OnNext(CreateEvent("before"));
-        Assert.IsTrue(SpinWait.SpinUntil(() => sink.Records.Count == 1, TimeSpan.FromSeconds(5)));
+        source.OnNext(CreateEvent("also-before"));
+        Assert.IsTrue(SpinWait.SpinUntil(() => sink.Records.Count == 2, TimeSpan.FromSeconds(5)));
 
         reloads.NotifyProfileChanged(CreateProfile("replacement"));
         source.OnNext(CreateEvent("after"));
@@ -221,9 +222,11 @@ public sealed class AgentRuntimeTests
 
         Assert.IsTrue(runTask.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
         Assert.IsTrue(runTask.Result.Success);
-        Assert.HasCount(2, sink.Records);
+        Assert.HasCount(3, sink.Records);
         Assert.AreEqual("initial", sink.Records[0].Metadata["profileId"]);
-        Assert.AreEqual("replacement", sink.Records[1].Metadata["profileId"]);
+        Assert.AreEqual("initial", sink.Records[1].Metadata["profileId"]);
+        Assert.AreEqual("replacement", sink.Records[2].Metadata["profileId"]);
+        Assert.AreEqual(2, executor.ExecuteCount);
     }
 
     [TestMethod]
@@ -334,11 +337,18 @@ public sealed class AgentRuntimeTests
 
     private sealed class PassthroughExecutor : IProfileExecutor
     {
+        private int _executeCount;
+
+        public int ExecuteCount => Volatile.Read(ref _executeCount);
+
         public IObservable<ResourceOutputRecord> Execute(
             IObservable<SourceEvent> source,
             ResourceProfile profile,
-            CancellationToken cancellationToken = default) =>
-            source.Select(o => ResourceOutputRecord.FromSource(o, profile.Id, profile.Version));
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _executeCount);
+            return source.Select(o => ResourceOutputRecord.FromSource(o, profile.Id, profile.Version));
+        }
 
         public void Dispose()
         { }

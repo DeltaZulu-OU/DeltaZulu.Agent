@@ -1,4 +1,6 @@
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Profiles;
@@ -9,10 +11,8 @@ internal sealed class HotSwappableProfileExecutor : IDisposable
 {
     private readonly IProfileExecutor _executor;
     private readonly ProfileReloadSource _profiles;
-    private readonly object _reloadGate = new();
-    private readonly ManualResetEventSlim _drained = new(true);
+    private readonly Lock _reloadGate = new();
     private ResourceProfile _currentProfile;
-    private int _inFlight;
     private bool _disposed;
 
     public HotSwappableProfileExecutor(IProfileExecutor executor, ProfileReloadSource profiles)
@@ -20,11 +20,93 @@ internal sealed class HotSwappableProfileExecutor : IDisposable
         _executor = executor ?? throw new ArgumentNullException(nameof(executor));
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
         _currentProfile = profiles.Current;
-        _profiles.ProfileChanged += OnProfileChanged;
     }
 
-    public IObservable<ResourceOutputRecord> Execute(IObservable<SourceEvent> source, CancellationToken cancellationToken = default) =>
-        source.SelectMany(sourceEvent => ExecuteOne(sourceEvent, cancellationToken));
+    public IObservable<ResourceOutputRecord> Execute(IObservable<SourceEvent> source, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        return Observable.Create<ResourceOutputRecord>(observer => {
+            var events = new Subject<SourceEvent>();
+            var activeProfile = new SerialDisposable();
+            var stopped = false;
+
+            void ActivateProfile(ResourceProfile profile)
+            {
+                lock (_reloadGate)
+                {
+                    ObjectDisposedException.ThrowIf(_disposed, this);
+                    if (stopped)
+                    {
+                        return;
+                    }
+
+                    _currentProfile = profile;
+                    activeProfile.Disposable = _executor.Execute(events, profile, cancellationToken).Subscribe(observer);
+                }
+            }
+
+            void OnProfileChanged(object? sender, ResourceProfile profile) => ActivateProfile(profile);
+
+            _profiles.ProfileChanged += OnProfileChanged;
+
+            try
+            {
+                ActivateProfile(_profiles.Current);
+            }
+            catch (Exception ex)
+            {
+                _profiles.ProfileChanged -= OnProfileChanged;
+                activeProfile.Dispose();
+                events.Dispose();
+                observer.OnError(ex);
+                return Disposable.Empty;
+            }
+
+            var sourceSubscription = source.Subscribe(
+                sourceEvent => {
+                    lock (_reloadGate)
+                    {
+                        if (!stopped)
+                        {
+                            events.OnNext(sourceEvent);
+                        }
+                    }
+                },
+                error => {
+                    lock (_reloadGate)
+                    {
+                        if (!stopped)
+                        {
+                            stopped = true;
+                            events.OnError(error);
+                        }
+                    }
+                },
+                () => {
+                    lock (_reloadGate)
+                    {
+                        if (!stopped)
+                        {
+                            stopped = true;
+                            events.OnCompleted();
+                        }
+                    }
+                });
+
+            return Disposable.Create(() => {
+                lock (_reloadGate)
+                {
+                    stopped = true;
+                }
+
+                _profiles.ProfileChanged -= OnProfileChanged;
+                sourceSubscription.Dispose();
+                activeProfile.Dispose();
+                events.Dispose();
+            });
+        });
+    }
 
     public void Dispose()
     {
@@ -36,73 +118,6 @@ internal sealed class HotSwappableProfileExecutor : IDisposable
             }
 
             _disposed = true;
-        }
-
-        _profiles.ProfileChanged -= OnProfileChanged;
-
-        // Wait for any in-flight ExecuteOne call to reach MarkCompleted before disposing _drained,
-        // otherwise a still-running execution can call _drained.Set() on an already-disposed handle.
-        _drained.Wait();
-        _drained.Dispose();
-    }
-
-    private IObservable<ResourceOutputRecord> ExecuteOne(SourceEvent sourceEvent, CancellationToken cancellationToken)
-    {
-        ResourceProfile profile;
-        lock (_reloadGate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            profile = _currentProfile;
-            if (Interlocked.Increment(ref _inFlight) == 1)
-            {
-                _drained.Reset();
-            }
-        }
-
-        try
-        {
-            return _executor
-                .Execute(Observable.Return(sourceEvent), profile, cancellationToken)
-                .Finally(MarkCompleted);
-        }
-        catch (Exception ex)
-        {
-            MarkCompleted();
-            return Observable.Throw<ResourceOutputRecord>(ex);
-        }
-    }
-
-    private void OnProfileChanged(object? sender, ResourceProfile profile)
-    {
-        ReplaceProfile(profile);
-    }
-
-    private void ReplaceProfile(ResourceProfile profile)
-    {
-        PauseAndDrain();
-        try
-        {
-            _currentProfile = profile;
-        }
-        finally
-        {
-            Resume();
-        }
-    }
-
-    private void PauseAndDrain()
-    {
-        Monitor.Enter(_reloadGate);
-        _drained.Wait();
-    }
-
-    private void Resume() => Monitor.Exit(_reloadGate);
-
-    private void MarkCompleted()
-    {
-        if (Interlocked.Decrement(ref _inFlight) == 0)
-        {
-            _drained.Set();
         }
     }
 }
