@@ -17,6 +17,8 @@ public sealed record RelpBufferConfiguration
 
     public long MaxDiskBytes { get; init; } = 512L * 1024 * 1024;
     public long MaxMemoryBytes { get; init; } = 32L * 1024 * 1024;
+    public long MaxDeadLetterBytes { get; init; } = 64L * 1024 * 1024;
+    public long MaxQuarantineBytes { get; init; } = 64L * 1024 * 1024;
 
     public int MaxChunkRecords { get; init; } = 100;
     public long MaxChunkBytes { get; init; } = 4L * 1024 * 1024;
@@ -33,6 +35,8 @@ public sealed record RelpBufferConfiguration
         StoragePath = Path,
         MaxDiskBytes = MaxDiskBytes,
         MaxMemoryBytes = MaxMemoryBytes,
+        MaxDeadLetterBytes = MaxDeadLetterBytes,
+        MaxQuarantineBytes = MaxQuarantineBytes,
         MaxChunkRecords = MaxChunkRecords,
         MaxChunkBytes = MaxChunkBytes,
         MaxChunkAge = TimeSpan.FromSeconds(MaxChunkAgeSeconds),
@@ -105,6 +109,16 @@ public sealed class YamlRelpOutputConfigurationLoader
         if (configuration.Buffer.MaxMemoryBytes < 1)
         {
             throw new InvalidDataException($"{prefix} must set buffer.maxMemoryBytes to at least 1.");
+        }
+
+        if (configuration.Buffer.MaxDeadLetterBytes < 1)
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.maxDeadLetterBytes to at least 1.");
+        }
+
+        if (configuration.Buffer.MaxQuarantineBytes < 1)
+        {
+            throw new InvalidDataException($"{prefix} must set buffer.maxQuarantineBytes to at least 1.");
         }
 
         if (configuration.Buffer.MaxChunkRecords < 1)
