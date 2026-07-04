@@ -135,7 +135,7 @@ dzagentctl eventlog Security json security-4688.ndjson --kql "Source | where Eve
 The CLI validates requested Windows Event Log resources before starting KQL. Profiles default to `mandatory: true`, which keeps missing resources as `error:` conditions; set `mandatory: false` on optional profiles to log a `warning:` for that profile and continue with the remaining profiles instead of surfacing a Reactive/KQL exception stack.
 
 Without a profile, source events pass through unchanged into the standard DeltaZulu NDJSON envelope.
-With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Kql`.
+With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Filter`.
 With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to a file sink with `json out.ndjson`.
 CLI options such as `--kql` can appear before or after the input command; for example, `dzagentctl --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
 
@@ -162,7 +162,7 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
 - ETW integrity monitoring is intentionally scoped to agent self-protection diagnostics: it checks only the current process's `ntdll` ETW prologues, does not unhook or repair memory, and should emit `AgentIntegrityFinding`-style internal security/health events rather than normal endpoint telemetry.
-- Enrichment, DuckDB, SQL window engines, and edge-side canonical normalization remain out of scope for the agent.
+- Detection verdicts, DuckDB, SQL window engines, and platform-owned canonical normalization remain out of scope for the agent; deterministic post-filter enrichment lives in DeltaZulu.Pipeline.Enrichment.
 
 ## Project layout
 
@@ -179,7 +179,7 @@ src/
     Relp/
   DeltaZulu.Agent.Runtime/
     Security/EtwIntegrity/
-  DeltaZulu.Agent.Kql/
+  DeltaZulu.Agent.Filter/
   DeltaZulu.Agent.Outputs/
     Ndjson/
     Relp/

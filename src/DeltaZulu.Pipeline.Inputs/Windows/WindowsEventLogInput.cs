@@ -413,6 +413,8 @@ public sealed class WindowsEventLogInput : ISourceInput
                 {
                     fields.TryAdd(item.Key, item.Value);
                 }
+
+                AddSecurityEventAliases(fields);
             }
         }
 
@@ -425,6 +427,56 @@ public sealed class WindowsEventLogInput : ISourceInput
         return fields;
     }
 
+
+    private static void AddSecurityEventAliases(IDictionary<string, object?> fields)
+    {
+        if (!TryGetInt(fields.AsReadOnly(), "EventId", out var eventId) || eventId != 5156)
+        {
+            return;
+        }
+
+        AddFirstAlias(fields, "ApplicationPath", "Application", "ApplicationName", "Application_Name", "Application Name");
+        AddFirstAlias(fields, "DestinationPort", "DestPort", "DestinationPort", "Destination_Port", "Destination Port");
+    }
+
+    private static void AddFirstAlias(IDictionary<string, object?> fields, string canonicalName, params string[] aliases)
+    {
+        if (fields.ContainsKey(canonicalName))
+        {
+            return;
+        }
+
+        foreach (var alias in aliases)
+        {
+            if (fields.TryGetValue(alias, out var value) && value is not null && !string.IsNullOrWhiteSpace(value.ToString()))
+            {
+                fields[canonicalName] = value;
+                return;
+            }
+        }
+    }
+
+    private static bool TryGetInt(IReadOnlyDictionary<string, object?> fields, string key, out int value)
+    {
+        if (fields.TryGetValue(key, out var raw))
+        {
+            switch (raw)
+            {
+                case int intValue:
+                    value = intValue;
+                    return true;
+                case long longValue when longValue <= int.MaxValue && longValue >= int.MinValue:
+                    value = (int)longValue;
+                    return true;
+                case string text when int.TryParse(text, out var parsed):
+                    value = parsed;
+                    return true;
+            }
+        }
+
+        value = default;
+        return false;
+    }
 
     internal static IReadOnlyDictionary<string, object?> ExtractNamedEventData(string eventXml)
     {

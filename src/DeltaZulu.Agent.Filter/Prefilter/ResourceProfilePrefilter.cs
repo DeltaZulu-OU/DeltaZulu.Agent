@@ -1,7 +1,7 @@
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Profiles;
 
-namespace DeltaZulu.Pipeline.Prefilter;
+namespace DeltaZulu.Agent.Filter.Prefilter;
 
 /// <summary>
 /// Decides whether a profile's declarative <see cref="ResourceProfile.Condition"/> is satisfied

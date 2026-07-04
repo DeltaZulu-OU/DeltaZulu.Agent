@@ -1,7 +1,7 @@
 schemaVersion: 1
-id: windows.etw.rpc
-name: Microsoft RPC ETW call tracing
-version: 1.0.0
+id: windows.etw.rpc.p0
+name: Microsoft RPC ETW P0 selected-interface call tracing
+version: 1.1.0
 enabled: true
 mandatory: true
 resource:
@@ -27,3 +27,7 @@ filter:
     Etw
     | where ProviderName =~ "Microsoft-Windows-RPC"
     | where EventId in (5, 6, 7, 8, 14)
+    // P0 selected-interface profile for SCMR (svcctl) and DRSR (DRSUAPI). Raw payloads are
+    // preserved for retained events so platform Bronze can replay and re-resolve them.
+    | extend InterfaceUuidNormalized = trim(@"[{}]", tostring(InterfaceUuid))
+    | where InterfaceUuidNormalized in~ ("367abb81-9844-35f1-ad32-98f038001003", "e3514235-4b06-11d1-ab04-00c04fc2dcd2") or Endpoint has_any ("svcctl", "drsuapi")

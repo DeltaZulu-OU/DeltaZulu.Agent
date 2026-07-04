@@ -1,6 +1,6 @@
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Profiles;
-using DeltaZulu.Pipeline.Prefilter;
+using DeltaZulu.Agent.Filter.Prefilter;
 
 namespace DeltaZulu.Agent.Tests;
 

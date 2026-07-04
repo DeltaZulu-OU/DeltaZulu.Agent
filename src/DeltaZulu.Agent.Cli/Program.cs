@@ -7,9 +7,9 @@ using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Pipeline.Inputs.Auditd;
 using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
-using DeltaZulu.Pipeline.Kql;
+using DeltaZulu.Agent.Filter.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
-using DeltaZulu.Pipeline.Prefilter;
+using DeltaZulu.Agent.Filter.Prefilter;
 
 #if WINDOWS
 using DeltaZulu.Pipeline.Core.Windows;

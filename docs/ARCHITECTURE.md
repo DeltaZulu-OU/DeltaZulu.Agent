@@ -31,14 +31,14 @@ DeltaZulu.Agent currently has three executable hosts:
 src/
   DeltaZulu.Pipeline.Core/       Shared pipeline models, abstractions, profiles, observations, serializers, and helpers.
   DeltaZulu.Agent.Runtime/       Runtime orchestration that binds inputs, profiles, executors, and sinks; includes agent self-protection services such as ETW prologue integrity monitoring.
-  DeltaZulu.Pipeline.Kql/        Microsoft.Rx.Kql-backed resource profile executor.
+  DeltaZulu.Agent.Filter/        Logstash-like filter stage: KQL profile execution and resource prefiltering.
   DeltaZulu.Pipeline.Outputs/    Output adapters grouped by type.
     Ndjson/                      NDJSON console/file sinks, serializer options, and error records.
     Relp/                        Buffered RELP sink, RELP-neutral transport port, DeltaZulu.Relp adapter, and health reporting.
   DeltaZulu.Agent.Daemon/        YAML-driven forwarder daemon composition root.
   DeltaZulu.Agent.Cli/           Development/exploration CLI composition root.
   DeltaZulu.Pipeline.Inputs/     Resource-specific input adapters, including RELP server input.
-  DeltaZulu.Pipeline.Prefilter/  Platform prefilter support.
+  DeltaZulu.Pipeline.Enrichment/ Deterministic post-filter enrichment, including RPC resolver sidecars.
   DeltaZulu.Pipeline.Tunnel/     Pipeline tunnel support.
   DeltaZulu.DurableBuffer/       Durable disk buffer, retry, backpressure, dead-lettering, recovery.
 ```
@@ -52,9 +52,10 @@ Dependency direction is inward: inputs produce domain `SourceEvent` values; KQL 
 ```mermaid
 flowchart LR
     A[Input adapter] --> B[SourceEvent]
-    B --> C[Profile or inline KQL]
-    C --> D[ResourceOutputRecord]
-    D --> E[NDJSON console/file sink]
+    B --> C[Filter/profile KQL]
+    C --> D[Post-filter deterministic enrichment]
+    D --> E[ResourceOutputRecord]
+    E --> F[NDJSON console/file sink]
 ```
 
 ### Daemon forwarding flow
@@ -63,18 +64,23 @@ flowchart LR
 flowchart LR
     A[YAML source config] --> B[Input adapter]
     B --> C[SourceEvent with source column]
-    C --> D[Optional resource profile]
-    D --> E[ResourceOutputRecord]
-    E --> F[DeliveryRecord with stable DeliveryId]
-    F --> G[DeltaZulu.DurableBuffer durable chunk]
-    G --> H[ForwarderChunkSender]
-    H --> I[DeltaZulu.Relp transport adapter]
-    I --> J[Receiver ACK / retry / dead-letter]
+    C --> D[Filter/profile KQL]
+    D --> E[Post-filter deterministic enrichment]
+    E --> F[ResourceOutputRecord]
+    F --> G[DeliveryRecord with stable DeliveryId]
+    G --> H[DeltaZulu.DurableBuffer durable chunk]
+    H --> I[ForwarderChunkSender]
+    I --> J[DeltaZulu.Relp transport adapter]
+    J --> K[Receiver ACK / retry / dead-letter]
 ```
 
 Source events expose a KQL `source` column from the native source name. Daemon profiles use that column to select channels or providers; ETW profiles use `resource.session` for the live session name and `resource.provider` for filtering/identity, for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`.
 
+The runtime follows a Logstash-like order: input adapters produce `SourceEvent` records, profile KQL performs filtering/projection, deterministic enrichment runs only on kept records, and output writers receive the final `ResourceOutputRecord`.
+
 ETW payload fields remain native provider facts at the live input boundary. Any resolved, normalized, enriched, or correlated field is DeltaZulu-derived schema and must carry documented provenance; see [`docs/ETW_SCHEMA_BOUNDARIES.md`](ETW_SCHEMA_BOUNDARIES.md).
+
+RPC-centric Windows evidence follows the same boundary: the agent may emit deterministic `enrichment.Rpc` facts, but platform-owned Bronze/Silver/Golden modeling and detections interpret them. See [`docs/RPC_AGENT_PLATFORM_ALIGNMENT.md`](RPC_AGENT_PLATFORM_ALIGNMENT.md).
 
 Windows eventing implementation boundaries are captured in [`docs/adr/0001-windows-eventing-library-boundaries.md`](adr/0001-windows-eventing-library-boundaries.md): TraceEvent owns live ETW sessions, Tx remains for ETL/EVTX-style replay/import paths, and P/Invoke is reserved for narrow OS primitives or future native ETW work justified by benchmarks.
 

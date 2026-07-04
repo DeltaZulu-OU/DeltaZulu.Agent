@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Enrichment;
 
 namespace DeltaZulu.Agent.Runtime;
 
@@ -52,7 +53,8 @@ public sealed class AgentRuntime
             binding.Input,
             source => ExecuteBinding(binding, reloadableExecutor, source, cancellationToken),
             writer,
-            _observations);
+            _observations,
+            ResourceOutputEnricher.EnrichAfterFilter);
 
         try
         {
@@ -155,7 +157,8 @@ public sealed class AgentRuntime
             binding.Input,
             source => ExecuteBinding(binding, reloadableExecutor, source, cancellationToken),
             writer,
-            _observations);
+            _observations,
+            ResourceOutputEnricher.EnrichAfterFilter);
 
         using var subscription = pipeline.Start(cancellationToken);
         completed.Wait(cancellationToken);

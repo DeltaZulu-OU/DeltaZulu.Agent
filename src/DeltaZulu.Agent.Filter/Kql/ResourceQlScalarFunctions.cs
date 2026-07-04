@@ -3,7 +3,7 @@ using System.Net;
 using System.Reactive.Kql;
 using System.Runtime.Caching;
 
-namespace DeltaZulu.Pipeline.Kql;
+namespace DeltaZulu.Agent.Filter.Kql;
 
 public static class AgentScalarFunctions
 {

@@ -2,7 +2,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Profiles;
-using DeltaZulu.Pipeline.Kql;
+using DeltaZulu.Agent.Filter.Kql;
 
 namespace DeltaZulu.Agent.Tests;
 

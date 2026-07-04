@@ -8,7 +8,7 @@ using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Profiles;
 
-namespace DeltaZulu.Pipeline.Kql;
+namespace DeltaZulu.Agent.Filter.Kql;
 
 /// <summary>
 /// Executes resource profile KQL over SourceEvent rows.

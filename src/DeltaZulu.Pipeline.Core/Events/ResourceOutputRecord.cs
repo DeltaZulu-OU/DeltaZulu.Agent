@@ -56,7 +56,9 @@ public sealed record ResourceOutputRecord
             ["schemaVersion"] = 1,
             ["profileId"] = profileId,
             ["profileVersion"] = profileVersion,
-            ["ingestedAt"] = DateTimeOffset.UtcNow
+            ["ingestedAt"] = DateTimeOffset.UtcNow,
+            ["eventUid"] = Guid.NewGuid().ToString("N"),
+            ["resolverVersion"] = string.Empty
         };
 
         if (sourceMetadata is not null)
@@ -68,6 +70,9 @@ public sealed record ResourceOutputRecord
             metadata["hostname"] = sourceMetadata.Hostname;
             metadata["parserName"] = sourceMetadata.ParserName;
             metadata["parserVersion"] = sourceMetadata.ParserVersion;
+            metadata["resolverVersion"] = sourceMetadata.ResolverVersion;
+            metadata["eventUid"] = sourceMetadata.EventUid;
+            metadata["originalTimestamp"] = sourceMetadata.OriginalTimestamp;
             metadata["rawPreserved"] = sourceMetadata.RawPreserved;
         }
 

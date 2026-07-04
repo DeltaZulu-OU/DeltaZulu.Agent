@@ -22,10 +22,9 @@
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Pipeline.Outputs\DeltaZulu.Pipeline.Outputs.csproj" />
     <ProjectReference Include="..\DeltaZulu.Pipeline.Inputs\DeltaZulu.Pipeline.Inputs.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Kql\DeltaZulu.Pipeline.Kql.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
     <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
     <ProjectReference Include="..\DeltaZulu.Pipeline.Tunnel\DeltaZulu.Pipeline.Tunnel.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Prefilter\DeltaZulu.Pipeline.Prefilter.csproj" />
   </ItemGroup>
 </Project>

@@ -9,10 +9,10 @@
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Inputs/DeltaZulu.Pipeline.Inputs.csproj" />
-  <Project Path="src/DeltaZulu.Pipeline.Kql/DeltaZulu.Pipeline.Kql.csproj" />
+  <Project Path="src/DeltaZulu.Agent.Filter/DeltaZulu.Agent.Filter.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Core/DeltaZulu.Pipeline.Core.csproj" />
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Tunnel/DeltaZulu.Pipeline.Tunnel.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Outputs/DeltaZulu.Pipeline.Outputs.csproj" />
-  <Project Path="src/DeltaZulu.Pipeline.Prefilter/DeltaZulu.Pipeline.Prefilter.csproj" />
+  <Project Path="src/DeltaZulu.Pipeline.Enrichment/DeltaZulu.Pipeline.Enrichment.csproj" />
 </Solution>

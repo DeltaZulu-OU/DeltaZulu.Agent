@@ -56,15 +56,16 @@ public sealed class ArchitectureTests
     {
         var infraAssemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "DeltaZulu.Agent.Inputs",
-            "DeltaZulu.Agent.Kql",
-            "DeltaZulu.Agent.Pipeline",
-            "DeltaZulu.Agent.Outputs"
+            "DeltaZulu.Pipeline.Inputs",
+            "DeltaZulu.Agent.Filter",
+            "DeltaZulu.Pipeline.Core",
+            "DeltaZulu.Pipeline.Enrichment",
+            "DeltaZulu.Pipeline.Outputs"
         };
 
         var allowedProjectRefs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "DeltaZulu.Agent.Pipeline",
+            "DeltaZulu.Pipeline.Core",
             "DeltaZulu.DurableBuffer",
             "DeltaZulu.Relp"
         };

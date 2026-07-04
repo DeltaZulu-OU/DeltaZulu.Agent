@@ -1,0 +1,40 @@
+schemaVersion: 1
+id: windows.eventlog.security.rpc-correlation
+name: Windows Security Event Log RPC correlation events
+version: 1.0.0
+enabled: false
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: Security
+  provider: Microsoft-Windows-Security-Auditing
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Security"
+    // 4624 provides network logon context, 4662 provides directory object access on DCs,
+    // and 5156 provides process-owned WFP tuples for RPC correlation profiles.
+    | where EventId in (4624, 4662, 5156)
+    | where EventId != 5156
+        or ApplicationPath in~ (@"C:\Windows\System32\services.exe", @"C:\Windows\System32\lsass.exe")
+        or Application in~ (@"C:\Windows\System32\services.exe", @"C:\Windows\System32\lsass.exe")
+        or ApplicationName in~ (@"C:\Windows\System32\services.exe", @"C:\Windows\System32\lsass.exe")
+        or Application_Name in~ (@"C:\Windows\System32\services.exe", @"C:\Windows\System32\lsass.exe")
+        or ['Application Name'] in~ (@"C:\Windows\System32\services.exe", @"C:\Windows\System32\lsass.exe")
+        or DestinationPort between (49152 .. 65535)
+        or DestPort between (49152 .. 65535)
+        or Destination_Port between (49152 .. 65535)
+        or ['Destination Port'] between (49152 .. 65535)

@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Profiles;
 
-namespace DeltaZulu.Pipeline.Prefilter.Windows;
+namespace DeltaZulu.Agent.Filter.Prefilter.Windows;
 
 /// <summary>
 /// Evaluates <c>condition.type: wmi</c> by running a WQL existence query against the configured

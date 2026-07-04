@@ -5,6 +5,7 @@ using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Enrichment;
 using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Core.Profiles;
@@ -168,6 +169,43 @@ public sealed class PipelineIntegrationTests
             ["EventId"] = eventId,
             ["ProviderName"] = "TestProvider"
         });
+
+
+    [TestMethod]
+    public void ResourcePipeline_AppliesRpcEnrichmentAfterFilterBeforeSink()
+    {
+        var input = new TestInput([
+            new SourceEvent(
+                new ResourceMetadata { SourceType = "WindowsEtw", SourceName = "Microsoft-Windows-RPC", RawPreserved = true },
+                new Dictionary<string, object?>
+                {
+                    ["ProviderName"] = "Microsoft-Windows-RPC",
+                    ["InterfaceUuid"] = "367abb81-9844-35f1-ad32-98f038001003",
+                    ["ProcNum"] = 12,
+                    ["NetworkAddress"] = "192.168.10.25"
+                })
+        ]);
+        var sink = new RecordingSink();
+        var sawPreOutputRecord = false;
+        var pipeline = new ResourcePipeline(
+            input,
+            source => source.Select(sourceEvent => {
+                var output = ResourceOutputRecord.FromSource(sourceEvent, "windows.etw.rpc.p0", "1.1.0");
+                Assert.IsNull(output.Enrichment, "Profile/filter output should not be enriched before the post-filter enrichment stage.");
+                sawPreOutputRecord = true;
+                return output;
+            }),
+            sink,
+            enrichAfterFilter: ResourceOutputEnricher.EnrichAfterFilter);
+
+        using var subscription = pipeline.Start(TestContext.CancellationToken);
+
+        Assert.IsTrue(sawPreOutputRecord);
+        Assert.HasCount(1, sink.Records);
+        Assert.IsNotNull(sink.Records[0].Enrichment);
+        var rpc = (IReadOnlyDictionary<string, object?>)sink.Records[0].Enrichment!["Rpc"]!;
+        Assert.AreEqual("RCreateServiceW", rpc["OperationName"]);
+    }
 
     private sealed class TestInput : ISourceInput
     {

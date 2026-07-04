@@ -10,18 +10,21 @@ public sealed class ResourcePipeline
     private readonly ISourceInput _input;
     private readonly Func<IObservable<SourceEvent>, IObservable<ResourceOutputRecord>> _executeProfiles;
     private readonly IOutputWriter _sink;
+    private readonly Func<ResourceOutputRecord, ResourceOutputRecord> _enrichAfterFilter;
     private readonly AgentObservationAccumulator? _observations;
 
     public ResourcePipeline(
         ISourceInput input,
         Func<IObservable<SourceEvent>, IObservable<ResourceOutputRecord>> executeProfiles,
         IOutputWriter sink,
-        AgentObservationAccumulator? observations = null)
+        AgentObservationAccumulator? observations = null,
+        Func<ResourceOutputRecord, ResourceOutputRecord>? enrichAfterFilter = null)
     {
         _input = input;
         _executeProfiles = executeProfiles;
         _sink = sink;
         _observations = observations;
+        _enrichAfterFilter = enrichAfterFilter ?? (record => record);
     }
 
     public IDisposable Start(CancellationToken cancellationToken = default)
@@ -32,16 +35,22 @@ public sealed class ResourcePipeline
             source = source.Do(_observations.RecordRead);
         }
 
-        var output = _executeProfiles(source);
+        // Logstash-style stage order:
+        // input -> filter/profile projection -> deterministic enrichment -> output writer.
+        // Keep enrichment here rather than in ResourceOutputRecord factories so filters evaluate
+        // source-native fields and output plugins receive the final enriched record.
+        var filtered = _executeProfiles(source);
         if (_observations is not null)
         {
-            output = output.Do(_observations.RecordKeptAfterFilter);
+            filtered = filtered.Do(_observations.RecordKeptAfterFilter);
         }
+
+        var enriched = filtered.Select(_enrichAfterFilter);
 
         IObserver<ResourceOutputRecord> observer = _observations is null
             ? _sink
             : new ForwardingObservationSink(_sink, _observations);
-        var subscription = output.Subscribe(observer);
+        var subscription = enriched.Subscribe(observer);
         return Disposable.Create(() => {
             subscription.Dispose();
             _sink.Dispose();

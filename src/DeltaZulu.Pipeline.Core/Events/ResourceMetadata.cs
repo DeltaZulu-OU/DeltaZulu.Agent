@@ -6,6 +6,8 @@ public sealed record ResourceMetadata
     public string CollectorId { get; init; } = Environment.MachineName;
     public string? ProfileId { get; init; }
     public string? ProfileVersion { get; init; }
+    public string? TenantId { get; init; }
+    public string? DeviceId { get; init; }
     public string SourceType { get; init; } = string.Empty;
     public string SourceName { get; init; } = string.Empty;
     public string Platform { get; init; } = string.Empty;
@@ -13,6 +15,9 @@ public sealed record ResourceMetadata
     public DateTimeOffset IngestedAt { get; init; } = DateTimeOffset.UtcNow;
     public string ParserName { get; init; } = string.Empty;
     public string ParserVersion { get; init; } = "1.0.0";
+    public string ResolverVersion { get; init; } = string.Empty;
+    public string EventUid { get; init; } = Guid.NewGuid().ToString("N");
+    public DateTimeOffset? OriginalTimestamp { get; init; }
     public bool RawPreserved { get; init; }
     public IReadOnlyDictionary<string, object?> Properties { get; init; } = new Dictionary<string, object?>();
 
@@ -23,6 +28,8 @@ public sealed record ResourceMetadata
             ["collectorId"] = CollectorId,
             ["profileId"] = ProfileId,
             ["profileVersion"] = ProfileVersion,
+            ["tenantId"] = TenantId,
+            ["deviceId"] = DeviceId,
             ["sourceType"] = SourceType,
             ["sourceName"] = SourceName,
             ["platform"] = Platform,
@@ -30,6 +37,9 @@ public sealed record ResourceMetadata
             ["ingestedAt"] = IngestedAt,
             ["parserName"] = ParserName,
             ["parserVersion"] = ParserVersion,
+            ["resolverVersion"] = ResolverVersion,
+            ["eventUid"] = EventUid,
+            ["originalTimestamp"] = OriginalTimestamp,
             ["rawPreserved"] = RawPreserved
         };
 

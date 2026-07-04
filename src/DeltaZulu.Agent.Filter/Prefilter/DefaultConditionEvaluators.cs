@@ -1,10 +1,10 @@
 using DeltaZulu.Pipeline.Core.Abstractions;
 
 #if WINDOWS
-using DeltaZulu.Pipeline.Prefilter.Windows;
+using DeltaZulu.Agent.Filter.Prefilter.Windows;
 #endif
 
-namespace DeltaZulu.Pipeline.Prefilter;
+namespace DeltaZulu.Agent.Filter.Prefilter;
 
 /// <summary>
 /// Composes the condition evaluators available on the current build's platform. Composition
