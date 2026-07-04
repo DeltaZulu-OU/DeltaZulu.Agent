@@ -372,7 +372,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             CertificateValidation = configuration.Relp.Tls.CertificateValidation,
             AllowedServerCertificateThumbprints = configuration.Relp.Tls.AllowedServerCertificateThumbprints,
             CertificateExpiryWarningDays = configuration.Relp.Tls.CertificateExpiryWarningDays
-        }));
+        }), configuration.Buffer.ToRetryConfiguration());
     }
 
     private void StartHealthReporter(ForwarderDaemonConfiguration configuration, BufferedRelpSink relpSink)

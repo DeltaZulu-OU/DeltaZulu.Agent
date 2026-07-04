@@ -22,7 +22,6 @@ internal sealed class FileChunkStore : IChunkStore
         Action<string, long>? onQuarantineEvicted = null)
     {
         SealedPath = Path.Combine(basePath, "sealed");
-        DispatchingPath = Path.Combine(basePath, "dispatching");
         DeadLetterPath = Path.Combine(basePath, "deadletter");
         QuarantinePath = Path.Combine(basePath, "quarantine");
         _logger = logger;
@@ -32,10 +31,10 @@ internal sealed class FileChunkStore : IChunkStore
         _onQuarantineEvicted = onQuarantineEvicted;
 
         EnsureDirectories(basePath);
+        MigrateLegacyDispatchingDirectory(basePath);
     }
 
     public string SealedPath { get; }
-    public string DispatchingPath { get; }
     public string DeadLetterPath { get; }
     public string QuarantinePath { get; }
 
@@ -43,7 +42,6 @@ internal sealed class FileChunkStore : IChunkStore
     {
         Directory.CreateDirectory(Path.Combine(basePath, "active"));
         Directory.CreateDirectory(Path.Combine(basePath, "sealed"));
-        Directory.CreateDirectory(Path.Combine(basePath, "dispatching"));
         Directory.CreateDirectory(Path.Combine(basePath, "deadletter"));
         Directory.CreateDirectory(Path.Combine(basePath, "quarantine"));
 
@@ -58,6 +56,49 @@ internal sealed class FileChunkStore : IChunkStore
             {
                 // Best-effort permission hardening
             }
+        }
+    }
+
+    /// <summary>
+    /// Older buffer versions parked in-flight chunks in a "dispatching" directory.
+    /// Move any leftovers back into "sealed" so recovery re-validates and re-queues
+    /// them, then drop the legacy directory.
+    /// </summary>
+    private void MigrateLegacyDispatchingDirectory(string basePath)
+    {
+        var legacyPath = Path.Combine(basePath, "dispatching");
+        if (!Directory.Exists(legacyPath))
+        {
+            return;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(legacyPath))
+        {
+            var destination = Path.Combine(SealedPath, Path.GetFileName(file));
+            try
+            {
+                EnsureNotSymlink(file);
+                if (!File.Exists(destination))
+                {
+                    File.Move(file, destination);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to migrate legacy dispatching file: {File}", file);
+            }
+        }
+
+        try
+        {
+            if (!Directory.EnumerateFileSystemEntries(legacyPath).Any())
+            {
+                Directory.Delete(legacyPath);
+            }
+        }
+        catch
+        {
+            // Best effort: an undeletable empty directory is harmless.
         }
     }
 
@@ -93,21 +134,6 @@ internal sealed class FileChunkStore : IChunkStore
         };
     }
 
-    public ValueTask<StoredChunk> MoveToDispatchingAsync(
-        StoredChunk chunk,
-        CancellationToken cancellationToken = default) =>
-        MoveChunkAsync(chunk, DispatchingPath);
-
-    public async ValueTask<StoredChunk> MoveToSealedAsync(
-        StoredChunk chunk,
-        ChunkMetadata updatedMetadata,
-        CancellationToken cancellationToken = default)
-    {
-        var metaJson = JsonSerializer.SerializeToUtf8Bytes(updatedMetadata);
-        await File.WriteAllBytesAsync(chunk.MetadataFilePath, metaJson, cancellationToken);
-        return await MoveChunkAsync(chunk with { Metadata = updatedMetadata }, SealedPath);
-    }
-
     public ValueTask DeleteAsync(StoredChunk chunk, CancellationToken cancellationToken = default)
     {
         SafeDelete(chunk.ChunkFilePath);
@@ -138,15 +164,11 @@ internal sealed class FileChunkStore : IChunkStore
         CancellationToken cancellationToken = default) =>
         ScanDirectoryAsync(SealedPath, cancellationToken);
 
-    public ValueTask<IReadOnlyList<StoredChunk>> GetDispatchingChunksAsync(
-        CancellationToken cancellationToken = default) =>
-        ScanDirectoryAsync(DispatchingPath, cancellationToken);
-
     public ValueTask<long> GetDiskBytesUsedAsync(CancellationToken cancellationToken = default) =>
         // Dead-letter and quarantine data is abandoned data with its own bounded ring-buffer
         // budget (see GetDeadLetterBytesUsedAsync/GetQuarantineBytesUsedAsync); it must not
         // compete with live, still-retryable chunks for the buffer's backpressure quota.
-        ValueTask.FromResult(GetDirectoryBytes(SealedPath) + GetDirectoryBytes(DispatchingPath));
+        ValueTask.FromResult(GetDirectoryBytes(SealedPath));
 
     public ValueTask<long> GetDeadLetterBytesUsedAsync(CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(GetDirectoryBytes(DeadLetterPath));

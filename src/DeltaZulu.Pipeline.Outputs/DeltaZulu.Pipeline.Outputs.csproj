@@ -4,7 +4,11 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Polly.Core" Version="8.6.4" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="DeltaZulu.Agent.Tests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\external\DeltaZulu.DurableBuffer\src\DeltaZulu.DurableBuffer\DeltaZulu.DurableBuffer.csproj" />

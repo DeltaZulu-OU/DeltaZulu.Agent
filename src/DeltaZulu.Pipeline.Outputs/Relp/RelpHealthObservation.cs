@@ -16,27 +16,37 @@ public sealed record RelpHealthObservation
         metadata.EnsureCapacity(metadata.Count + 1);
         metadata["recordKind"] = RecordKind;
 
+        var eventFields = new Dictionary<string, object?>(24, StringComparer.OrdinalIgnoreCase) {
+            ["bufferState"] = Health.Buffer.State.ToString(),
+            ["diskBytesUsed"] = Health.Buffer.DiskBytesUsed,
+            ["diskBytesLimit"] = Health.Buffer.DiskBytesLimit,
+            ["memoryBytesUsed"] = Health.Buffer.MemoryBytesUsed,
+            ["openChunkBytes"] = Health.Buffer.OpenChunkBytes,
+            ["sealedChunkCount"] = Health.Buffer.SealedChunkCount,
+            ["oldestChunkAgeMs"] = Health.Buffer.OldestChunkAge?.TotalMilliseconds,
+            ["recordsAcceptedTotal"] = Health.Buffer.RecordsAcceptedTotal,
+            ["recordsRejectedTotal"] = Health.Buffer.RecordsRejectedTotal,
+            ["recordsDroppedTotal"] = Health.Buffer.RecordsDroppedTotal,
+            ["chunksCompletedTotal"] = Health.Buffer.ChunksCompletedTotal,
+            ["chunksReleasedTotal"] = Health.Buffer.ChunksReleasedTotal,
+            ["chunksDeadLetteredTotal"] = Health.Buffer.ChunksDeadLetteredTotal,
+            ["lastForwarderActivityUtc"] = Health.LastForwarderActivityUtc
+        };
+
+        if (Health.Transport is { } transport)
+        {
+            eventFields["transportSendAttemptsTotal"] = transport.SendAttemptsTotal;
+            eventFields["transportSendSuccessesTotal"] = transport.SendSuccessesTotal;
+            eventFields["transportTransientFailuresTotal"] = transport.TransientFailuresTotal;
+            eventFields["transportPermanentFailuresTotal"] = transport.PermanentFailuresTotal;
+            eventFields["transportChunksDeadLetteredTotal"] = transport.ChunksDeadLetteredTotal;
+            eventFields["transportChunksDiscardedTotal"] = transport.ChunksDiscardedTotal;
+            eventFields["transportIsRunning"] = transport.IsRunning;
+        }
+
         return new ResourceOutputRecord {
             Metadata = metadata,
-            Event = new Dictionary<string, object?>(17, StringComparer.OrdinalIgnoreCase) {
-                ["bufferState"] = Health.Buffer.State.ToString(),
-                ["diskBytesUsed"] = Health.Buffer.DiskBytesUsed,
-                ["diskBytesLimit"] = Health.Buffer.DiskBytesLimit,
-                ["memoryBytesUsed"] = Health.Buffer.MemoryBytesUsed,
-                ["openChunkBytes"] = Health.Buffer.OpenChunkBytes,
-                ["sealedChunkCount"] = Health.Buffer.SealedChunkCount,
-                ["retryQueueDepth"] = Health.Buffer.RetryQueueDepth,
-                ["oldestChunkAgeMs"] = Health.Buffer.OldestChunkAge?.TotalMilliseconds,
-                ["recordsAcceptedTotal"] = Health.Buffer.RecordsAcceptedTotal,
-                ["recordsRejectedTotal"] = Health.Buffer.RecordsRejectedTotal,
-                ["recordsDroppedTotal"] = Health.Buffer.RecordsDroppedTotal,
-                ["chunksDeliveredTotal"] = Health.Buffer.ChunksDeliveredTotal,
-                ["chunksDeadLetteredTotal"] = Health.Buffer.ChunksDeadLetteredTotal,
-                ["chunksSentTotal"] = Health.Buffer.ChunksSentTotal,
-                ["chunksFailedTotal"] = Health.Buffer.ChunksFailedTotal,
-                ["chunksRetryScheduledTotal"] = Health.Buffer.ChunksRetryScheduledTotal,
-                ["lastForwarderActivityUtc"] = Health.LastForwarderActivityUtc
-            }
+            Event = eventFields
         };
     }
 }

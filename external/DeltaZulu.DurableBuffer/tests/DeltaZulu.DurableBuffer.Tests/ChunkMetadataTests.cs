@@ -17,7 +17,6 @@ public sealed class ChunkMetadataTests
             RecordCount = 500,
             PayloadBytes = 1048576,
             Checksum = "sha256:deadbeef",
-            AttemptCount = 0,
             Source = "DeltaZulu.Agent"
         };
 
@@ -31,33 +30,29 @@ public sealed class ChunkMetadataTests
         Assert.AreEqual(metadata.RecordCount, deserialized.RecordCount);
         Assert.AreEqual(metadata.PayloadBytes, deserialized.PayloadBytes);
         Assert.AreEqual(metadata.Checksum, deserialized.Checksum);
-        Assert.AreEqual(metadata.AttemptCount, deserialized.AttemptCount);
-        Assert.IsNull(deserialized.NextAttemptUtc);
-        Assert.IsNull(deserialized.LastError);
         Assert.AreEqual("DeltaZulu.Agent", deserialized.Source);
     }
 
     [TestMethod]
-    public void RetryFields_RoundTrip()
+    public void Deserialize_IgnoresLegacyRetryFields()
     {
-        var metadata = new ChunkMetadata
-        {
-            ChunkId = "retry-test",
-            CreatedUtc = DateTimeOffset.UtcNow,
-            RecordCount = 10,
-            PayloadBytes = 1024,
-            Checksum = "sha256:abc",
-            AttemptCount = 3,
-            NextAttemptUtc = DateTimeOffset.UtcNow.AddSeconds(30),
-            LastError = "Connection refused"
-        };
+        const string legacyJson = """
+            {
+                "chunkId": "legacy-1",
+                "createdUtc": "2026-06-25T17:01:02+00:00",
+                "recordCount": 10,
+                "payloadBytes": 1024,
+                "checksum": "sha256:abc",
+                "attemptCount": 3,
+                "nextAttemptUtc": "2026-06-25T17:02:02+00:00",
+                "lastError": "Connection refused"
+            }
+            """;
 
-        var json = JsonSerializer.Serialize(metadata);
-        var deserialized = JsonSerializer.Deserialize<ChunkMetadata>(json);
+        var deserialized = JsonSerializer.Deserialize<ChunkMetadata>(legacyJson);
 
         Assert.IsNotNull(deserialized);
-        Assert.AreEqual(3, deserialized.AttemptCount);
-        Assert.IsNotNull(deserialized.NextAttemptUtc);
-        Assert.AreEqual("Connection refused", deserialized.LastError);
+        Assert.AreEqual("legacy-1", deserialized.ChunkId);
+        Assert.AreEqual(10, deserialized.RecordCount);
     }
 }

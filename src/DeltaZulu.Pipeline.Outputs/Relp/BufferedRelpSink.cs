@@ -1,6 +1,5 @@
 using DeltaZulu.DurableBuffer;
 using DeltaZulu.DurableBuffer.Configuration;
-using DeltaZulu.DurableBuffer.Metrics;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
@@ -10,32 +9,56 @@ namespace DeltaZulu.Pipeline.Outputs.Relp;
 
 public sealed class BufferedRelpSink : IOutputWriter
 {
+    private static readonly TimeSpan WorkerDrainTimeout = TimeSpan.FromSeconds(30);
+
     private readonly DurableBufferHost<DeliveryRecord> _host;
+    private readonly RelpOutputWorker _worker;
+    private readonly Task _workerTask;
+    private readonly CancellationTokenSource _workerCts;
     private readonly IDeliveryTransport _transport;
     private readonly CancellationToken _cancellationToken;
-    private readonly IDisposable _activitySubscription;
     private long _lastForwarderActivityTicks;
+    private int _stopped;
     private int _disposed;
 
     public BufferedRelpSink(
         DurableBufferOptions options,
         IDeliveryTransport transport,
+        RelpRetryConfiguration? retryConfiguration = null,
         CancellationToken cancellationToken = default)
     {
         _cancellationToken = cancellationToken;
         _transport = transport;
         _host = new DurableBufferHost<DeliveryRecord>(
             options,
-            new RelpDeliveryRecordSerializer(),
-            new RelpChunkSender(_transport));
-        _activitySubscription = _host.Events.Subscribe(new ActivityTimestampObserver(RecordActivity));
-        _host.StartAsync(cancellationToken).GetAwaiter().GetResult();
+            new RelpDeliveryRecordSerializer());
+        _worker = new RelpOutputWorker(
+            _host.Reader,
+            transport,
+            retryConfiguration ?? new RelpRetryConfiguration(),
+            RecordActivity);
+        // The worker must be consuming before StartAsync runs recovery: recovered
+        // chunks are pushed into the bounded channel and would deadlock startup
+        // if nothing is draining it.
+        _workerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _workerTask = Task.Run(() => _worker.RunAsync(_workerCts.Token), CancellationToken.None);
+        try
+        {
+            _host.StartAsync(cancellationToken).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            _workerCts.Cancel();
+            _workerCts.Dispose();
+            throw;
+        }
     }
 
     public string Name => "buffered-relp";
 
     public RelpHealthSnapshot GetHealthSnapshot() => new() {
-        Buffer = _host.Buffer.GetSnapshot(),
+        Buffer = _host.Writer.GetSnapshot(),
+        Transport = _worker.GetSnapshot(),
         LastForwarderActivityUtc = ReadLastActivity()
     };
 
@@ -52,7 +75,7 @@ public sealed class BufferedRelpSink : IOutputWriter
             return;
         }
 
-        var result = _host.Buffer.WriteAsync(
+        var result = _host.Writer.WriteAsync(
             DeliveryRecord.FromResourceOutput(value),
             _cancellationToken).GetAwaiter().GetResult();
 
@@ -63,7 +86,7 @@ public sealed class BufferedRelpSink : IOutputWriter
         }
     }
 
-    public void OnCompleted() => _host.StopAsync(_cancellationToken).GetAwaiter().GetResult();
+    public void OnCompleted() => Stop();
 
     public void OnError(Exception error)
     {
@@ -78,10 +101,39 @@ public sealed class BufferedRelpSink : IOutputWriter
             return;
         }
 
-        _host.StopAsync(_cancellationToken).GetAwaiter().GetResult();
-        _activitySubscription.Dispose();
+        Stop();
         _host.DisposeAsync().GetAwaiter().GetResult();
+        _workerCts.Dispose();
         DisposeTransport();
+    }
+
+    private void Stop()
+    {
+        if (Interlocked.Exchange(ref _stopped, 1) != 0)
+        {
+            return;
+        }
+
+        // StopAsync flushes the open chunk and completes the channel; the worker
+        // then drains the remaining sealed chunks before its read loop finishes.
+        _host.StopAsync(_cancellationToken).GetAwaiter().GetResult();
+
+        try
+        {
+            _workerTask.WaitAsync(WorkerDrainTimeout, _cancellationToken).GetAwaiter().GetResult();
+        }
+        catch (TimeoutException)
+        {
+            Console.Error.WriteLine("forwarder worker did not drain within timeout");
+            Console.Error.Flush();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _workerCts.Cancel();
+        }
     }
 
     private void RecordActivity(DateTimeOffset timestamp) =>
@@ -105,35 +157,5 @@ public sealed class BufferedRelpSink : IOutputWriter
                 disposable.Dispose();
                 break;
         }
-    }
-
-    private sealed class ActivityTimestampObserver : IObserver<BufferEvent>
-    {
-        private readonly Action<DateTimeOffset> _onActivity;
-
-        public ActivityTimestampObserver(Action<DateTimeOffset> onActivity)
-        {
-            _onActivity = onActivity;
-        }
-
-        public void OnNext(BufferEvent value)
-        {
-            switch (value.EventType)
-            {
-                case BufferEventType.BufferChunkDispatchStarted:
-                case BufferEventType.BufferChunkDispatchSucceeded:
-                case BufferEventType.BufferChunkDispatchFailed:
-                case BufferEventType.BufferChunkRetryScheduled:
-                case BufferEventType.BufferChunkDeadLettered:
-                    _onActivity(value.TimestampUtc);
-                    break;
-            }
-        }
-
-        public void OnCompleted()
-        { }
-
-        public void OnError(Exception error)
-        { }
     }
 }

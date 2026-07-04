@@ -25,7 +25,7 @@ public sealed record RelpBufferConfiguration
     public double MaxChunkAgeSeconds { get; init; } = 1;
 
     public BufferFullPolicy FullPolicy { get; init; } = BufferFullPolicy.Block;
-    public RetryExhaustedPolicy RetryExhaustedPolicy { get; init; } = RetryExhaustedPolicy.DeadLetter;
+    public RelpRetryExhaustedPolicy RetryExhaustedPolicy { get; init; } = RelpRetryExhaustedPolicy.DeadLetter;
 
     public int MaxRetryAttempts { get; init; } = 10;
     public double RetryBaseDelaySeconds { get; init; } = 1;
@@ -40,11 +40,14 @@ public sealed record RelpBufferConfiguration
         MaxChunkRecords = MaxChunkRecords,
         MaxChunkBytes = MaxChunkBytes,
         MaxChunkAge = TimeSpan.FromSeconds(MaxChunkAgeSeconds),
-        FullPolicy = FullPolicy,
-        RetryExhaustedPolicy = RetryExhaustedPolicy,
-        MaxRetryAttempts = MaxRetryAttempts,
-        RetryBaseDelay = TimeSpan.FromSeconds(RetryBaseDelaySeconds),
-        RetryMaxDelay = TimeSpan.FromSeconds(RetryMaxDelaySeconds)
+        FullPolicy = FullPolicy
+    };
+
+    public RelpRetryConfiguration ToRetryConfiguration() => new() {
+        MaxAttempts = MaxRetryAttempts,
+        BaseDelay = TimeSpan.FromSeconds(RetryBaseDelaySeconds),
+        MaxDelay = TimeSpan.FromSeconds(RetryMaxDelaySeconds),
+        ExhaustedPolicy = RetryExhaustedPolicy
     };
 }
 

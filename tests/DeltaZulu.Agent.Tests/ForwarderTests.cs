@@ -1,11 +1,8 @@
-using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Text.Json;
 using DeltaZulu.DurableBuffer.Abstractions;
-using DeltaZulu.DurableBuffer.Chunks;
-using DeltaZulu.DurableBuffer.Dispatch;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
@@ -51,9 +48,11 @@ public sealed class ForwarderTests
         var health = sink.GetHealthSnapshot();
 
         Assert.AreEqual(1, health.Buffer.RecordsAcceptedTotal);
-        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksSentTotal);
-        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksDeliveredTotal);
+        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksCompletedTotal);
         Assert.AreEqual(0, health.Buffer.ChunksDeadLetteredTotal);
+        Assert.IsNotNull(health.Transport);
+        Assert.IsGreaterThanOrEqualTo(1, health.Transport!.SendAttemptsTotal);
+        Assert.IsGreaterThanOrEqualTo(1, health.Transport.SendSuccessesTotal);
         Assert.IsNotNull(health.LastForwarderActivityUtc);
 
         var observation = sink.GetHealthOutputRecord(new CollectorObservationMetadata {
@@ -64,7 +63,8 @@ public sealed class ForwarderTests
         Assert.AreEqual(RelpHealthObservation.RecordKind, observation.Metadata["recordKind"]);
         Assert.AreEqual(1L, observation.Event["recordsAcceptedTotal"]);
         Assert.AreEqual(0L, observation.Event["chunksDeadLetteredTotal"]);
-        Assert.IsTrue(observation.Event.ContainsKey("chunksSentTotal"));
+        Assert.IsTrue(observation.Event.ContainsKey("chunksCompletedTotal"));
+        Assert.IsTrue(observation.Event.ContainsKey("transportSendAttemptsTotal"));
     }
 
     [TestMethod]
@@ -94,17 +94,17 @@ public sealed class ForwarderTests
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
-            MaxChunkAge = TimeSpan.FromMinutes(5),
-            RetryBaseDelay = TimeSpan.FromMilliseconds(10),
-            RetryMaxDelay = TimeSpan.FromMilliseconds(50),
-            MaxRetryAttempts = 2
+            MaxChunkAge = TimeSpan.FromMinutes(5)
+        };
+        var retry = new RelpRetryConfiguration {
+            MaxAttempts = 2,
+            BaseDelay = TimeSpan.FromMilliseconds(10),
+            MaxDelay = TimeSpan.FromMilliseconds(50)
         };
 
-        using var sink = new BufferedRelpSink(options, transport);
+        using var sink = new BufferedRelpSink(options, transport, retry);
         sink.OnNext(CreateTestOutputRecord());
         sink.OnCompleted();
-
-        Thread.Sleep(500);
 
         var health = sink.GetHealthSnapshot();
         var deadLetterDir = Path.Combine(directory.Path, "deadletter");
@@ -131,19 +131,21 @@ public sealed class ForwarderTests
             StoragePath = directory.Path,
             MaxChunkRecords = 1,
             MaxChunkBytes = 4096,
-            MaxChunkAge = TimeSpan.FromMinutes(5),
-            RetryBaseDelay = TimeSpan.FromMilliseconds(50),
-            RetryMaxDelay = TimeSpan.FromMilliseconds(200),
-            MaxRetryAttempts = 5
+            MaxChunkAge = TimeSpan.FromMinutes(5)
+        };
+        var retry = new RelpRetryConfiguration {
+            MaxAttempts = 5,
+            BaseDelay = TimeSpan.FromMilliseconds(50),
+            MaxDelay = TimeSpan.FromMilliseconds(200)
         };
 
-        using var sink = new BufferedRelpSink(options, transport);
+        using var sink = new BufferedRelpSink(options, transport, retry);
         sink.OnNext(CreateTestOutputRecord());
         sink.OnCompleted();
 
         var health = sink.GetHealthSnapshot();
         Assert.IsGreaterThanOrEqualTo(2, Interlocked.Read(ref callCount), $"Expected at least 2 send attempts, got {callCount}");
-        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksDeliveredTotal, "Expected at least one acknowledged batch");
+        Assert.IsGreaterThanOrEqualTo(1, health.Buffer.ChunksCompletedTotal, "Expected at least one acknowledged batch");
         Assert.AreEqual(0, health.Buffer.ChunksDeadLetteredTotal);
     }
 
@@ -253,7 +255,7 @@ public sealed class ForwarderTests
         Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("agent-01", record.Metadata["agentId"]);
         Assert.IsTrue(record.Event.ContainsKey("bufferState"));
-        Assert.IsTrue(record.Event.ContainsKey("chunksSentTotal"));
+        Assert.IsTrue(record.Event.ContainsKey("chunksCompletedTotal"));
     }
 
     [TestMethod]
@@ -365,105 +367,6 @@ public sealed class ForwarderTests
         Assert.AreEqual(original.SourceId, deserialized.SourceId);
         Assert.AreEqual(original.RecordId, deserialized.RecordId);
         Assert.AreEqual(original.ProfileId, deserialized.ProfileId);
-    }
-
-    [TestMethod]
-    public async Task RelpChunkSender_DecodesChunkAndSendsDeliveryBatch()
-    {
-        using var directory = new TemporaryDirectory();
-        var chunkId = ChunkId.NewChunkId();
-        var record = new DeliveryRecord {
-            AgentId = "agent-01",
-            SourceId = "Syslog:auth.log",
-            ProfileId = "linux.sshd",
-            RecordId = "42",
-            CreatedAt = DateTimeOffset.UtcNow,
-            Record = new ResourceOutputRecord {
-                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
-                Event = new Dictionary<string, object?> { ["Message"] = "hello" }
-            }
-        };
-
-        var payload = JsonSerializer.SerializeToUtf8Bytes(record, TestJson.Options);
-        var chunkPath = Path.Combine(directory.Path, $"{chunkId}.chunk");
-        var metadataPath = Path.Combine(directory.Path, $"{chunkId}.meta.json");
-        await File.WriteAllBytesAsync(chunkPath, CreateChunkBytes(payload), TestContext.CancellationToken);
-        await File.WriteAllTextAsync(metadataPath, "{}", TestContext.CancellationToken);
-
-        var transport = new CapturingTransport();
-        var sender = new RelpChunkSender(transport);
-        var result = await sender.SendAsync(new StoredChunk {
-            Id = chunkId,
-            ChunkFilePath = chunkPath,
-            MetadataFilePath = metadataPath,
-            Metadata = new ChunkMetadata {
-                ChunkId = chunkId.Value,
-                CreatedUtc = DateTimeOffset.UtcNow,
-                SealedUtc = DateTimeOffset.UtcNow,
-                RecordCount = 1,
-                PayloadBytes = payload.Length,
-                Checksum = "sha256:test"
-            }
-        }, TestContext.CancellationToken);
-
-        Assert.AreEqual(ChunkSendStatus.Success, result.Status);
-        Assert.IsNotNull(transport.Batch);
-        Assert.AreEqual(chunkId.Value, transport.Batch!.BatchId);
-        Assert.HasCount(1, transport.Batch.Records);
-        Assert.AreEqual("42", transport.Batch.Records[0].RecordId);
-    }
-
-    [TestMethod]
-    public async Task RelpChunkSender_RecordCountMismatch_ReturnsPermanentFailure()
-    {
-        using var directory = new TemporaryDirectory();
-        var chunkId = ChunkId.NewChunkId();
-        var record = CreateTestDeliveryRecord();
-
-        var payload = JsonSerializer.SerializeToUtf8Bytes(record, TestJson.Options);
-        var chunkPath = Path.Combine(directory.Path, $"{chunkId}.chunk");
-        var metadataPath = Path.Combine(directory.Path, $"{chunkId}.meta.json");
-        await File.WriteAllBytesAsync(chunkPath, CreateChunkBytes(payload), TestContext.CancellationToken);
-        await File.WriteAllTextAsync(metadataPath, "{}", TestContext.CancellationToken);
-
-        var transport = new CapturingTransport();
-        var sender = new RelpChunkSender(transport);
-        var result = await sender.SendAsync(new StoredChunk {
-            Id = chunkId,
-            ChunkFilePath = chunkPath,
-            MetadataFilePath = metadataPath,
-            Metadata = CreateChunkMetadata(chunkId, payload.Length, recordCount: 99)
-        }, TestContext.CancellationToken);
-
-        Assert.AreEqual(ChunkSendStatus.PermanentFailure, result.Status);
-        Assert.IsNull(transport.Batch);
-        Assert.Contains("expected 99 records but decoded 1", result.Error!);
-    }
-
-    [TestMethod]
-    public async Task RelpChunkSender_TransientFailure_ReturnsTransientStatus()
-    {
-        using var directory = new TemporaryDirectory();
-        var chunkId = ChunkId.NewChunkId();
-        var record = CreateTestDeliveryRecord();
-
-        var payload = JsonSerializer.SerializeToUtf8Bytes(record, TestJson.Options);
-        var chunkPath = Path.Combine(directory.Path, $"{chunkId}.chunk");
-        var metadataPath = Path.Combine(directory.Path, $"{chunkId}.meta.json");
-        await File.WriteAllBytesAsync(chunkPath, CreateChunkBytes(payload), TestContext.CancellationToken);
-        await File.WriteAllTextAsync(metadataPath, "{}", TestContext.CancellationToken);
-
-        var transport = new RejectingTransport(accepted: false, reason: "server busy");
-        var sender = new RelpChunkSender(transport);
-        var result = await sender.SendAsync(new StoredChunk {
-            Id = chunkId,
-            ChunkFilePath = chunkPath,
-            MetadataFilePath = metadataPath,
-            Metadata = CreateChunkMetadata(chunkId, payload.Length, recordCount: 1)
-        }, TestContext.CancellationToken);
-
-        Assert.AreEqual(ChunkSendStatus.TransientFailure, result.Status);
-        Assert.Contains("server busy", result.Error!);
     }
 
     [TestMethod]
@@ -677,15 +580,12 @@ public sealed class ForwarderTests
                     MemoryBytesUsed = 512,
                     OpenChunkBytes = 256,
                     SealedChunkCount = 2,
-                    RetryQueueDepth = 0,
                     OldestChunkAge = TimeSpan.FromSeconds(5),
                     RecordsAcceptedTotal = 100,
                     RecordsRejectedTotal = 0,
                     RecordsDroppedTotal = 0,
-                    ChunksSentTotal = 10,
-                    ChunksDeliveredTotal = 9,
-                    ChunksFailedTotal = 1,
-                    ChunksRetryScheduledTotal = 2,
+                    ChunksCompletedTotal = 9,
+                    ChunksReleasedTotal = 2,
                     ChunksDeadLetteredTotal = 0,
                     DeadLetterBytesLimit = 10_000,
                     DeadLetterBytesUsed = 0,
@@ -693,6 +593,15 @@ public sealed class ForwarderTests
                     QuarantineBytesLimit = 10_000,
                     QuarantineBytesUsed = 0,
                     ChunksQuarantineEvictedTotal = 0
+                },
+                Transport = new RelpTransportSnapshot {
+                    SendAttemptsTotal = 12,
+                    SendSuccessesTotal = 9,
+                    TransientFailuresTotal = 3,
+                    PermanentFailuresTotal = 0,
+                    ChunksDeadLetteredTotal = 0,
+                    ChunksDiscardedTotal = 0,
+                    IsRunning = true
                 },
                 LastForwarderActivityUtc = now
             }
@@ -703,34 +612,15 @@ public sealed class ForwarderTests
         Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("Healthy", record.Event["bufferState"]);
         Assert.AreEqual(100L, record.Event["recordsAcceptedTotal"]);
-        Assert.AreEqual(9L, record.Event["chunksDeliveredTotal"]);
-        Assert.AreEqual(10L, record.Event["chunksSentTotal"]);
-        Assert.AreEqual(9L, record.Event["chunksDeliveredTotal"]);
-        Assert.AreEqual(1L, record.Event["chunksFailedTotal"]);
-        Assert.AreEqual(2L, record.Event["chunksRetryScheduledTotal"]);
+        Assert.AreEqual(9L, record.Event["chunksCompletedTotal"]);
+        Assert.AreEqual(2L, record.Event["chunksReleasedTotal"]);
         Assert.AreEqual(0L, record.Event["chunksDeadLetteredTotal"]);
+        Assert.AreEqual(12L, record.Event["transportSendAttemptsTotal"]);
+        Assert.AreEqual(9L, record.Event["transportSendSuccessesTotal"]);
+        Assert.AreEqual(3L, record.Event["transportTransientFailuresTotal"]);
+        Assert.AreEqual(true, record.Event["transportIsRunning"]);
         Assert.AreEqual(now, record.Event["lastForwarderActivityUtc"]);
     }
-
-    private static byte[] CreateChunkBytes(byte[] payload)
-    {
-        var data = new byte[ChunkFormat.HeaderSize + ChunkFormat.RecordLengthSize + payload.Length + ChunkFormat.FooterSize];
-        ChunkFormat.Magic.CopyTo(data.AsSpan(ChunkFormat.MagicOffset));
-        data[ChunkFormat.VersionOffset] = ChunkFormat.Version;
-        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(ChunkFormat.HeaderSize, ChunkFormat.RecordLengthSize), payload.Length);
-        payload.CopyTo(data.AsSpan(ChunkFormat.HeaderSize + ChunkFormat.RecordLengthSize));
-        ChunkFormat.FooterMagic.CopyTo(data.AsSpan(data.Length - 4));
-        return data;
-    }
-
-    private static ChunkMetadata CreateChunkMetadata(ChunkId chunkId, int payloadLength, int recordCount) => new() {
-        ChunkId = chunkId.Value,
-        CreatedUtc = DateTimeOffset.UtcNow,
-        SealedUtc = DateTimeOffset.UtcNow,
-        RecordCount = recordCount,
-        PayloadBytes = payloadLength,
-        Checksum = "sha256:test"
-    };
 
     private static DeliveryRecord CreateTestDeliveryRecord() => new() {
         AgentId = "agent-01",
