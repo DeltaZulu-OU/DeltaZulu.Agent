@@ -33,6 +33,50 @@ public sealed class RpcEventEnricherTests
         Assert.AreEqual(RpcOperationResolver.CurrentResolverVersion, rpc["ResolverVersion"]);
     }
 
+    [TestMethod]
+    public void BuildRpcEnrichment_KnownInterfaceUuidWithoutProcNum_EmitsInterfaceNameFromCache()
+    {
+        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["InterfaceUUID"] = "{E3514235-4B06-11D1-AB04-00C04FC2DCD2}",
+            ["NetworkAddress"] = "10.0.0.5"
+        };
+
+        var enrichment = RpcEventEnricher.BuildRpcEnrichment(fields);
+
+        Assert.IsNotNull(enrichment);
+        var rpc = (IReadOnlyDictionary<string, object?>)enrichment["Rpc"]!;
+        Assert.AreEqual("e3514235-4b06-11d1-ab04-00c04fc2dcd2", rpc["InterfaceUuid"]);
+        Assert.AreEqual("MS-DRSR", rpc["InterfaceName"]);
+        Assert.IsNull(rpc["ProcNum"]);
+        Assert.IsFalse(rpc.ContainsKey("OperationName"));
+        Assert.IsFalse(rpc.ContainsKey("OperationCategory"));
+    }
+
+    [TestMethod]
+    public void BuildRpcEnrichment_KnownRpcssLocalActivatorCall_EmitsInterfaceAndOperationNames()
+    {
+        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ProviderName"] = "Microsoft-Windows-RPC",
+            ["InterfaceUuid"] = "00000136-0000-0000-c000-000000000046",
+            ["ProcNum"] = 3,
+            ["Endpoint"] = "epmapper",
+            ["NetworkAddress"] = "NULL"
+        };
+
+        var enrichment = RpcEventEnricher.BuildRpcEnrichment(fields);
+
+        Assert.IsNotNull(enrichment);
+        var rpc = (IReadOnlyDictionary<string, object?>)enrichment["Rpc"]!;
+        Assert.AreEqual("00000136-0000-0000-c000-000000000046", rpc["InterfaceUuid"]);
+        Assert.AreEqual("ISCMLocalActivator", rpc["InterfaceName"]);
+        Assert.AreEqual(3, rpc["ProcNum"]);
+        Assert.AreEqual("SCMActivatorGetClassObject", rpc["OperationName"]);
+        Assert.AreEqual("ComActivation", rpc["OperationCategory"]);
+        Assert.AreEqual(true, rpc["IsLocal"]);
+        Assert.AreEqual(false, rpc["IsRemote"]);
+    }
 
     [TestMethod]
     public void ResourceOutputEnricher_AttachesRpcEnrichmentAfterFilterWhenRpcFieldsArePresent()
@@ -58,7 +102,6 @@ public sealed class RpcEventEnricherTests
         Assert.AreEqual("ServiceCreate", rpc["OperationCategory"]);
         Assert.AreEqual(true, rpc["IsRemote"]);
     }
-
 
     [TestMethod]
     public void ResourceOutputRecord_FromSource_DoesNotAttachRpcEnrichmentForNonRpcOpNumOnlyRecord()

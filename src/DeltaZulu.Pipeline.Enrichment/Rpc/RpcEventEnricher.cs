@@ -49,6 +49,15 @@ public static class RpcEventEnricher
             ["ResolverVersion"] = RpcOperationResolver.CurrentResolverVersion
         };
 
+        if (!string.IsNullOrWhiteSpace(interfaceUuid))
+        {
+            var interfaceName = RpcOperationResolver.ResolveInterfaceName(interfaceUuid);
+            if (interfaceName is not null)
+            {
+                rpc["InterfaceName"] = interfaceName;
+            }
+        }
+
         if (procNum is not null)
         {
             var descriptor = RpcOperationResolver.Resolve(interfaceUuid, procNum.Value);
