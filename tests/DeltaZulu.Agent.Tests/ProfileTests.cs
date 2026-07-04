@@ -235,6 +235,38 @@ filter:
         }
     }
 
+    [TestMethod]
+    public void LoadDirectory_LoadsBuiltInWindowsEventLogProfiles()
+    {
+        var directory = FindRepositoryPath("profiles", "windows", "eventlog");
+
+        var result = new YamlResourceProfileLoader().LoadDirectory(directory);
+
+        Assert.IsEmpty(result.Errors);
+        Assert.IsEmpty(result.Warnings);
+        Assert.IsGreaterThanOrEqualTo(70, result.Profiles.Count);
+        CollectionAssert.Contains(result.Profiles.Select(profile => profile.Id).ToList(), "windows.eventlog.security");
+        CollectionAssert.Contains(result.Profiles.Select(profile => profile.Id).ToList(), "windows.eventlog.system-service-control-manager");
+        CollectionAssert.Contains(result.Profiles.Select(profile => profile.Id).ToList(), "windows.eventlog.windowsupdateclient-operational");
+    }
+
+    private static string FindRepositoryPath(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(new[] { directory.FullName }.Concat(segments).ToArray());
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException($"Could not find repository path '{Path.Combine(segments)}'.");
+    }
+
     private static ResourceProfile CreateValidProfile() => new() {
         SchemaVersion = 1,
         Id = "linux.syslog.sshd",

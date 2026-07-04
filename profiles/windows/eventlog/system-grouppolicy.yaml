@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: windows.eventlog.system-grouppolicy
+name: System Group Policy error events
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: System
+  provider: Microsoft-Windows-GroupPolicy
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "System"
+    | where EventId in (1085, 1125, 1127, 1129)
+    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

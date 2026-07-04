@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: windows.eventlog.codeintegrity-operational
+name: Code Integrity Operational Event Log
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-CodeIntegrity/Operational
+  provider: Microsoft-Windows-CodeIntegrity
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Microsoft-Windows-CodeIntegrity/Operational"
+    | where EventId in (3001, 3002, 3003, 3004, 3010, 3023)
+    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

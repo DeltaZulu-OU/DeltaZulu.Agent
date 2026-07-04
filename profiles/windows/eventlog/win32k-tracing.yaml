@@ -1,0 +1,28 @@
+schemaVersion: 1
+id: windows.eventlog.win32k-tracing
+name: Microsoft-Windows-Win32k/Tracing mitigation events
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-Win32k/Tracing
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Microsoft-Windows-Win32k/Tracing"
+    | where EventId in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 260)
+    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: windows.eventlog.software-restriction-policies
+name: Software Restriction Policies Application events
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: Application
+  provider: Microsoft-Windows-SoftwareRestrictionPolicies
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Application"
+    | where EventId in (865, 866, 867, 868, 882)
+    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

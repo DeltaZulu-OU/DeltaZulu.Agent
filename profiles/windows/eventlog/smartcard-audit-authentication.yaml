@@ -1,0 +1,27 @@
+schemaVersion: 1
+id: windows.eventlog.smartcard-audit-authentication
+name: Smart Card Audit Authentication Event Log
+version: 1.0.0
+enabled: true
+mandatory: false
+resource:
+  platform: windows
+  family: eventlog
+  channel: Microsoft-Windows-SmartCard-Audit/Authentication
+input:
+  table: EventLog
+  schema: WindowsEventLog.Native
+output:
+  mode: FilterAndSelect
+  format: ndjson
+  preserveOriginalFieldNames: true
+  preserveRawEvent: true
+  metadataEnvelope: true
+  eventEnvelope: true
+  onNoMatch: drop
+filter:
+  language: kql
+  query: |
+    EventLog
+    | where source =~ "Microsoft-Windows-SmartCard-Audit/Authentication"
+    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata
