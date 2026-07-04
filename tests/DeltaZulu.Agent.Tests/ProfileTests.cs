@@ -94,7 +94,6 @@ public sealed class ProfileTests
         Assert.Contains("id is required.", exception.Message);
     }
 
-
     [TestMethod]
     public void LoadFile_LoadsFamilySpecificResourceOptionsAsOpaqueBag()
     {
@@ -152,6 +151,21 @@ filter:
         {
             File.Delete(path);
         }
+    }
+
+    [TestMethod]
+    public void LoadFile_SecurityProfileProjectsIdentityAndProcessFieldsForKqlDrivenObservation()
+    {
+        var profile = new YamlResourceProfileLoader().LoadFile(Path.Combine("profiles", "windows", "eventlog", "security.yaml"));
+
+        Assert.IsFalse(profile.Resource.Options.ContainsKey("sidObservation"));
+        Assert.IsFalse(profile.Resource.Options.ContainsKey("processObservation"));
+        Assert.Contains("SubjectUserSid", profile.Filter.Query);
+        Assert.Contains("TargetUserSid", profile.Filter.Query);
+        Assert.Contains("MemberSid", profile.Filter.Query);
+        Assert.IsFalse(profile.Filter.Query.Contains("_resolved", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("NewProcessId", profile.Filter.Query);
+        Assert.Contains("CommandLine", profile.Filter.Query);
     }
 
     [TestMethod]
