@@ -26,4 +26,3 @@ filter:
     EventLog
     | where source =~ "Microsoft-Windows-CodeIntegrity/Operational"
     | where EventId in (3001, 3002, 3003, 3004, 3010, 3023)
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

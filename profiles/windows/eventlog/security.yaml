@@ -56,10 +56,3 @@ filter:
     | where not (EventId == 4673 and ProcessName in~ (@'C:\Program Files\Google\Chrome\Application\chrome.exe', @'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', @'C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_1.24.25200.0_x64__8wekyb3d8bbwe\WindowsPackageManagerServer.exe'))
     // Remove service and system logons, anonymous logons, and Local System events from success/failure logon capture.
     | where not (EventId in (4624, 4625, 4634) and (LogonType in (0, 5) or TargetUserName == 'ANONYMOUS LOGON' or TargetUserSid == 'S-1-5-18'))
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message,
-        SubjectUserSid, SubjectUserName, SubjectDomainName,
-        TargetUserSid, TargetUserName, TargetDomainName,
-        MemberSid, MemberName, GroupSid, UserSid, UserName, AccountSid, AccountName,
-        LogonSid, OwnerSid, ObjectSid,
-        ProcessId, ProcessName, NewProcessId, NewProcessName, CreatorProcessId, ParentProcessName, CommandLine,
-        _metadata

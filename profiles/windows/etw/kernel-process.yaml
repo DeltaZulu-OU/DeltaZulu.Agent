@@ -28,4 +28,3 @@ filter:
     | where ProviderName =~ "Microsoft-Windows-Kernel-Process"
     // Keep process creation/termination plus image load/unload for execution lineage; omit thread/priority noise.
     | where EventName in~ ("ProcessStart", "ProcessStop", "ImageLoad", "ImageUnload") or EventId in (1, 2, 5, 6)
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, ParentProcessId, Image, ParentImage, CommandLine, ParentCommandLine, GrandparentImage, ProcessTree, _metadata

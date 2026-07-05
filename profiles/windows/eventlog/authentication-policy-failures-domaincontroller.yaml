@@ -29,4 +29,3 @@ filter:
     EventLog
     | where source =~ "Microsoft-Windows-Authentication/AuthenticationPolicyFailures-DomainController"
     | where ProviderName =~ "Microsoft-Windows-NTLM"
-    | project TimeCreated, ProviderName, EventId, EventName, Level, Task, Opcode, Keywords, EventData, Message, MachineName, SubjectUserName, TargetUserName, Status, _metadata

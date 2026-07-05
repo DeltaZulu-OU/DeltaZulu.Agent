@@ -28,4 +28,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Directory Service"
-    | project TimeCreated, ProviderName, EventId, EventName, Level, Task, Opcode, Keywords, EventData, Message, MachineName, _metadata

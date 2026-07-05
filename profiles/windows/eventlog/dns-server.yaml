@@ -30,4 +30,3 @@ filter:
     | where source =~ "DNS Server"
     // WEC DNS baseline: 150 failed plugin DLL load/initialization and 770 plugin DLL loaded.
     | where EventId in (150, 770)
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, PluginDll, ProcessId, _metadata

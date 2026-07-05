@@ -25,4 +25,3 @@ filter:
     EventLog
     | where source =~ "Application"
     | where EventId in (1000, 1001, 1002)
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

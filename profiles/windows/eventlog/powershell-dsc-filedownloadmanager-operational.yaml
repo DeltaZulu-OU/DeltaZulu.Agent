@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-PowerShell-DesiredStateConfiguration-FileDownloadManager/Operational"
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

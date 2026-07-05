@@ -28,4 +28,3 @@ filter:
     | where EventId == 3008
     | where QueryOptions != "140737488355328"
     | where QueryResults != ""
-    | project TimeCreated, ProviderName, EventId, EventName, QueryName, QueryType, QueryOptions, QueryResults, ResponseCode, Status, ProcessId, Image, CommandLine, _metadata

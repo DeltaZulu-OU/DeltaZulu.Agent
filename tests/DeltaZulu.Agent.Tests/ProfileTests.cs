@@ -154,18 +154,23 @@ filter:
     }
 
     [TestMethod]
-    public void LoadFile_SecurityProfileProjectsIdentityAndProcessFieldsForKqlDrivenObservation()
+    public void LoadFile_SecurityProfileDoesNotProjectFieldsForRawLogPreservation()
     {
         var profile = new YamlResourceProfileLoader().LoadFile(Path.Combine("profiles", "windows", "eventlog", "security.yaml"));
 
         Assert.IsFalse(profile.Resource.Options.ContainsKey("sidObservation"));
         Assert.IsFalse(profile.Resource.Options.ContainsKey("processObservation"));
-        Assert.Contains("SubjectUserSid", profile.Filter.Query);
-        Assert.Contains("TargetUserSid", profile.Filter.Query);
-        Assert.Contains("MemberSid", profile.Filter.Query);
+        Assert.IsFalse(profile.Filter.Query.Contains("| project", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(profile.Filter.Query.Contains("_resolved", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains("NewProcessId", profile.Filter.Query);
-        Assert.Contains("CommandLine", profile.Filter.Query);
+    }
+
+    [TestMethod]
+    public void LoadDirectory_WindowsProfilesDoNotProjectFieldsForRawLogPreservation()
+    {
+        foreach (var profile in new YamlResourceProfileLoader().LoadDirectory(Path.Combine("profiles", "windows")).Profiles)
+        {
+            Assert.IsFalse(profile.Filter.Query.Contains("| project", StringComparison.OrdinalIgnoreCase), $"Profile {profile.Id} should preserve raw log fields instead of projecting a fixed field list.");
+        }
     }
 
     [TestMethod]

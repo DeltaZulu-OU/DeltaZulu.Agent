@@ -25,4 +25,3 @@ filter:
     EventLog
     | where source =~ "Microsoft-Windows-Windows Defender/WHC"
     | where EventId in (1121, 1122, 1123, 1124, 1125, 1126, 5007)
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

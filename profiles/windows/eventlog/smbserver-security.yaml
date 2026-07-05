@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-SMBServer/Security"
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

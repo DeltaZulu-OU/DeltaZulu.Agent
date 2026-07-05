@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-TerminalServices-ServerUSBDevices/Admin"
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

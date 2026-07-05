@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-LDAP-Client"
-    | project TimeCreated, ProviderName, EventId, EventName, Level, Task, Opcode, Keywords, EventData, Message, MachineName, ProcessId, _metadata

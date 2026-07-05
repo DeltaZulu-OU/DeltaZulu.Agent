@@ -31,4 +31,3 @@ filter:
     | where QueryOptions != "140737488355328"
     | where QueryResults != ""
     | where not(DnsName endswith ".local" or DnsName endswith ".localdomain" or DnsName endswith ".lan" or QueryName endswith ".local" or QueryName endswith ".localdomain" or QueryName endswith ".lan")
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, DnsName, QueryName, QueryType, QueryOptions, QueryResults, ResponseCode, Status, Image, CommandLine, _metadata

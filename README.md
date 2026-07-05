@@ -75,7 +75,7 @@ dzagentd --config config/dzcollector.yaml
 dzagentd --config config/dzagent.yaml
 ```
 
-The daemon configuration points at a resource profile directory and owns only pipeline transport/runtime settings. Enabled profiles under `profilesPath` define the input resource (`resource.family`, `resource.channel`, `resource.session`, `resource.provider`) and the KQL filter/projection, so daemon YAML no longer duplicates a separate `sources` list. Forwarding is explicitly configured as `pipeline.output.encoding: messagepack` over `pipeline.output.transport: relp`.
+The daemon configuration points at a resource profile directory and owns only pipeline transport/runtime settings. Enabled profiles under `profilesPath` define the input resource (`resource.family`, `resource.channel`, `resource.session`, `resource.provider`) and the KQL filter, so daemon YAML no longer duplicates a separate `sources` list. Forwarding is explicitly configured as `pipeline.output.encoding: messagepack` over `pipeline.output.transport: relp`.
 
 ```yaml
 id: local-agent-daemon

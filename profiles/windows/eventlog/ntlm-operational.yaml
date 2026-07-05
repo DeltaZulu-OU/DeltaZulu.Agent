@@ -24,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-NTLM/Operational"
-    | project TimeCreated, ProviderName, EventId, EventName, Level, Task, Opcode, Keywords, EventData, Message, MachineName, SubjectUserName, TargetUserName, Status, _metadata

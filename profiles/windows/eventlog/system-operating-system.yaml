@@ -27,4 +27,3 @@ filter:
     | where (ProviderName =~ "Microsoft-Windows-Kernel-General" and EventId in (12, 13))
         or (ProviderName =~ "USER32" and EventId == 1074)
         or EventId in (41, 1001, 6008, 4621, 16962, 16965, 16968, 16969)
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata

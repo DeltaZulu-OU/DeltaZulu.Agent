@@ -29,4 +29,3 @@ filter:
     // Keep loader/JIT/exception-oriented CLR events; suppress framework bootstrap assemblies and high-volume runtime maintenance telemetry.
     | where EventId in (80, 141, 151, 154, 155, 156, 157, 158)
     | where not(AssemblyName startswith "System." or AssemblyName startswith "Microsoft." or ModuleName startswith "System." or ModuleName startswith "Microsoft.")
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, AssemblyName, ModuleName, MethodName, ExceptionType, ExceptionMessage, Image, CommandLine, _metadata

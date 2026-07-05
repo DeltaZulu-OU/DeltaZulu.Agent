@@ -29,4 +29,3 @@ filter:
     // Keep connection summary/rundown and endpoint/connect-style activity; omit packet send/receive path telemetry and loopback chatter.
     | where EventId in (1300, 1341, 1364, 1365) or EventName has_any ("Connect", "Endpoint", "Summary", "Rundown")
     | where not(RemoteIp startswith "127." or RemoteIp == "::1" or RemoteAddress startswith "127." or RemoteAddress == "::1")
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, LocalIp, RemoteIp, LocalAddress, RemoteAddress, LocalPort, RemotePort, Protocol, Image, ParentImage, _metadata

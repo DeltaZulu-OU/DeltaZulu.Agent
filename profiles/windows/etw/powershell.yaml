@@ -29,4 +29,3 @@ filter:
     // Keep module and script-block logging; suppress benign interactive help/discovery commands.
     | where EventId in (4103, 4104)
     | where not(ScriptBlockText has_any ("Get-Help", "Get-Command", "Update-Help") or CommandLine has_any ("Get-Help", "Get-Command", "Update-Help"))
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, User, UserId, ScriptBlockText, CommandLine, HostApplication, EngineVersion, ParentImage, _metadata

@@ -29,4 +29,3 @@ filter:
     // Keep share/connect-style events and suppress approved backup/sync shares.
     | where EventId in (1001, 1002, 1003)
     | where not(ShareName in~ (@"\\fileserver\backup", @"\\fileserver\sync"))
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, RemoteHost, ServerName, ShareName, FilePath, Status, Image, ParentImage, _metadata

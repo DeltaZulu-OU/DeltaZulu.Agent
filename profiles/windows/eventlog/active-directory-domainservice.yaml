@@ -28,4 +28,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-ActiveDirectory_DomainService"
-    | project TimeCreated, ProviderName, EventId, EventName, Level, Task, Opcode, Keywords, EventData, Message, MachineName, _metadata

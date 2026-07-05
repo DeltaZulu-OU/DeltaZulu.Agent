@@ -32,4 +32,3 @@ filter:
     | where ProviderName =~ "Microsoft-Windows-DNSServer"
     // Keep DNS Server plugin load/configuration events from the WEC DNS baseline: 150/770 plugin DLL state and 541 serverlevelplugindll audit changes.
     | where EventId in (150, 541, 770)
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, ClientIP, ClientIp, QueryName, QueryType, ResponseCode, SettingName, SettingValue, PluginDll, Keyword, Keywords, _metadata

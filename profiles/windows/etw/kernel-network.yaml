@@ -29,4 +29,3 @@ filter:
     // Keep connection-oriented network telemetry and drop loopback chatter.
     | where EventId in (10, 11, 12)
     | where not(RemoteIp startswith "127." or RemoteIp == "::1" or RemoteAddress startswith "127." or RemoteAddress == "::1")
-    | project TimeCreated, ProviderName, EventId, EventName, ProcessId, LocalIp, RemoteIp, LocalAddress, RemoteAddress, LocalPort, RemotePort, Protocol, Image, ParentImage, _metadata

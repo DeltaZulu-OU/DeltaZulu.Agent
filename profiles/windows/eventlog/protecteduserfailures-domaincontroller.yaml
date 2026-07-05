@@ -25,4 +25,3 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-Authentication/ProtectedUserFailures-DomainController"
-    | project TimeCreated, ProviderName, EventId, EventName, EventData, Message, _metadata
