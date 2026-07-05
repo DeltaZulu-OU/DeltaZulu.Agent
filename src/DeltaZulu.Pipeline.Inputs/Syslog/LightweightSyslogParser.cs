@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Inputs.Common;
 
 namespace DeltaZulu.Pipeline.Inputs.Syslog;
 
@@ -12,9 +13,7 @@ namespace DeltaZulu.Pipeline.Inputs.Syslog;
 public sealed partial class LightweightSyslogParser
 {
     private static readonly Regex PriorityRegex = CreatePriorityRegex();
-    private static readonly Regex Rfc5424Regex = CreateRfc5424Regex();
     private static readonly Regex Rfc3164Regex = CreateRfc3164Regex();
-    private static readonly Regex KeyValueRegex = CreateKeyValueRegex();
 
     public SourceEvent Parse(string rawMessage, string sourceName, string? sourceAddress = null)
     {
@@ -53,35 +52,135 @@ public sealed partial class LightweightSyslogParser
 
     private static bool TryParseRfc5424(string body, IDictionary<string, object?> fields)
     {
-        var match = Rfc5424Regex.Match(body);
-        if (!match.Success)
+        var cursor = 0;
+        if (!ReadToken(body, ref cursor, out var version)
+            || !version.All(char.IsDigit)
+            || !ReadToken(body, ref cursor, out var timestampText)
+            || !ReadToken(body, ref cursor, out var host)
+            || !ReadToken(body, ref cursor, out var app)
+            || !ReadToken(body, ref cursor, out var proc)
+            || !ReadToken(body, ref cursor, out var msgid)
+            || !ReadStructuredData(body, ref cursor, out var structuredData))
         {
             return false;
         }
 
-        fields["SyslogVersion"] = match.Groups["version"].Value;
-        if (DateTimeOffset.TryParse(match.Groups["timestamp"].Value, out var timestamp))
+        fields["SyslogVersion"] = version;
+        if (DateTimeOffset.TryParse(
+            timestampText,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal,
+            out var timestamp))
         {
             fields["Timestamp"] = timestamp;
         }
         else
         {
-            fields["Timestamp"] = match.Groups["timestamp"].Value;
+            fields["Timestamp"] = timestampText;
         }
 
-        fields["Hostname"] = NullDash(match.Groups["host"].Value);
-        fields["AppName"] = NullDash(match.Groups["app"].Value);
-        fields["ProcessName"] = NullDash(match.Groups["app"].Value);
-        fields["ProcId"] = NullDash(match.Groups["proc"].Value);
-        if (int.TryParse(NullDash(match.Groups["proc"].Value), out var pid))
+        fields["Hostname"] = NullDash(host);
+        fields["AppName"] = NullDash(app);
+        fields["ProcessName"] = NullDash(app);
+        fields["ProcId"] = NullDash(proc);
+        if (int.TryParse(NullDash(proc), NumberStyles.None, CultureInfo.InvariantCulture, out var pid))
         {
             fields["ProcessId"] = pid;
         }
 
-        fields["MsgId"] = NullDash(match.Groups["msgid"].Value);
-        fields["StructuredData"] = NullDash(match.Groups["structured"].Value);
-        fields["Message"] = match.Groups["message"].Value;
+        fields["MsgId"] = NullDash(msgid);
+        fields["StructuredData"] = NullDash(structuredData);
+        fields["Message"] = cursor < body.Length ? body[cursor..] : string.Empty;
         return true;
+    }
+
+    private static bool ReadToken(string text, ref int cursor, out string token)
+    {
+        while (cursor < text.Length && text[cursor] == ' ')
+        {
+            cursor++;
+        }
+
+        var start = cursor;
+        while (cursor < text.Length && text[cursor] != ' ')
+        {
+            cursor++;
+        }
+
+        token = text[start..cursor];
+        return token.Length > 0;
+    }
+
+    private static bool ReadStructuredData(string text, ref int cursor, out string structuredData)
+    {
+        while (cursor < text.Length && text[cursor] == ' ')
+        {
+            cursor++;
+        }
+
+        structuredData = string.Empty;
+        if (cursor >= text.Length)
+        {
+            return false;
+        }
+
+        if (text[cursor] == '-')
+        {
+            structuredData = "-";
+            cursor++;
+            if (cursor < text.Length && text[cursor] == ' ')
+            {
+                cursor++;
+            }
+
+            return true;
+        }
+
+        if (text[cursor] != '[')
+        {
+            return false;
+        }
+
+        var start = cursor;
+        var inQuote = false;
+        var escaped = false;
+        while (cursor < text.Length)
+        {
+            var ch = text[cursor++];
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (ch == '\\' && inQuote)
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (ch == '"')
+            {
+                inQuote = !inQuote;
+                continue;
+            }
+
+            if (ch == ']' && !inQuote)
+            {
+                if (cursor >= text.Length || text[cursor] != '[')
+                {
+                    structuredData = text[start..cursor];
+                    if (cursor < text.Length && text[cursor] == ' ')
+                    {
+                        cursor++;
+                    }
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool TryParseRfc3164(string body, IDictionary<string, object?> fields)
@@ -107,7 +206,7 @@ public sealed partial class LightweightSyslogParser
         fields["Hostname"] = match.Groups["host"].Value;
         fields["ProcessName"] = match.Groups["proc"].Value;
         fields["AppName"] = match.Groups["proc"].Value;
-        if (int.TryParse(match.Groups["pid"].Value, out var pid))
+        if (int.TryParse(match.Groups["pid"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var pid))
         {
             fields["ProcessId"] = pid;
         }
@@ -123,15 +222,7 @@ public sealed partial class LightweightSyslogParser
             return;
         }
 
-        var extracted = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match match in KeyValueRegex.Matches(message))
-        {
-            var key = match.Groups["key"].Value;
-            var value = match.Groups["quoted"].Success
-                ? match.Groups["quoted"].Value.Trim('"')
-                : match.Groups["value"].Value;
-            extracted[key] = value;
-        }
+        var extracted = LogFieldNormalizer.ParseKeyValueFields(message, static (_, value, _) => value);
 
         if (extracted.Count > 0)
         {
@@ -159,12 +250,7 @@ public sealed partial class LightweightSyslogParser
     [GeneratedRegex(@"^<(?<pri>\d{1,3})>(?<rest>.*)$")]
     private static partial Regex CreatePriorityRegex();
 
-    [GeneratedRegex(@"^(?<version>\d)\s+(?<timestamp>\S+)\s+(?<host>\S+)\s+(?<app>\S+)\s+(?<proc>\S+)\s+(?<msgid>\S+)\s+(?<structured>(?:-|\[.*\]))\s*(?<message>.*)$")]
-    private static partial Regex CreateRfc5424Regex();
-
     [GeneratedRegex(@"^(?<timestamp>[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?<host>\S+)\s+(?<proc>[^\s:\[]+)(?:\[(?<pid>\d+)\])?:?\s*(?<message>.*)$")]
     private static partial Regex CreateRfc3164Regex();
 
-    [GeneratedRegex(@"(?<key>[A-Za-z][A-Za-z0-9_\.-]{1,64})=(?:(?<quoted>""[^""]*"")|(?<value>[^\s]+))")]
-    private static partial Regex CreateKeyValueRegex();
 }

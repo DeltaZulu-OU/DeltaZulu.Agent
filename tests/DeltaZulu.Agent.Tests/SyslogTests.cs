@@ -1,4 +1,5 @@
 using DeltaZulu.Pipeline.Inputs.Syslog;
+using System.Reactive.Linq;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -26,14 +27,64 @@ public sealed class SyslogTests
     [TestMethod]
     public void Parse_Rfc3164Message_ExtractsProcessAndQuotedKeyValues()
     {
-        var evt = new LightweightSyslogParser().Parse("<38>Mar  9 10:11:12 web sudo[321]: action=\"session opened\" user=root", "file");
+        var evt = new LightweightSyslogParser().Parse("<38>Mar  9 10:11:12 web sudo[321]: action=\"session opened\" path=\"/tmp/a\\\\b\" user=root", "file");
 
         Assert.AreEqual("web", evt.Fields["Hostname"]);
         Assert.AreEqual("sudo", evt.Fields["ProcessName"]);
         Assert.AreEqual(321, evt.Fields["ProcessId"]);
         var extracted = Assert.IsInstanceOfType<Dictionary<string, object?>>(evt.Fields["ExtractedData"]);
         Assert.AreEqual("session opened", extracted["action"]);
+        Assert.AreEqual(@"/tmp/a\b", extracted["path"]);
         Assert.AreEqual("root", extracted["user"]);
+    }
+
+    [TestMethod]
+    public void Parse_Rfc5424Message_PreservesStructuredDataWithQuotedBrackets()
+    {
+        const string raw = "<165>1 2024-03-09T10:11:12.123456Z router app 999 ID47 [exampleSDID@32473 note=\"contains ] bracket\" path=\"/tmp/a b\"] Configuration reload";
+
+        var evt = new LightweightSyslogParser().Parse(raw, "tcp");
+
+        Assert.AreEqual("2024-03-09T10:11:12.1234560+00:00", ((DateTimeOffset)evt.Fields["Timestamp"]!).ToString("O"));
+        Assert.AreEqual("[exampleSDID@32473 note=\"contains ] bracket\" path=\"/tmp/a b\"]", evt.Fields["StructuredData"]);
+        Assert.AreEqual("Configuration reload", evt.Fields["Message"]);
+    }
+
+    [TestMethod]
+    public async Task SyslogFileTailInput_ContinuesAfterFileTruncation()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"deltazulu-syslog-tail-{Guid.NewGuid():N}.log");
+        await File.WriteAllTextAsync(path, "<38>Mar  9 10:11:12 web sudo[321]: old=true\n");
+        var input = new SyslogFileTailInput(path, "tail-test", TimeSpan.FromMilliseconds(20));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var seen = new List<string>();
+        using var subscription = input.Open(cts.Token).Subscribe(evt => {
+            if (evt.Fields.TryGetValue("Message", out var message) && message is string text)
+            {
+                lock (seen)
+                {
+                    seen.Add(text);
+                }
+            }
+        });
+
+        await File.AppendAllTextAsync(path, "<38>Mar  9 10:11:13 web sudo[321]: first=true\n");
+        await WaitUntilAsync(() => {
+            lock (seen)
+            {
+                return seen.Contains("first=true");
+            }
+        }, cts.Token);
+
+        await File.WriteAllTextAsync(path, "<38>Mar  9 10:11:14 web sudo[321]: after_truncate=true\n");
+        await WaitUntilAsync(() => {
+            lock (seen)
+            {
+                return seen.Contains("after_truncate=true");
+            }
+        }, cts.Token);
+
+        File.Delete(path);
     }
 
     [TestMethod]
@@ -43,6 +94,14 @@ public sealed class SyslogTests
 
         Assert.AreEqual("plain message without syslog header", evt.Fields["RawMessage"]);
         Assert.AreEqual("plain message without syslog header", evt.Fields["Message"]);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken cancellationToken)
+    {
+        while (!condition())
+        {
+            await Task.Delay(20, cancellationToken);
+        }
     }
 
     [TestMethod]

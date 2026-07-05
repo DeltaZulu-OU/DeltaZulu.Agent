@@ -22,6 +22,15 @@ public sealed class AuditdTests
     }
 
     [TestMethod]
+    public void Parse_QuotedFields_UnescapesAuditdEscapedCharacters()
+    {
+        var record = new AuditdRecordParser().Parse(@"type=SYSCALL msg=audit(1710000000.123:42): comm=""cmd\""with quote"" cwd=""/tmp/a\\b""");
+
+        Assert.AreEqual("cmd\"with quote", record.Fields["comm"]);
+        Assert.AreEqual(@"/tmp/a\b", record.Fields["cwd"]);
+    }
+
+    [TestMethod]
     public void Parse_RejectsLinesWithoutAuditPrefix() => Assert.ThrowsExactly<FormatException>(() => new AuditdRecordParser().Parse("not an audit record"));
 
     [TestMethod]

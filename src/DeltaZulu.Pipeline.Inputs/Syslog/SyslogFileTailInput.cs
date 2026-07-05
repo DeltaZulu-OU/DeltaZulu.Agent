@@ -7,6 +7,8 @@ namespace DeltaZulu.Pipeline.Inputs.Syslog;
 
 public sealed class SyslogFileTailInput : ISourceInput
 {
+    private const int FileBufferSize = 64 * 1024;
+
     private readonly string _path;
     private readonly TimeSpan _pollInterval;
     private readonly LightweightSyslogParser _parser = new();
@@ -22,18 +24,47 @@ public sealed class SyslogFileTailInput : ISourceInput
 
     public IObservable<SourceEvent> Open(CancellationToken cancellationToken = default) => Observable.Create<SourceEvent>(observer => {
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        FileStream stream;
+        StreamReader reader;
+
+        try
+        {
+            stream = new FileStream(
+                _path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                FileBufferSize,
+                FileOptions.SequentialScan | FileOptions.Asynchronous);
+            reader = new StreamReader(
+                stream,
+                encoding: System.Text.Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true,
+                bufferSize: FileBufferSize,
+                leaveOpen: false);
+            stream.Seek(0, SeekOrigin.End);
+        }
+        catch (Exception ex)
+        {
+            cts.Dispose();
+            observer.OnError(ex);
+            return Disposable.Empty;
+        }
+
         _ = Task.Run(async () => {
             try
             {
-                using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                using var reader = new StreamReader(stream);
-                stream.Seek(0, SeekOrigin.End);
-
                 while (!cts.IsCancellationRequested)
                 {
                     var line = await reader.ReadLineAsync(cts.Token).ConfigureAwait(false);
                     if (line is null)
                     {
+                        if (stream.Position > stream.Length)
+                        {
+                            reader.DiscardBufferedData();
+                            stream.Seek(0, SeekOrigin.Begin);
+                        }
+
                         await Task.Delay(_pollInterval, cts.Token).ConfigureAwait(false);
                         continue;
                     }
@@ -54,8 +85,13 @@ public sealed class SyslogFileTailInput : ISourceInput
             {
                 observer.OnError(ex);
             }
-        }, cts.Token);
+            finally
+            {
+                reader.Dispose();
+                cts.Dispose();
+            }
+        }, CancellationToken.None);
 
-        return Disposable.Create(() => { cts.Cancel(); cts.Dispose(); });
+        return Disposable.Create(() => { cts.Cancel(); });
     });
 }

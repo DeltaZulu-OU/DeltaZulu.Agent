@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using DeltaZulu.Pipeline.Inputs.Common;
 
 namespace DeltaZulu.Pipeline.Inputs.Auditd;
 
@@ -24,58 +26,7 @@ public sealed partial class AuditdRecordParser
     }
 
     private static Dictionary<string, object?> ParseKeyValuePayload(string payload)
-    {
-        var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        var i = 0;
-        while (i < payload.Length)
-        {
-            while (i < payload.Length && char.IsWhiteSpace(payload[i]))
-            {
-                i++;
-            }
-
-            var keyStart = i;
-            while (i < payload.Length && payload[i] != '=' && !char.IsWhiteSpace(payload[i]))
-            {
-                i++;
-            }
-
-            if (i >= payload.Length || payload[i] != '=')
-            {
-                break;
-            }
-
-            var key = payload[keyStart..i];
-            i++;
-
-            object? value;
-            if (i < payload.Length && payload[i] == '"')
-            {
-                i++;
-                var sb = new StringBuilder();
-                while (i < payload.Length)
-                {
-                    if (payload[i] == '"') { i++; break; }
-                    sb.Append(payload[i++]);
-                }
-                value = CoerceValue(key, sb.ToString(), quoted: true);
-            }
-            else
-            {
-                var valueStart = i;
-                while (i < payload.Length && !char.IsWhiteSpace(payload[i]))
-                {
-                    i++;
-                }
-
-                value = CoerceValue(key, payload[valueStart..i], quoted: false);
-            }
-
-            result[key] = value;
-        }
-
-        return result;
-    }
+        => LogFieldNormalizer.ParseKeyValueFields(payload, CoerceValue);
 
     private static object? CoerceValue(string key, string value, bool quoted)
     {
@@ -96,7 +47,7 @@ public sealed partial class AuditdRecordParser
 
         if (!quoted)
         {
-            if (long.TryParse(value, out var l))
+            if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l))
             {
                 return l;
             }
