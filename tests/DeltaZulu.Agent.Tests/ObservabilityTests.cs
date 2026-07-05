@@ -110,6 +110,60 @@ public sealed class ObservabilityTests
         Assert.AreEqual(2, overflow.ReadCount);
     }
 
+    [TestMethod]
+    public void LocalCoverageStateObservation_EmitsOnlyLocalEvidenceFields()
+    {
+        var observation = new LocalCoverageStateObservation {
+            Metadata = new CollectorObservationMetadata {
+                AgentId = "agent-01",
+                HostId = "host-01",
+                ProfileId = "windows-security-default",
+                FilterId = "security-process-filter",
+                ObservedAt = DateTimeOffset.Parse("2026-07-04T00:00:00Z"),
+                WindowStart = DateTimeOffset.Parse("2026-07-03T23:55:00Z"),
+                WindowEnd = DateTimeOffset.Parse("2026-07-04T00:00:00Z")
+            },
+            LogKey = new LogTelemetryKey("WindowsEventLog", "Security", "Microsoft-Windows-Security-Auditing", 4688),
+            CmdbEntityId = "cmdb:host:host-01",
+            EvaluationId = "local-eval-20260704-0000",
+            AuditPolicyCategory = "Detailed Tracking",
+            AuditPolicySubcategory = "Process Creation",
+            AuditPolicySubcategoryGuid = "0cce922b-69ae-11d9-bed3-505054503030",
+            AuditSuccessEnabled = true,
+            AuditFailureEnabled = false,
+            SourceExists = true,
+            SourceReadable = true,
+            ReadErrorCount = 0,
+            ActualReadCount = 8,
+            KeptAfterFilterCount = 7,
+            DiscardedCount = 1,
+            OutputAcceptedCount = 7,
+            OutputFailedCount = 0
+        };
+
+        var record = observation.ToOutputRecord();
+
+        Assert.AreEqual(LocalCoverageStateObservation.RecordKind, record.Metadata["recordKind"]);
+        Assert.AreEqual("security-process-filter", record.Metadata["filterId"]);
+        Assert.AreEqual("cmdb:host:host-01", record.Event["cmdbEntityId"]);
+        Assert.AreEqual("local-eval-20260704-0000", record.Event["evaluationId"]);
+        Assert.AreEqual("Detailed Tracking", record.Event["auditPolicyCategory"]);
+        Assert.AreEqual("Process Creation", record.Event["auditPolicySubcategory"]);
+        Assert.AreEqual("0cce922b-69ae-11d9-bed3-505054503030", record.Event["auditPolicySubcategoryGuid"]);
+        Assert.AreEqual(true, record.Event["auditSuccessEnabled"]);
+        Assert.AreEqual(true, record.Event["sourceExists"]);
+        Assert.AreEqual(8L, record.Event["actualReadCount"]);
+        Assert.AreEqual(7L, record.Event["keptAfterFilterCount"]);
+        Assert.AreEqual(1L, record.Event["discardedCount"]);
+        Assert.AreEqual(7L, record.Event["outputAcceptedCount"]);
+        Assert.IsFalse(record.Event.ContainsKey("expectedCollectCount"));
+        Assert.IsFalse(record.Event.ContainsKey("noiseRatio"));
+        Assert.IsFalse(record.Event.ContainsKey("opportunityCostCount"));
+        Assert.IsFalse(record.Event.ContainsKey("ruleId"));
+        Assert.IsFalse(record.Event.ContainsKey("siemAlertId"));
+        Assert.IsFalse(record.Event.ContainsKey("recommendation"));
+    }
+
     private static SourceEvent CreateWindowsEvent(int eventId, string provider) => new(
         new ResourceMetadata {
             SourceType = "WindowsEventLog",

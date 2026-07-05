@@ -47,6 +47,7 @@ public sealed class DomainTests
         Assert.AreEqual(domainAssemblyName, typeof(PipelineCountsObservation).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(FilterSummaryObservation).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(SourceHealthObservation).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(LocalCoverageStateObservation).Assembly.GetName().Name);
     }
 
     [TestMethod]
