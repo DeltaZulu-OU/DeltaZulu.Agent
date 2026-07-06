@@ -20,6 +20,7 @@ public sealed class EtwResourceOptionsAdapterTests
         Assert.IsFalse(options.CaptureStacks);
         Assert.IsEmpty(options.ProcessIds);
         Assert.IsEmpty(options.ProcessNames);
+        Assert.IsEmpty(options.PayloadFields);
         Assert.IsFalse(options.EnableInContainers);
         Assert.IsFalse(options.EnableSourceContainerTracking);
     }
@@ -42,6 +43,7 @@ public sealed class EtwResourceOptionsAdapterTests
                 ["excludedStackEventIds"] = new List<object?> { 5 },
                 ["processIds"] = new List<object?> { 1234 },
                 ["processNames"] = new List<object?> { "notepad.exe" },
+                ["payloadFields"] = new List<object?> { "Image", "CommandLine" },
                 ["enableInContainers"] = true,
                 ["enableSourceContainerTracking"] = true
             }
@@ -58,6 +60,7 @@ public sealed class EtwResourceOptionsAdapterTests
         CollectionAssert.AreEqual(new[] { 5 }, options.ExcludedStackEventIds);
         CollectionAssert.AreEqual(new[] { 1234 }, options.ProcessIds);
         CollectionAssert.AreEqual(new[] { "notepad.exe" }, options.ProcessNames);
+        CollectionAssert.AreEqual(new[] { "Image", "CommandLine" }, options.PayloadFields);
         Assert.IsTrue(options.EnableInContainers);
         Assert.IsTrue(options.EnableSourceContainerTracking);
     }
@@ -70,7 +73,8 @@ public sealed class EtwResourceOptionsAdapterTests
             Family = "etw",
             Options = new Dictionary<string, object?> {
                 ["eventIds"] = 42,
-                ["processNames"] = "notepad.exe"
+                ["processNames"] = "notepad.exe",
+                ["payloadFields"] = "Image"
             }
         };
 
@@ -78,5 +82,72 @@ public sealed class EtwResourceOptionsAdapterTests
 
         CollectionAssert.AreEqual(new[] { 42 }, options.EventIds);
         CollectionAssert.AreEqual(new[] { "notepad.exe" }, options.ProcessNames);
+        CollectionAssert.AreEqual(new[] { "Image" }, options.PayloadFields);
+    }
+
+    [TestMethod]
+    public void BuildSelectedPayloadFields_ReturnsCaseInsensitiveProjectionSet()
+    {
+        var resource = new ResourceDescriptor {
+            Platform = "windows",
+            Family = "etw",
+            Options = new Dictionary<string, object?> {
+                ["payloadFields"] = new List<object?> { "Image", "CommandLine" }
+            }
+        };
+
+        var fields = EtwPayloadProjection.BuildSelectedPayloadFields(resource);
+
+        Assert.IsNotNull(fields);
+        Assert.IsTrue(fields.Contains("image"));
+        Assert.IsTrue(fields.Contains("COMMANDLINE"));
+        Assert.IsFalse(fields.Contains("ParentImage"));
+    }
+
+    [TestMethod]
+    public void BuildSelectedPayloadFields_ReturnsNullWhenProjectionIsNotConfigured()
+    {
+        var resource = new ResourceDescriptor { Platform = "windows", Family = "etw" };
+
+        var fields = EtwPayloadProjection.BuildSelectedPayloadFields(resource);
+
+        Assert.IsNull(fields);
+    }
+
+    [TestMethod]
+    public void SelectPayloadNames_ReturnsEnvelopeIndependentProjectionOnly()
+    {
+        var payloadNames = new[] { "Image", "CommandLine", "ParentImage" };
+        var selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "image", "commandline" };
+
+        var materializedNames = EtwPayloadProjection.SelectPayloadNames(payloadNames, selected).ToArray();
+
+        CollectionAssert.AreEqual(new[] { "Image", "CommandLine" }, materializedNames);
+        Assert.IsFalse(materializedNames.Contains("ParentImage"));
+    }
+
+    [TestMethod]
+    public void SelectPayloadNames_ReturnsAllPayloadNamesWhenProjectionIsNotConfigured()
+    {
+        var payloadNames = new[] { "Image", "CommandLine", "ParentImage" };
+
+        var materializedNames = EtwPayloadProjection.SelectPayloadNames(payloadNames, selectedPayloadFields: null).ToArray();
+
+        CollectionAssert.AreEqual(payloadNames, materializedNames);
+    }
+
+    [TestMethod]
+    public void SelectMissingPayloadFields_UsesPayloadOnlyMaterializationResult()
+    {
+        var selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ProviderName", "Image", "CommandLine", "Broken" };
+        var materialization = new EtwPayloadMaterializationResult(
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Image" },
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Broken" });
+
+        var missing = EtwPayloadProjection.SelectMissingPayloadFields(selected, materialization).ToArray();
+
+        CollectionAssert.AreEqual(new[] { "ProviderName", "CommandLine" }, missing);
+        Assert.IsFalse(missing.Contains("Image"));
+        Assert.IsFalse(missing.Contains("Broken"));
     }
 }

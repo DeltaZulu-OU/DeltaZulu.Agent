@@ -29,6 +29,7 @@ public sealed class ManagedEtwSessionInput : ISourceInput
     private readonly string _providerName;
     private readonly ResourceDescriptor? _resource;
     private readonly NativeEtwIdentityFilter? _nativeFilter;
+    private readonly IReadOnlySet<string>? _selectedPayloadFields;
     private readonly EtwCollectorMetrics? _metrics;
     private readonly Action<string>? _warn;
     public string Name { get; }
@@ -44,6 +45,7 @@ public sealed class ManagedEtwSessionInput : ISourceInput
         _providerName = providerName;
         _resource = resource;
         _nativeFilter = resource is null ? null : EtwNativeFilterCompiler.Compile(resource);
+        _selectedPayloadFields = EtwPayloadProjection.BuildSelectedPayloadFields(resource);
         _metrics = metrics;
         _warn = warn;
         Name = name ?? $"etw{sessionName}";
@@ -64,7 +66,7 @@ public sealed class ManagedEtwSessionInput : ISourceInput
 
         return Observable.Using(
             CreateSession,
-            session => TraceEventSessionObservable.FromSession(session, Name, nameof(ManagedEtwSessionInput), _nativeFilter, _metrics, _warn));
+            session => TraceEventSessionObservable.FromSession(session, Name, nameof(ManagedEtwSessionInput), _nativeFilter, _selectedPayloadFields, _metrics, _warn));
     }
 
     private TraceEventSession CreateSession()

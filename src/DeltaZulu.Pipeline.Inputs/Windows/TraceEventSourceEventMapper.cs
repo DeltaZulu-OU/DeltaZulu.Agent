@@ -15,12 +15,20 @@ internal static class TraceEventSourceEventMapper
         TraceEvent data,
         IReadOnlySet<string>? selectedPayloadFields = null)
     {
+        return ToDictionary(data, selectedPayloadFields, out _);
+    }
+
+    public static IReadOnlyDictionary<string, object?> ToDictionary(
+        TraceEvent data,
+        IReadOnlySet<string>? selectedPayloadFields,
+        out EtwPayloadMaterializationResult payloadMaterialization)
+    {
         var envelope = ToEnvelope(data);
         var fields = new Dictionary<string, object?>(EstimateFieldCapacity(data, selectedPayloadFields), StringComparer.OrdinalIgnoreCase);
         envelope.AddTo(fields);
         fields["EventName"] = data.EventName;
 
-        PayloadMaterializer.AddSelected(data, selectedPayloadFields, fields);
+        payloadMaterialization = PayloadMaterializer.AddSelected(data, selectedPayloadFields, fields);
 
         return fields;
     }

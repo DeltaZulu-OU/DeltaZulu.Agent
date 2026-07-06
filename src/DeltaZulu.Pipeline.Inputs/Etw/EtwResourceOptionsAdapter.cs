@@ -15,6 +15,7 @@ public sealed class EtwResourceOptionsAdapter : IResourceOptionsAdapter<EtwResou
         ExcludedStackEventIds = resource.Options.GetIntList("excludedStackEventIds"),
         ProcessIds = resource.Options.GetIntList("processIds"),
         ProcessNames = resource.Options.GetStringList("processNames"),
+        PayloadFields = resource.Options.GetStringList("payloadFields"),
         EnableInContainers = resource.Options.GetBool("enableInContainers"),
         EnableSourceContainerTracking = resource.Options.GetBool("enableSourceContainerTracking")
     };

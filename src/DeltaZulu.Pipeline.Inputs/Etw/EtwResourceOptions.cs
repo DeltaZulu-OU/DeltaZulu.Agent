@@ -11,6 +11,7 @@ public sealed record EtwResourceOptions
     public List<int> ExcludedStackEventIds { get; init; } = [];
     public List<int> ProcessIds { get; init; } = [];
     public List<string> ProcessNames { get; init; } = [];
+    public List<string> PayloadFields { get; init; } = [];
     public bool EnableInContainers { get; init; }
     public bool EnableSourceContainerTracking { get; init; }
 }

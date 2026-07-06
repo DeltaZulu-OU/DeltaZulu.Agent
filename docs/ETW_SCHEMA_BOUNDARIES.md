@@ -429,3 +429,25 @@ out of scope for the live agent and belong in external forensic tooling.
 
 Native ETW fields are facts. DeltaZulu fields are interpretations, joins, or
 normalizations. Both are valuable, but they must remain distinguishable.
+
+## Hot-path payload projection
+
+ETW profiles may set `resource.options.payloadFields` to name the provider
+payload fields that are required by the profile. When this list is present, the
+live TraceEvent collector still emits the full native envelope, but it only
+materializes the named payload fields before constructing the `SourceEvent`.
+This keeps provider-profile collection closer to the desired Agent posture:
+filter on cheap native identity first, avoid JSON/YARA-style hot-path work, and
+only allocate payload values that the profile can actually use. Requested fields
+that are absent, provider-version-specific, renamed, or undecodable are skipped
+for resilience, counted as `EtwProjectedPayloadFieldMissingOccurrences`,
+and warned once per provider GUID, event ID, version, and field name. The first
+warning for each missing key also increments
+`EtwProjectedPayloadFieldMissingDistinctKeys`, while fields that exist but fail
+`PayloadByName` decoding increment `EtwProjectedPayloadFieldDecodeFailures`.
+
+`payloadFields` is intentionally a projection knob, not a detection rule. It
+should contain native provider payload names needed for downstream filtering,
+normalization, or fixture generation. Detection logic and derived enrichment
+remain Platform/pipeline responsibilities and must not be hidden inside this
+collector projection.

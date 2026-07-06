@@ -50,6 +50,9 @@ public sealed class EtwCollectorMetrics
     private long _etwWorkerEventsMaterialized;
     private long _etwWorkerMaterializationFailures;
     private long _etwEventsEmitted;
+    private long _etwProjectedPayloadFieldMissingOccurrences;
+    private long _etwProjectedPayloadFieldMissingDistinctKeys;
+    private long _etwProjectedPayloadFieldDecodeFailures;
 
     public long EtwEventsReceived => Interlocked.Read(ref _eventsReceived);
     public long EtwEventsParsed => Interlocked.Read(ref _eventsParsed);
@@ -99,6 +102,9 @@ public sealed class EtwCollectorMetrics
     public long EtwWorkerEventsMaterialized => Interlocked.Read(ref _etwWorkerEventsMaterialized);
     public long EtwWorkerMaterializationFailures => Interlocked.Read(ref _etwWorkerMaterializationFailures);
     public long EtwEventsEmitted => Interlocked.Read(ref _etwEventsEmitted);
+    public long EtwProjectedPayloadFieldMissingOccurrences => Interlocked.Read(ref _etwProjectedPayloadFieldMissingOccurrences);
+    public long EtwProjectedPayloadFieldMissingDistinctKeys => Interlocked.Read(ref _etwProjectedPayloadFieldMissingDistinctKeys);
+    public long EtwProjectedPayloadFieldDecodeFailures => Interlocked.Read(ref _etwProjectedPayloadFieldDecodeFailures);
 
     public void IncrementEventsReceived() => Interlocked.Increment(ref _eventsReceived);
     public void IncrementEventsParsed() => Interlocked.Increment(ref _eventsParsed);
@@ -148,4 +154,7 @@ public sealed class EtwCollectorMetrics
     public void IncrementEtwWorkerEventsMaterialized() => Interlocked.Increment(ref _etwWorkerEventsMaterialized);
     public void IncrementEtwWorkerMaterializationFailures() => Interlocked.Increment(ref _etwWorkerMaterializationFailures);
     public void IncrementEtwEventsEmitted() => Interlocked.Increment(ref _etwEventsEmitted);
+    public void IncrementEtwProjectedPayloadFieldMissingOccurrences() => Interlocked.Increment(ref _etwProjectedPayloadFieldMissingOccurrences);
+    public void IncrementEtwProjectedPayloadFieldMissingDistinctKeys() => Interlocked.Increment(ref _etwProjectedPayloadFieldMissingDistinctKeys);
+    public void IncrementEtwProjectedPayloadFieldDecodeFailures() => Interlocked.Increment(ref _etwProjectedPayloadFieldDecodeFailures);
 }

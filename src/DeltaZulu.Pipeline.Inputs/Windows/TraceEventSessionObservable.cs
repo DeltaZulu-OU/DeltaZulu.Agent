@@ -12,12 +12,14 @@ internal static class TraceEventSessionObservable
         string sourceName,
         string sourceInput,
         NativeEtwIdentityFilter? nativeFilter = null,
+        IReadOnlySet<string>? selectedPayloadFields = null,
         EtwCollectorMetrics? metrics = null,
         Action<string>? warn = null)
     {
         return System.Reactive.Linq.Observable.Create<SourceEvent>(observer =>
         {
             var disposed = 0;
+            var projectionWarnings = new EtwPayloadProjectionWarningLimiter(warn, sourceName);
 
             session.Source.Dynamic.All += data =>
             {
@@ -42,7 +44,8 @@ internal static class TraceEventSessionObservable
                         return;
                     }
 
-                    var fields = TraceEventSourceEventMapper.ToDictionary(data);
+                    var fields = TraceEventSourceEventMapper.ToDictionary(data, selectedPayloadFields, out var payloadMaterialization);
+                    projectionWarnings.Report(data, selectedPayloadFields, payloadMaterialization, metrics);
                     observer.OnNext(WindowsSourceEventMapper.FromDictionary(fields, "WindowsEtw", sourceName, sourceInput));
                     metrics?.IncrementEtwEventsEmitted();
                 }
