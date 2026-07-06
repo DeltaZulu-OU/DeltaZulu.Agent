@@ -43,6 +43,7 @@ public sealed class EtwCollectorMetrics
     private long _threadStateCacheMisses;
     private long _etwCallbackEventsReceived;
     private long _etwCallbackEventsRejectedByNativeFilter;
+    private long _etwCallbackSelfProcessEventsDropped;
     private long _etwCallbackEnqueueSucceeded;
     private long _etwCallbackEnqueueFailed;
     private long _etwEventsDroppedByBackpressure;
@@ -91,6 +92,7 @@ public sealed class EtwCollectorMetrics
     public long ThreadStateCacheMisses => Interlocked.Read(ref _threadStateCacheMisses);
     public long EtwCallbackEventsReceived => Interlocked.Read(ref _etwCallbackEventsReceived);
     public long EtwCallbackEventsRejectedByNativeFilter => Interlocked.Read(ref _etwCallbackEventsRejectedByNativeFilter);
+    public long EtwCallbackSelfProcessEventsDropped => Interlocked.Read(ref _etwCallbackSelfProcessEventsDropped);
     public long EtwCallbackEnqueueSucceeded => Interlocked.Read(ref _etwCallbackEnqueueSucceeded);
     public long EtwCallbackEnqueueFailed => Interlocked.Read(ref _etwCallbackEnqueueFailed);
     public long EtwEventsDroppedByBackpressure => Interlocked.Read(ref _etwEventsDroppedByBackpressure);
@@ -139,6 +141,7 @@ public sealed class EtwCollectorMetrics
     public void IncrementThreadStateCacheMisses() => Interlocked.Increment(ref _threadStateCacheMisses);
     public void IncrementEtwCallbackEventsReceived() => Interlocked.Increment(ref _etwCallbackEventsReceived);
     public void IncrementEtwCallbackEventsRejectedByNativeFilter() => Interlocked.Increment(ref _etwCallbackEventsRejectedByNativeFilter);
+    public void IncrementEtwCallbackSelfProcessEventsDropped() => Interlocked.Increment(ref _etwCallbackSelfProcessEventsDropped);
     public void IncrementEtwCallbackEnqueueSucceeded() => Interlocked.Increment(ref _etwCallbackEnqueueSucceeded);
     public void IncrementEtwCallbackEnqueueFailed() => Interlocked.Increment(ref _etwCallbackEnqueueFailed);
     public void IncrementEtwEventsDroppedByBackpressure() => Interlocked.Increment(ref _etwEventsDroppedByBackpressure);

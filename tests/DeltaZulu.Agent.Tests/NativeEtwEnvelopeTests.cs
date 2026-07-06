@@ -46,6 +46,26 @@ public sealed class NativeEtwEnvelopeTests
     }
 
     [TestMethod]
+    public void EtwSelfProcessFilter_DropsOnlyCurrentProcessEvents()
+    {
+        Assert.IsTrue(EtwSelfProcessFilter.IsSelfProcessEvent(EtwSelfProcessFilter.CurrentProcessId));
+        Assert.IsTrue(EtwSelfProcessFilter.CurrentAgentProcessNames.Count > 0);
+        Assert.IsTrue(EtwSelfProcessFilter.IsSelfProcessEvent(0, EtwSelfProcessFilter.CurrentAgentProcessNames.First()));
+        Assert.IsFalse(EtwSelfProcessFilter.IsSelfProcessEvent(0));
+        Assert.IsFalse(EtwSelfProcessFilter.IsSelfProcessEvent(0, "notepad"));
+    }
+
+    [TestMethod]
+    public void EtwCollectorMetrics_CountsSelfProcessDrops()
+    {
+        var metrics = new EtwCollectorMetrics();
+
+        metrics.IncrementEtwCallbackSelfProcessEventsDropped();
+
+        Assert.AreEqual(1, metrics.EtwCallbackSelfProcessEventsDropped);
+    }
+
+    [TestMethod]
     public void EtwNativeFilterCompiler_ReturnsNullWhenProfileHasNoNativeConstraints()
     {
         var profile = new DeltaZulu.Pipeline.Core.Profiles.ResourceProfile {

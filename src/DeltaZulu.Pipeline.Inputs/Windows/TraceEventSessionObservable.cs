@@ -24,6 +24,12 @@ internal static class TraceEventSessionObservable
                 try
                 {
                     metrics?.IncrementEtwCallbackEventsReceived();
+                    if (EtwSelfProcessFilter.IsSelfProcessEvent(data.ProcessID, data.ProcessName))
+                    {
+                        metrics?.IncrementEtwCallbackSelfProcessEventsDropped();
+                        return;
+                    }
+
                     if (nativeFilter is not null && !nativeFilter.Matches(
                         data.ProviderName ?? string.Empty,
                         data.ProviderGuid,
