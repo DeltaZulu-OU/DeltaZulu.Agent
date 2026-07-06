@@ -234,3 +234,11 @@ git submodule update --remote external/DeltaZulu.Relp external/DeltaZulu.Durable
 - [Architecture](docs/ARCHITECTURE.md) describes the current host split, project boundaries, data flow, delivery envelopes, and normalization boundary.
 - [Roadmap](docs/ROADMAP.md) tracks implementation status, production hardening work, validation commands, and forwarder smoke testing.
 - [RELP receiver setup](docs/RELP_RECEIVER_SETUP.md) captures local and production receiver notes.
+
+## License
+
+DeltaZulu is licensed under AGPL-3.0 with the additional permission described in `LICENSE-EXCEPTION-KUSTO.md`.
+
+DeltaZulu may use Microsoft-published Kusto Query Language components, including `Microsoft.Azure.Kusto.Language`, as unmodified third-party dependencies for KQL parsing, semantic analysis, schema-aware authoring, and validation. Those components are not part of the DeltaZulu covered work and remain subject to their own applicable license terms, including Apache License 2.0 where applicable and any Microsoft package license terms that apply to the specific distributed artifact.
+
+DeltaZulu is not Azure Data Explorer and does not include an Azure Data Explorer connector under this exception.
