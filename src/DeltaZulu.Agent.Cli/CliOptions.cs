@@ -7,14 +7,17 @@ internal static class CliOptions
         var prefix = option + "=";
         for (var i = 0; i < args.Count; i++)
         {
-            if (args[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            var arg = args[i];
+            if (arg.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
-                return args[i][prefix.Length..];
+                return arg[prefix.Length..];
             }
 
-            if (args[i].Equals(option, StringComparison.OrdinalIgnoreCase) && i + 1 < args.Count)
+            if (arg.Equals(option, StringComparison.OrdinalIgnoreCase))
             {
-                return args[i + 1];
+                return i + 1 < args.Count && !args[i + 1].StartsWith('-')
+                    ? args[i + 1]
+                    : null;
             }
         }
 

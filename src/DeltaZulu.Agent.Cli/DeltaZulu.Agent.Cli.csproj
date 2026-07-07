@@ -10,6 +10,11 @@
   <ItemGroup>
     <PackageReference Include="Terminal.Gui" Version="2.4.16" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+        <!-- Overridden -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.3" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Pipeline.Inputs\DeltaZulu.Pipeline.Inputs.csproj" />

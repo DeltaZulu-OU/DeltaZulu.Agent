@@ -24,8 +24,16 @@ internal static partial class Program
         };
     }
 
-    private static bool ShouldUseTerminalGui(IEnumerable<string> args) => !Console.IsInputRedirected
-        && !args.Any(arg => arg.Equals(NoTerminalGuiOption, StringComparison.OrdinalIgnoreCase));
+    private static bool ShouldUseTerminalGui(IEnumerable<string> args)
+    {
+        var argv = args as string[] ?? args.ToArray();
+        if (Console.IsInputRedirected || argv.Any(arg => arg.Equals(NoTerminalGuiOption, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        return argv.Length > 0 && argv[0] is "--tui" or "tui" or "--metrics" or "metrics";
+    }
 
     private static bool IsServiceCommand(string value) => value is "start" or "stop" or "restart" or "status" or "reload";
 

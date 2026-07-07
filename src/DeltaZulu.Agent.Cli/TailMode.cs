@@ -19,11 +19,6 @@ internal static class TailMode
         var path = args[2];
         var plan = CreateTailPlan(path);
 
-        if (context.UseTerminalGui)
-        {
-            TerminalGuiShell.TryRunTailView(query, path, plan.Table, plan.Input, context.Warn);
-        }
-
         if (plan.UsesPipelineInput)
         {
             var forwarded = new[] { plan.Input, path, "--kql", query, "--table", plan.Table };

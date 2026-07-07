@@ -7,19 +7,15 @@ internal static class MetricsMode
         var sqlitePath = CliOptions.GetOption(args, "--sqlite")
             ?? CliOptions.GetOption(args, "--metrics-db")
             ?? "./state/dzagent-metrics.sqlite";
+
         var snapshot = SqliteMetricsStateProvider.Read(sqlitePath);
-        var text = MetricsTextFormatter.Format(snapshot);
-
-        if (context.UseTerminalGui)
+        if (context.UseTerminalGui && TerminalGuiShell.TryRunMetricsDashboard(snapshot, context.Warn))
         {
-            TerminalGuiShell.TryRunMetricsDashboard(snapshot, context.Warn);
-        }
-        else
-        {
-            Console.WriteLine(text);
-            Console.Out.Flush();
+            return 0;
         }
 
+        Console.WriteLine(MetricsTextFormatter.Format(snapshot));
+        Console.Out.Flush();
         return 0;
     }
 }

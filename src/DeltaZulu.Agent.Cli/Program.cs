@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 using DeltaZulu.Agent.Runtime;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Ndjson;
@@ -353,7 +352,7 @@ Controller modes:
   --tui                    Open the Terminal.Gui-backed local KQL editor TUI with built-in local resource schemas.
                            Use :schemas inside the TUI to discover queryable local tables.
   --metrics                Open the Terminal.Gui-backed agent metrics TUI from the daemon SQLite state (agent metrics only, not system htop).
-  --tail "<query>" <path>  Open the Terminal.Gui-backed tail preflight and query file-backed resources with KQL; unknown formats fall back to a Lines table with a single line column.
+  --tail "<query>" <path>  Stream file-backed resources through KQL; unknown formats fall back to a Lines table with a single line column.
   start/stop/restart/status/reload
                            Control the dzagentd service, systemctl-style.
 

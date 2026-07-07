@@ -7,10 +7,10 @@ namespace DeltaZulu.Agent.Cli;
 
 internal static class TerminalGuiShell
 {
-    public static bool TryRunKqlEditorIntro(IReadOnlyList<ResourceSchemaDescription> schemas, Action<string>? warn = null) =>
-        TryRunKqlEditorWorkspace(schemas, query => new LocalKqlQueryResult([], "Terminal.Gui query runner was not provided."), warn);
-
-    public static bool TryRunKqlEditorWorkspace(IReadOnlyList<ResourceSchemaDescription> schemas, Func<string, LocalKqlQueryResult> runQuery, Action<string>? warn = null)
+    public static bool TryRunKqlEditorWorkspace(
+        IReadOnlyList<ResourceSchemaDescription> schemas,
+        Func<string, LocalKqlQueryResult> runQuery,
+        Action<string>? warn = null)
     {
         try
         {
@@ -67,12 +67,9 @@ internal static class TerminalGuiShell
 
             void ExecuteQuery()
             {
-                var query = queryEditor.Text?.ToString() ?? string.Empty;
-                var result = runQuery(query);
+                var result = runQuery(queryEditor.Text?.ToString() ?? string.Empty);
                 results.Table = new DataTableSource(BuildResultsTable(result));
-                statusBar.Text = result.Error is null
-                    ? $"Query returned {result.Rows.Count} row(s). Run button: execute query   Esc: close"
-                    : $"Query failed: {result.Error}";
+                statusBar.Text = BuildStatusText(result);
                 results.SetNeedsDraw();
                 statusBar.SetNeedsDraw();
             }
@@ -81,27 +78,20 @@ internal static class TerminalGuiShell
             ExecuteQuery();
 
             window.Add(statusBar, schemaTree, runButton, queryEditor, results);
-
             app.Run(window);
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            warn?.Invoke($"Terminal.Gui shell unavailable; falling back to console output: {ex.GetBaseException().Message}");
+            warn?.Invoke($"Terminal.Gui shell unavailable: {ex.GetBaseException().Message}");
             return false;
         }
     }
 
-    public static bool TryRunMetricsView(Action<string>? warn = null) =>
-        TryRunInfoShell("DeltaZulu Agent Metrics (Esc to close)", BuildMetricsText(), warn);
-
     public static bool TryRunMetricsDashboard(MetricsStateSnapshot snapshot, Action<string>? warn = null) =>
         TryRunInfoShell("DeltaZulu Agent Metrics Dashboard (Esc to close)", MetricsTextFormatter.FormatDashboard(snapshot), warn);
 
-    public static bool TryRunTailView(string query, string path, string table, string input, Action<string>? warn = null) =>
-        TryRunInfoShell("DeltaZulu KQL Tail (Esc to start tail)", BuildTailText(query, path, table, input), warn);
-
-    public static bool TryRunInfoShell(string title, string body, Action<string>? warn = null)
+    private static bool TryRunInfoShell(string title, string body, Action<string>? warn = null)
     {
         try
         {
@@ -121,9 +111,20 @@ internal static class TerminalGuiShell
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            warn?.Invoke($"Terminal.Gui shell unavailable; falling back to console output: {ex.GetBaseException().Message}");
+            warn?.Invoke($"Terminal.Gui shell unavailable: {ex.GetBaseException().Message}");
             return false;
         }
+    }
+
+    private static string BuildStatusText(LocalKqlQueryResult result)
+    {
+        if (result.Error is not null)
+        {
+            return $"Query failed: {result.Error}";
+        }
+
+        var suffix = result.Truncated ? " (truncated)" : string.Empty;
+        return $"Query returned {result.Rows.Count} row(s){suffix}. Run button: execute query   Esc: close";
     }
 
     private static IEnumerable<ITreeNode> BuildSchemaTree(IReadOnlyList<ResourceSchemaDescription> schemas)
@@ -227,32 +228,4 @@ internal static class TerminalGuiShell
             return child;
         }
     }
-
-    private static string BuildMetricsText() => """
-DeltaZulu agent metrics
-
-Agent-only monitoring views:
-  pipeline throughput
-  input lag
-  dropped records
-  backpressure
-  RELP output
-  profile health
-
-This view is scoped to dzagentd telemetry, not host CPU/memory/process monitoring.
-Press Esc to close.
-""";
-
-    private static string BuildTailText(string query, string path, string table, string input) => $"""
-DeltaZulu KQL tail
-
-Path:  {path}
-Input: {input}
-Table: {table}
-
-Query:
-{query}
-
-Press Esc to start streaming matching records.
-""";
 }

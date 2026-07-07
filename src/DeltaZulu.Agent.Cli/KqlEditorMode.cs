@@ -6,19 +6,26 @@ using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Cli;
 
-internal sealed record LocalKqlQueryResult(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, string? Error);
+internal sealed record LocalKqlQueryResult(
+    IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows,
+    string? Error,
+    bool Truncated = false);
 
 internal static class KqlEditorMode
 {
+    private const int MaxLocalResultRows = 1_000;
+
     public static int Run(string[] args, ControllerModeContext context)
     {
         var schemas = LoadLocalTuiSchemas(CliOptions.GetOption(args, "--profiles") ?? "profiles", context);
+        var oneShotQuery = CliOptions.GetOption(args, "--query")
+            ?? CliOptions.GetOption(args, "--kql")
+            ?? CliOptions.GetOption(args, "-q");
 
-        Console.WriteLine("DeltaZulu KQL editor TUI");
-        Console.WriteLine("Local resources are queryable as KQL tables. Commands: :schemas, :help, :quit");
-        Console.WriteLine("Submit a query with a blank line, a trailing semicolon, or literal \\n separators.");
-        Console.WriteLine($"Loaded schemas: {schemas.Count}");
-        Console.Out.Flush();
+        if (!string.IsNullOrWhiteSpace(oneShotQuery))
+        {
+            return RunLocalKqlQuery(oneShotQuery, schemas);
+        }
 
         if (Console.IsInputRedirected)
         {
@@ -26,64 +33,16 @@ internal static class KqlEditorMode
             return string.IsNullOrWhiteSpace(redirectedQuery) ? 0 : RunLocalKqlQuery(redirectedQuery, schemas);
         }
 
-        if (context.UseTerminalGui && TerminalGuiShell.TryRunKqlEditorWorkspace(schemas, query => ExecuteLocalKqlQuery(query, schemas), context.Warn))
+        if (!context.UseTerminalGui)
         {
-            return 0;
+            Console.Error.WriteLine("error: --tui requires Terminal.Gui. Pipe a query on stdin or pass --query for non-interactive execution.");
+            Console.Error.Flush();
+            return 1;
         }
 
-        return RunEditorLoop(schemas);
-    }
-
-    private static int RunEditorLoop(IReadOnlyList<ResourceSchemaDescription> schemas)
-    {
-        var queryLines = new List<string>();
-        while (true)
-        {
-            Console.Write(queryLines.Count == 0 ? "kql> " : "   > ");
-            var line = Console.ReadLine();
-            if (line is null)
-            {
-                return 0;
-            }
-
-            if (queryLines.Count == 0 && IsTuiCommand(line, out var command))
-            {
-                if (command is ":quit" or ":q")
-                {
-                    return 0;
-                }
-
-                if (command == ":schemas")
-                {
-                    PrintLocalSchemas(schemas);
-                    continue;
-                }
-
-                if (command == ":help")
-                {
-                    PrintTuiHelp();
-                    continue;
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                if (queryLines.Count > 0)
-                {
-                    _ = RunLocalKqlQuery(string.Join(Environment.NewLine, queryLines), schemas);
-                    queryLines.Clear();
-                }
-                continue;
-            }
-
-            var submit = line.TrimEnd().EndsWith(';');
-            queryLines.Add(submit ? line.TrimEnd().TrimEnd(';') : line);
-            if (submit || line.Contains("\\n", StringComparison.Ordinal))
-            {
-                _ = RunLocalKqlQuery(string.Join(Environment.NewLine, queryLines), schemas);
-                queryLines.Clear();
-            }
-        }
+        return TerminalGuiShell.TryRunKqlEditorWorkspace(schemas, query => ExecuteLocalKqlQuery(query, schemas), context.Warn)
+            ? 0
+            : 1;
     }
 
     private static List<ResourceSchemaDescription> LoadLocalTuiSchemas(string profilesPath, ControllerModeContext context)
@@ -95,12 +54,22 @@ internal static class KqlEditorMode
             new("local.environment", "Environment variables", context.Version, true, "built-in", "local", "local", null, null, null, "Environment", "name:string,value:string")
         };
 
-        if (Directory.Exists(profilesPath))
+        if (!Directory.Exists(profilesPath))
         {
-            var loader = new YamlResourceProfileLoader();
-            var result = loader.LoadDirectory(profilesPath);
-            context.LogProfileLoadWarnings(result.Warnings);
-            schemas.AddRange(result.Profiles.Select(profile => new ResourceSchemaDescription(
+            return schemas;
+        }
+
+        var loader = new YamlResourceProfileLoader();
+        var result = loader.LoadDirectory(profilesPath);
+        context.LogProfileLoadWarnings(result.Warnings);
+        if (result.Errors.Count > 0)
+        {
+            throw new InvalidDataException(string.Join(Environment.NewLine, result.Errors));
+        }
+
+        schemas.AddRange(result.Profiles
+            .Where(profile => profile.Enabled)
+            .Select(profile => new ResourceSchemaDescription(
                 profile.Id,
                 profile.Name,
                 profile.Version,
@@ -113,35 +82,8 @@ internal static class KqlEditorMode
                 profile.Resource.Provider,
                 profile.Input.Table,
                 profile.Input.Schema)));
-        }
 
         return schemas;
-    }
-
-    private static bool IsTuiCommand(string line, out string command)
-    {
-        command = line.Trim().ToLowerInvariant();
-        return command is ":schemas" or ":help" or ":quit" or ":q";
-    }
-
-    private static void PrintTuiHelp()
-    {
-        Console.WriteLine("Example:");
-        Console.WriteLine("Processes");
-        Console.WriteLine("| project name, memMB=workingSet/1024/1024");
-        Console.WriteLine("| order by memMB desc");
-        Console.WriteLine("| take 1");
-        Console.WriteLine();
-        Console.WriteLine("Use :schemas to list local resource tables and columns.");
-    }
-
-    private static void PrintLocalSchemas(IEnumerable<ResourceSchemaDescription> schemas)
-    {
-        Console.WriteLine("table\tid\tschema");
-        foreach (var schema in schemas.OrderBy(schema => schema.Table, StringComparer.OrdinalIgnoreCase).ThenBy(schema => schema.Id, StringComparer.OrdinalIgnoreCase))
-        {
-            Console.WriteLine($"{schema.Table}\t{schema.Id}\t{schema.Schema}");
-        }
     }
 
     private static int RunLocalKqlQuery(string query, IReadOnlyList<ResourceSchemaDescription> schemas)
@@ -154,7 +96,7 @@ internal static class KqlEditorMode
             return 1;
         }
 
-        PrintRows(result.Rows);
+        PrintRows(result);
         return 0;
     }
 
@@ -169,39 +111,36 @@ internal static class KqlEditorMode
         var table = ResolveLocalTable(query, schemas);
         if (table is null)
         {
-            return new LocalKqlQueryResult([], "query must start with a known local table. Run :schemas to see available resources.");
+            return new LocalKqlQueryResult([], "query must start with a known local table.");
         }
 
         if (!IsBuiltInLocalTable(table))
         {
-            return new LocalKqlQueryResult([], $"table '{table}' has a schema but no local TUI snapshot provider. Use dzagentctl --tail for file-backed resources.");
+            return new LocalKqlQueryResult([], $"table '{table}' has a schema but no local snapshot provider. Use dzagentctl --tail for file-backed resources.");
         }
 
-        var events = CreateLocalResourceSnapshot(table);
-        var profile = new ResourceProfile
-        {
-            SchemaVersion = 1,
-            Id = $"cli.tui.{table.ToLowerInvariant()}",
-            Name = $"Local {table} query",
-            Version = "1.0.0",
-            Resource = new ResourceDescriptor { Platform = "local", Family = "local" },
-            Input = new ResourceInputContract
-            {
-                Table = table,
-                Schema = schemas.FirstOrDefault(schema => schema.Table.Equals(table, StringComparison.OrdinalIgnoreCase))?.Schema ?? string.Empty
-            },
-            Filter = new ResourceFilter { Language = "kql", Query = query },
-            Output = new ResourceOutputContract { Format = "table", PreserveOriginalFieldNames = true }
-        };
+        var profile = CreateLocalProfile(table, query, schemas);
+        var rows = new List<IReadOnlyDictionary<string, object?>>(capacity: Math.Min(MaxLocalResultRows, 128));
+        var truncated = false;
+        Exception? error = null;
 
         using var executor = new ResourceKqlProfileExecutor();
-        var rows = new List<IReadOnlyDictionary<string, object?>>();
-        Exception? error = null;
         using var completed = new ManualResetEventSlim();
-        using var subscription = executor.Execute(events.ToObservable(), profile).Subscribe(
-            record => rows.Add(record.Event),
-            ex => { error = ex; completed.Set(); },
-            () => completed.Set());
+        using var subscription = executor.Execute(CreateLocalResourceSnapshot(table).ToObservable(), profile)
+            .Take(MaxLocalResultRows + 1)
+            .Subscribe(
+                record =>
+                {
+                    if (rows.Count < MaxLocalResultRows)
+                    {
+                        rows.Add(record.Event);
+                        return;
+                    }
+
+                    truncated = true;
+                },
+                ex => { error = ex; completed.Set(); },
+                () => completed.Set());
 
         if (!completed.Wait(TimeSpan.FromSeconds(10)))
         {
@@ -209,9 +148,25 @@ internal static class KqlEditorMode
         }
 
         return error is null
-            ? new LocalKqlQueryResult(rows, null)
+            ? new LocalKqlQueryResult(rows, null, truncated)
             : new LocalKqlQueryResult([], error.Message);
     }
+
+    private static ResourceProfile CreateLocalProfile(string table, string query, IReadOnlyList<ResourceSchemaDescription> schemas) => new()
+    {
+        SchemaVersion = 1,
+        Id = $"cli.tui.{table.ToLowerInvariant()}",
+        Name = $"Local {table} query",
+        Version = "1.0.0",
+        Resource = new ResourceDescriptor { Platform = "local", Family = "local" },
+        Input = new ResourceInputContract
+        {
+            Table = table,
+            Schema = schemas.FirstOrDefault(schema => schema.Table.Equals(table, StringComparison.OrdinalIgnoreCase))?.Schema ?? string.Empty
+        },
+        Filter = new ResourceFilter { Language = "kql", Query = query },
+        Output = new ResourceOutputContract { Format = "table", PreserveOriginalFieldNames = true }
+    };
 
     private static bool IsBuiltInLocalTable(string table) => table.Equals("Processes", StringComparison.OrdinalIgnoreCase)
         || table.Equals("Runtime", StringComparison.OrdinalIgnoreCase)
@@ -229,38 +184,52 @@ internal static class KqlEditorMode
             .FirstOrDefault(table => table.Equals(firstToken, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static IReadOnlyList<SourceEvent> CreateLocalResourceSnapshot(string table) => table.ToLowerInvariant() switch
+    private static IEnumerable<SourceEvent> CreateLocalResourceSnapshot(string table)
     {
-        "processes" => CreateProcessRows(),
-        "runtime" =>
-        [
-            new SourceEvent(CreateLocalMetadata("Runtime"), new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["processId"] = Environment.ProcessId,
-                ["machineName"] = Environment.MachineName,
-                ["osVersion"] = Environment.OSVersion.ToString(),
-                ["frameworkDescription"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
-                ["workingSet"] = Environment.WorkingSet,
-                ["processorCount"] = Environment.ProcessorCount,
-                ["commandLine"] = Environment.CommandLine
-            })
-        ],
-        "environment" => Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>()
-            .Select(entry => new SourceEvent(CreateLocalMetadata("Environment"), new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        return table.ToLowerInvariant() switch
+        {
+            "processes" => CreateProcessRows(),
+            "runtime" => CreateRuntimeRows(),
+            "environment" => CreateEnvironmentRows(),
+            _ => []
+        };
+    }
+
+    private static IEnumerable<SourceEvent> CreateRuntimeRows()
+    {
+        yield return new SourceEvent(CreateLocalMetadata("Runtime"), new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["processId"] = Environment.ProcessId,
+            ["machineName"] = Environment.MachineName,
+            ["osVersion"] = Environment.OSVersion.ToString(),
+            ["frameworkDescription"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+            ["workingSet"] = Environment.WorkingSet,
+            ["processorCount"] = Environment.ProcessorCount,
+            ["commandLine"] = Environment.CommandLine
+        });
+    }
+
+    private static IEnumerable<SourceEvent> CreateEnvironmentRows()
+    {
+        var metadata = CreateLocalMetadata("Environment");
+        foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            yield return new SourceEvent(metadata, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
             {
                 ["name"] = entry.Key?.ToString() ?? string.Empty,
                 ["value"] = entry.Value?.ToString() ?? string.Empty
-            }))
-            .ToArray(),
-        _ => []
-    };
+            });
+        }
+    }
 
-    private static SourceEvent[] CreateProcessRows() => Process.GetProcesses()
-        .Select(process =>
+    private static IEnumerable<SourceEvent> CreateProcessRows()
+    {
+        var metadata = CreateLocalMetadata("Processes");
+        foreach (var process in Process.GetProcesses())
         {
             using (process)
             {
-                return new SourceEvent(CreateLocalMetadata("Processes"), new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                yield return new SourceEvent(metadata, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["id"] = process.Id,
                     ["name"] = process.ProcessName,
@@ -275,13 +244,19 @@ internal static class KqlEditorMode
                     ["commandLine"] = process.Id == Environment.ProcessId ? Environment.CommandLine : null
                 });
             }
-        })
-        .ToArray();
+        }
+    }
 
     private static T? SafeRead<T>(Func<T> read)
     {
-        try { return read(); }
-        catch { return default; }
+        try
+        {
+            return read();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            return default;
+        }
     }
 
     private static ResourceMetadata CreateLocalMetadata(string table) => new()
@@ -293,19 +268,25 @@ internal static class KqlEditorMode
         RawPreserved = false
     };
 
-    private static void PrintRows(IReadOnlyList<IReadOnlyDictionary<string, object?>> rows)
+    private static void PrintRows(LocalKqlQueryResult result)
     {
-        if (rows.Count == 0)
+        if (result.Rows.Count == 0)
         {
             Console.WriteLine("(0 rows)");
             return;
         }
 
-        var columns = rows.SelectMany(row => row.Keys).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var columns = result.Rows.SelectMany(row => row.Keys).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         Console.WriteLine(string.Join('\t', columns));
-        foreach (var row in rows)
+        foreach (var row in result.Rows)
         {
             Console.WriteLine(string.Join('\t', columns.Select(column => FormatCell(row.TryGetValue(column, out var value) ? value : null))));
+        }
+
+        if (result.Truncated)
+        {
+            Console.Error.WriteLine($"warning: result set truncated to {MaxLocalResultRows:N0} rows.");
+            Console.Error.Flush();
         }
     }
 
