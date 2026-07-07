@@ -2,7 +2,7 @@
   "profiles": {
     "DeltaZulu.Agent.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "eventlog Security --profile ..\\..\\..\\..\\..\\profiles\\windows\\eventlog\\"
+      "commandLineArgs": " --tui"
     }
   }
 }

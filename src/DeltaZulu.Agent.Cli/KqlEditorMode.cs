@@ -6,6 +6,8 @@ using DeltaZulu.Pipeline.Core.Profiles;
 
 namespace DeltaZulu.Agent.Cli;
 
+internal sealed record LocalKqlQueryResult(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, string? Error);
+
 internal static class KqlEditorMode
 {
     public static int Run(string[] args, ControllerModeContext context)
@@ -24,9 +26,9 @@ internal static class KqlEditorMode
             return string.IsNullOrWhiteSpace(redirectedQuery) ? 0 : RunLocalKqlQuery(redirectedQuery, schemas);
         }
 
-        if (context.UseTerminalGui)
+        if (context.UseTerminalGui && TerminalGuiShell.TryRunKqlEditorWorkspace(schemas, query => ExecuteLocalKqlQuery(query, schemas), context.Warn))
         {
-            TerminalGuiShell.TryRunKqlEditorIntro(schemas, context.Warn);
+            return 0;
         }
 
         return RunEditorLoop(schemas);
@@ -144,25 +146,35 @@ internal static class KqlEditorMode
 
     private static int RunLocalKqlQuery(string query, IReadOnlyList<ResourceSchemaDescription> schemas)
     {
+        var result = ExecuteLocalKqlQuery(query, schemas);
+        if (result.Error is not null)
+        {
+            Console.Error.WriteLine($"error: {result.Error}");
+            Console.Error.Flush();
+            return 1;
+        }
+
+        PrintRows(result.Rows);
+        return 0;
+    }
+
+    internal static LocalKqlQueryResult ExecuteLocalKqlQuery(string query, IReadOnlyList<ResourceSchemaDescription> schemas)
+    {
         query = query.Replace("\\n", Environment.NewLine, StringComparison.Ordinal).Trim();
         if (string.IsNullOrWhiteSpace(query))
         {
-            return 0;
+            return new LocalKqlQueryResult([], null);
         }
 
         var table = ResolveLocalTable(query, schemas);
         if (table is null)
         {
-            Console.Error.WriteLine("error: query must start with a known local table. Run :schemas to see available resources.");
-            Console.Error.Flush();
-            return 1;
+            return new LocalKqlQueryResult([], "query must start with a known local table. Run :schemas to see available resources.");
         }
 
         if (!IsBuiltInLocalTable(table))
         {
-            Console.Error.WriteLine($"error: table '{table}' has a schema but no local TUI snapshot provider. Use dzagentctl --tail for file-backed resources.");
-            Console.Error.Flush();
-            return 1;
+            return new LocalKqlQueryResult([], $"table '{table}' has a schema but no local TUI snapshot provider. Use dzagentctl --tail for file-backed resources.");
         }
 
         var events = CreateLocalResourceSnapshot(table);
@@ -193,20 +205,12 @@ internal static class KqlEditorMode
 
         if (!completed.Wait(TimeSpan.FromSeconds(10)))
         {
-            Console.Error.WriteLine("error: query did not complete within 10 seconds.");
-            Console.Error.Flush();
-            return 1;
+            return new LocalKqlQueryResult([], "query did not complete within 10 seconds.");
         }
 
-        if (error is not null)
-        {
-            Console.Error.WriteLine($"error: {error.Message}");
-            Console.Error.Flush();
-            return 1;
-        }
-
-        PrintRows(rows);
-        return 0;
+        return error is null
+            ? new LocalKqlQueryResult(rows, null)
+            : new LocalKqlQueryResult([], error.Message);
     }
 
     private static bool IsBuiltInLocalTable(string table) => table.Equals("Processes", StringComparison.OrdinalIgnoreCase)
