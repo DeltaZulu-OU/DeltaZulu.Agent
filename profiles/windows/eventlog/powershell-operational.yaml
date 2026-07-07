@@ -24,3 +24,19 @@ filter:
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-PowerShell/Operational"
+    | where EventID == 4104 // 1. Only ScriptBlock logging included
+    // 2. Filter out Local System (S-1-5-18) and Local Service (S-1-5-19) accounts
+    | where UserName !in ('S-1-5-18', 'S-1-5-19') and TargetLogonId !in ('S-1-5-18', 'S-1-5-19')
+    // 3. Extract the nested XML/JSON EventData fields just like the DCR transform did
+    | extend EvData = parse_xml(EventData).DataItem.EventData.Data
+    | extend 
+        ScriptBlockText = tostring(EvData.[0]), // Dynamically adjusts based on your exact XML structure
+        ScriptBlockId   = tostring(EvData.[1]),
+        MessageNumber   = tostring(EvData.[2]),
+        MessageTotal    = tostring(EvData.[3]),
+        Path            = tostring(EvData.[4])
+    // 4. Apply the DCR's noise-reduction filters
+    | where ScriptBlockText != 'prompt'
+    | where Path !has @".vscode\extensions\" 
+        and Path !matches regex @'(?i)C:\\Windows\\TEMP\\SDIAG_([A-Za-z0-9]+(-[A-Za-z0-9]+)+)\\CL_Utility.ps1'
+        and Path !has @"C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\DataCollection\"
