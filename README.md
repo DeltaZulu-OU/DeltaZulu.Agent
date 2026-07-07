@@ -2,53 +2,40 @@
 
 DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records as MessagePack `DeliveryBatch` payloads through `DeltaZulu.DurableBuffer` and a RELP.Net-backed transport adapter.
 
-This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes a thin `dzagentctl` CLI for local exploration, a separate `dzagentd` daemon host for service deployment, and a `dzagentd` collector configuration for local RELP validation.
+This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes `dzagentctl` as the local agent controller, a separate `dzagentd` daemon host for service deployment, and a `dzagentd` collector configuration for local RELP validation.
 
 
 ## Command line tool
 
-DeltaZulu now includes a small `dzagentctl`-style console host in `src/DeltaZulu.Agent.Cli`.
-It is intentionally thin: the executable wires the existing input libraries, KQL profile executor, pipeline helper, and NDJSON output sinks together so local event exploration has the same resource-profile behavior as daemon hosts.
+DeltaZulu includes the `dzagentctl` controller in `src/DeltaZulu.Agent.Cli`.
+It exposes controller workflows only: local KQL editing over built-in resource schemas, agent metrics views, KQL tailing for known file-backed resources, and daemon lifecycle commands.
 
 ```text
 Usage:
-  dzagentctl <input> [<arg>] [json [<file.ndjson>]] [--profile <profile.yaml>]
-  dzagentctl <input> [<arg>] [json [<file.ndjson>]] --kql <query> [--table <name>] [--schema <columns>]
-  dzagentctl schemas [<profiles-dir>] [table|json]
+  dzagentctl --tui [--profiles <profiles-dir>]
+  dzagentctl --metrics [--sqlite <path>]
+  dzagentctl --tail "<query>" <path>
+  dzagentctl start|stop|restart|status|reload [-v] [--service <name>]
 
-Inputs:
-  syslog <file>             Tail a local syslog-style file for new events.
-  syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
-  fifo <path>               Create/read a Linux FIFO for syslog-style log lines.
-  csv <file.csv>            Process a CSV file and then exit.
-  auditd <file>             Process an auditd log file and then exit.
-  eventlog <logname>        Listen for new Windows Event Log events (Windows build).
-  evtx <file.evtx>          Process an EVTX file (Windows build).
-  etl <file.etl>            Process an ETL trace file (Windows build).
-  etw <session>             Listen to a real-time ETW session (Windows build).
-
-Outputs:
-  json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
-
-
-Options:
-  --profile <profile.yaml>  Apply a DeltaZulu YAML resource profile containing KQL.
-  --kql, -q, --query        Apply inline KQL to the real-time input stream.
-  --table <name>            KQL table name for --kql (default Source).
-  --schema <columns>        Resource schema text to associate with --kql.
-  --resource-id <id>        Resource id to stamp on --kql output metadata.
-  --address <ip>            syslogserver bind address.
-  --port <port>             syslogserver TCP port.
+Controller modes:
+  --tui                    Open the Terminal.Gui-backed local KQL editor TUI with built-in local resource schemas.
+                           Use :schemas inside the TUI to discover queryable local tables.
+  --metrics                Open the Terminal.Gui-backed agent metrics TUI from the daemon SQLite state (agent metrics only, not system htop).
+  --tail "<query>" <path>  Open the Terminal.Gui-backed tail preflight and query file-backed resources with KQL; unknown formats fall back to a Lines table with a single line column.
+  start/stop/restart/status/reload
+                           Control the dzagentd service, systemctl-style.
 ```
 
 Examples:
 
+The controller implementation roadmap is tracked in [`docs/DZAGENTCTL_CONTROLLER_ROADMAP.md`](docs/DZAGENTCTL_CONTROLLER_ROADMAP.md).
+
 ```bash
-dzagentctl syslog /var/log/auth.log --profile profiles/linux/syslog/sshd.yaml
-dzagentctl csv events.csv json out.ndjson --kql "Source | where RawMessage has 'sudo'"
-dzagentctl syslogserver --address 127.0.0.1 --port 5514
-dzagentctl fifo /run/deltazulu/logs.fifo json fifo.ndjson --kql "Source | project ReceivedAt, RawMessage, Message"
-dzagentd --config config/dzcollector.yaml
+dzagentctl --tui
+# inside --tui: Processes\n| project name, memMB=workingSet/1024/1024\n| order by memMB desc\n| take 1
+dzagentctl --metrics [--sqlite <path>]
+dzagentctl --tail "Syslog | where Severity == 'error'" /var/log/syslog
+dzagentctl status -v
 ```
 
 
@@ -69,7 +56,7 @@ dzagentd --config config/dzagent.yaml
 dzagentd --config config/dzcollector.yaml
 ```
 
-`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Unlike the development CLI, this executable is intentionally non-exploratory: it has no inline query, schema listing, table output, JSON export, or other ad-hoc exploration commands. Its production role is forwarding; use `config/dzcollector.yaml` for local receiver validation and controlled lab receiver tests. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
+`src/DeltaZulu.Agent.Daemon` builds the `dzagentd` host. Its production role is forwarding; use `config/dzcollector.yaml` for local receiver validation and controlled lab receiver tests. It is shaped as a long-running .NET Generic Host so the same binary can run in a console during development, as a plain Linux process in containers or non-systemd environments, and under Windows Service Control Manager on Windows or systemd on Linux when those service managers are present.
 
 ```bash
 dzagentd --config config/dzagent.yaml
@@ -118,26 +105,21 @@ dzagentd --config config/dzcollector.yaml
 
 Visual Studio users can select the shared `Agent + Collector` solution launch profile to start both daemon instances together under the debugger. The profile launches `Run as Collector` first, then `Run as Agent`, using the two daemon launch profiles in `src/DeltaZulu.Agent.Daemon/Properties/launchSettings.json`.
 
-Windows process creation examples:
+Local controller workflows:
 
 ```bash
-# Sysmon process creation, Event ID 1, to console NDJSON.
-dzagentctl eventlog sysmon --kql "Source | where EventId == 1 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+# Inspect local process memory from the KQL editor TUI.
+dzagentctl --tui
+# inside --tui: Processes\n| project name, memMB=workingSet/1024/1024\n| order by memMB desc\n| take 1
 
-# Windows Security process creation, Event ID 4688, to console NDJSON.
-dzagentctl eventlog Security --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+# Query a known file-backed resource while tailing it.
+dzagentctl --tail "Syslog | where Severity == 'error'" /var/log/syslog
 
-# Windows Security process creation, Event ID 4688, to a file sink.
-dzagentctl eventlog Security json security-4688.ndjson --kql "Source | where EventId == 4688 | project TimeCreated, ProviderName, EventId, EventData, Message, _metadata"
+# Check daemon lifecycle state through the controller.
+dzagentctl status -v
 ```
 
-`eventlog sysmon` expands to `Microsoft-Windows-Sysmon/Operational`. If that log is not present, install Sysmon or choose another available Windows Event Log channel before querying Event ID 1.
-The CLI validates requested Windows Event Log resources before starting KQL. Profiles default to `mandatory: true`, which keeps missing resources as `error:` conditions; set `mandatory: false` on optional profiles to log a `warning:` for that profile and continue with the remaining profiles instead of surfacing a Reactive/KQL exception stack.
-
-Without a profile, source events pass through unchanged into the standard DeltaZulu NDJSON envelope.
-With `--profile`, the CLI loads a DeltaZulu YAML resource profile and executes its KQL filter/select query through `DeltaZulu.Agent.Filter`.
-With `--kql`, the CLI wraps the inline query in a temporary local resource profile so you can query an input in real time without creating a YAML file first. Output still defaults to console NDJSON, or can be routed to a file sink with `json out.ndjson`.
-CLI options such as `--kql` can appear before or after the input command; for example, `dzagentctl --kql "Source | where EventId == 1" eventlog Microsoft-Windows-Sysmon/Operational` is equivalent to placing `--kql` after the `eventlog` arguments.
+`dzagentctl` is the agent controller, not a standalone collection demo host. Use `--tui` for local schema-backed exploration, `--tail` for file-backed KQL filtering, `--metrics` for agent monitoring views, and `start|stop|restart|status|reload` for daemon lifecycle control. The `dzagentd` daemon remains responsible for production collection and forwarding from configured resource profiles.
 
 Profiles may include an optional host condition; both `dzagentctl` and `dzagentd` honor it when deciding whether a profile should run on the current host. The first supported condition type is `wmi`, which runs a WQL query and enables the profile only when the query returns at least one row. Set `condition.mandatory: false` when an unavailable WMI provider should skip the profile with a warning instead of failing startup. This is useful for Windows resource profiles that should only run on a specific server role, such as domain controllers:
 

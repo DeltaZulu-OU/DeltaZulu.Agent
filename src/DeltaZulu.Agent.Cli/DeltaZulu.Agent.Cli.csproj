@@ -8,6 +8,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Terminal.Gui" Version="2.4.16" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Pipeline.Inputs\DeltaZulu.Pipeline.Inputs.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
     <ProjectReference Include="..\DeltaZulu.Pipeline.Outputs\DeltaZulu.Pipeline.Outputs.csproj" />

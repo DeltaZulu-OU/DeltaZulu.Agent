@@ -68,6 +68,8 @@ public sealed record ForwarderDaemonDiagnosticsConfiguration
 {
     public double? IntervalSeconds { get; init; }
     public string? File { get; init; }
+    public string? SqliteFile { get; init; }
+    public double? SqliteIntervalSeconds { get; init; }
     public bool PrettyPrint { get; init; }
 }
 
@@ -191,6 +193,11 @@ public sealed class YamlForwarderDaemonConfigurationLoader
         if (configuration.Diagnostics.IntervalSeconds is <= 0)
         {
             throw new InvalidDataException($"{prefix} diagnostics.intervalSeconds must be greater than 0 when set.");
+        }
+
+        if (configuration.Diagnostics.SqliteIntervalSeconds is <= 0)
+        {
+            throw new InvalidDataException($"{prefix} diagnostics.sqliteIntervalSeconds must be greater than 0 when set.");
         }
 
         if (configuration.ResourceQuotas.CpuPercent is < 1 or > 100)

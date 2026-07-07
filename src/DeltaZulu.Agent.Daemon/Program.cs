@@ -377,20 +377,30 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
     private void StartHealthReporter(ForwarderDaemonConfiguration configuration, BufferedRelpSink relpSink)
     {
-        if (configuration.Diagnostics.IntervalSeconds is not { } intervalSeconds)
+        if (configuration.Diagnostics.IntervalSeconds is { } intervalSeconds)
         {
-            return;
+            IOutputWriter diagnosticSink = string.IsNullOrWhiteSpace(configuration.Diagnostics.File)
+                ? new ConsoleNdjsonSink(prettyPrint: configuration.Diagnostics.PrettyPrint)
+                : new NdjsonFileSink(configuration.Diagnostics.File, prettyPrint: configuration.Diagnostics.PrettyPrint);
+            _disposables.Add(diagnosticSink);
+            _disposables.Add(new RelpHealthReporter(
+                relpSink,
+                diagnosticSink,
+                new CollectorObservationMetadata { AgentId = configuration.Id, HostId = Environment.MachineName },
+                TimeSpan.FromSeconds(intervalSeconds)));
         }
 
-        IOutputWriter diagnosticSink = string.IsNullOrWhiteSpace(configuration.Diagnostics.File)
-            ? new ConsoleNdjsonSink(prettyPrint: configuration.Diagnostics.PrettyPrint)
-            : new NdjsonFileSink(configuration.Diagnostics.File, prettyPrint: configuration.Diagnostics.PrettyPrint);
-        _disposables.Add(diagnosticSink);
-        _disposables.Add(new RelpHealthReporter(
-            relpSink,
-            diagnosticSink,
-            new CollectorObservationMetadata { AgentId = configuration.Id, HostId = Environment.MachineName },
-            TimeSpan.FromSeconds(intervalSeconds)));
+        if (!string.IsNullOrWhiteSpace(configuration.Diagnostics.SqliteFile))
+        {
+            var sqliteIntervalSeconds = configuration.Diagnostics.SqliteIntervalSeconds ?? 3;
+            var sqliteSink = new SqliteMetricsStateWriter(configuration.Diagnostics.SqliteFile);
+            _disposables.Add(sqliteSink);
+            _disposables.Add(new RelpHealthReporter(
+                relpSink,
+                sqliteSink,
+                new CollectorObservationMetadata { AgentId = configuration.Id, HostId = Environment.MachineName },
+                TimeSpan.FromSeconds(sqliteIntervalSeconds)));
+        }
     }
 
     private (IReadOnlyList<RelpEndpoint> Endpoints, bool UseTls) StartRelpTunnel(ForwarderDaemonConfiguration configuration)

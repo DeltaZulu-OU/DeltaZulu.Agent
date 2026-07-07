@@ -41,17 +41,36 @@ internal static partial class Program
 
         try
         {
-            if (IsSchemaCommand(args[0]))
+            if (IsModeCommand(args[0]))
             {
-                ListSchemas(args);
-                return 0;
+                return RunModeCommand(args);
             }
 
-            if (IsProviderCommand(args[0]))
+            if (IsServiceCommand(args[0]))
             {
-                return RunProviderCommand(args);
+                return RunServiceCommand(args);
             }
 
+            Console.Error.WriteLine($"error: unknown dzagentctl command '{args[0]}'. Use --help for controller modes.");
+            Console.Error.Flush();
+            return 1;
+        }
+        catch (OperationCanceledException)
+        {
+            return 130;
+        }
+        catch (Exception ex)
+        {
+            LogPipelineError(ex);
+            Console.Error.Flush();
+            return 1;
+        }
+    }
+
+    private static int RunPipelinePlan(string[] args)
+    {
+        try
+        {
             var plan = CliPlan.Parse(args);
             if (!ValidateResources(plan))
             {
@@ -152,101 +171,6 @@ internal static partial class Program
 
         return [new ProfileBinding(CreateInput(plan), profile2, executor)];
     }
-
-    private static List<ResourceSchemaDescription> CreateBuiltInSchemas() =>
-    [
-        new(
-            "input.syslog",
-            "Syslog file tail",
-            Version,
-            true,
-            "built-in",
-            "linux",
-            "syslog",
-            null,
-            null,
-            null,
-            "Syslog",
-            "RawMessage:string,ReceivedAt:datetime,SourceIpAddress:string,Priority:int,Facility:string,Severity:string,SyslogVersion:string,Timestamp:datetime,Hostname:string,AppName:string,ProcessName:string,ProcId:string,ProcessId:int,MsgId:string,StructuredData:string,Message:string,ExtractedData:dynamic,_metadata:dynamic"),
-        new(
-            "input.syslogserver",
-            "TCP syslog listener",
-            Version,
-            true,
-            "built-in",
-            "linux",
-            "syslog",
-            null,
-            null,
-            null,
-            "Syslog",
-            "RawMessage:string,ReceivedAt:datetime,SourceIpAddress:string,Priority:int,Facility:string,Severity:string,SyslogVersion:string,Timestamp:datetime,Hostname:string,AppName:string,ProcessName:string,ProcId:string,ProcessId:int,MsgId:string,StructuredData:string,Message:string,ExtractedData:dynamic,_metadata:dynamic"),
-        new(
-            "input.fifo",
-            "Linux FIFO syslog input",
-            Version,
-            true,
-            "built-in",
-            "linux",
-            "syslog",
-            null,
-            null,
-            null,
-            "Syslog",
-            "RawMessage:string,ReceivedAt:datetime,Priority:int,Facility:string,Severity:string,SyslogVersion:string,Timestamp:datetime,Hostname:string,AppName:string,ProcessName:string,ProcId:string,ProcessId:int,MsgId:string,StructuredData:string,Message:string,ExtractedData:dynamic,_metadata:dynamic"),
-        new(
-            "input.csv",
-            "CSV file",
-            Version,
-            true,
-            "built-in",
-            "portable",
-            "file",
-            "csv",
-            null,
-            null,
-            "Csv",
-            "<csv headers are discovered from the file at runtime>,_metadata:dynamic"),
-        new(
-            "input.auditd",
-            "Linux auditd file",
-            Version,
-            true,
-            "built-in",
-            "linux",
-            "auditd",
-            null,
-            null,
-            null,
-            "Auditd",
-            "source:string,ID:string,RawEvent:dynamic,SYSCALL:dynamic,EXECVE:dynamic,PATH:dynamic,SOCKADDR:dynamic,CWD:dynamic,PROCTITLE:dynamic,_metadata:dynamic"),
-        new(
-            "input.windows.eventlog",
-            "Windows Event Log",
-            Version,
-            true,
-            "built-in",
-            "windows",
-            "eventlog",
-            null,
-            null,
-            null,
-            "EventLog",
-            "source:string,ProviderName:string,EventId:int,Channel:string,RecordId:long,Level:string,Keywords:string,MachineName:string,TimeCreated:datetime,EventData:dynamic,Message:string,RawEvent:dynamic,_metadata:dynamic"),
-        new(
-            "input.windows.etw",
-            "Windows ETW/ETL",
-            Version,
-            true,
-            "built-in",
-            "windows",
-            "etw",
-            null,
-            null,
-            null,
-            "Etw",
-            "source:string,Payload:dynamic,_metadata:dynamic")
-    ];
 
     private static ResourceProfile CreateInlineProfile(CliPlan plan, string query) => new() {
         SchemaVersion = 1,
@@ -380,171 +304,6 @@ internal static partial class Program
         return satisfied;
     }
 
-    private static bool IsSchemaCommand(string value) => value is "schema" or "schemas" or "resources" or "list-schemas" or "list-resources";
-
-    private static bool IsProviderCommand(string value) => value is "provider" or "providers";
-
-    private static int RunProviderCommand(string[] args)
-    {
-#if WINDOWS
-        var format = "table";
-        var positionals = new List<string>();
-        for (var i = 1; i < args.Length; i++)
-        {
-            if (args[i].Equals("json", StringComparison.OrdinalIgnoreCase) || args[i].Equals("table", StringComparison.OrdinalIgnoreCase))
-            {
-                format = args[i].ToLowerInvariant();
-            }
-            else if (!args[i].StartsWith('-'))
-            {
-                positionals.Add(args[i]);
-            }
-            else
-            {
-                throw new ArgumentException($"unknown provider option '{args[i]}'");
-            }
-        }
-
-        var reader = new WindowsProviderMetadataReader();
-
-        if (args[0] == "providers")
-        {
-            var names = reader.ListProviderNames();
-            if (format == "json")
-            {
-                Console.WriteLine(JsonSerializer.Serialize(names, NdjsonSerializerOptions.CreateDefault()));
-            }
-            else
-            {
-                foreach (var name in names)
-                {
-                    Console.WriteLine(name);
-                }
-            }
-
-            Console.Out.Flush();
-            return 0;
-        }
-
-        if (positionals.Count == 0)
-        {
-            throw new ArgumentException("provider requires a provider name or GUID, e.g. 'dzagentctl provider Microsoft-Windows-Sysmon'.");
-        }
-
-        var target = positionals[0];
-        var providerName = target;
-        if (Guid.TryParse(target, out var guid))
-        {
-            providerName = reader.ResolveProviderNameByGuid(guid)
-                ?? throw new ArgumentException($"No registered provider found with GUID '{guid}'.");
-        }
-
-        var definitions = reader.ReadProvider(providerName);
-        if (format == "json")
-        {
-            Console.WriteLine(JsonSerializer.Serialize(definitions, NdjsonSerializerOptions.CreateDefault()));
-            Console.Out.Flush();
-            return 0;
-        }
-
-        Console.WriteLine("channel\tprovider\teventId\ttemplateFields");
-        foreach (var definition in definitions.OrderBy(d => d.Channel, StringComparer.OrdinalIgnoreCase).ThenBy(d => d.EventId))
-        {
-            var fields = string.Join(", ", definition.Fields.Select(f => f.Name));
-            Console.WriteLine($"{definition.Channel}\t{definition.Provider}\t{definition.EventId}\t{fields}");
-        }
-
-        Console.Out.Flush();
-        return 0;
-#else
-        _ = args;
-        Console.Error.WriteLine("provider inspection is only available on Windows.");
-        Console.Error.Flush();
-        return 1;
-#endif
-    }
-
-    private static void ListSchemas(string[] args)
-    {
-        var path = "profiles";
-        var format = "table";
-        for (var i = 1; i < args.Length; i++)
-        {
-            if (args[i].Equals("json", StringComparison.OrdinalIgnoreCase) || args[i].Equals("table", StringComparison.OrdinalIgnoreCase))
-            {
-                format = args[i].ToLowerInvariant();
-            }
-            else if (args[i] is "--profiles" or "--resources" or "--path")
-            {
-                if (++i >= args.Length)
-                {
-                    throw new ArgumentException($"{args[i - 1]} requires a directory path.");
-                }
-                path = args[i];
-            }
-            else if (!args[i].StartsWith('-'))
-            {
-                path = args[i];
-            }
-            else
-            {
-                throw new ArgumentException($"unknown schema option '{args[i]}'");
-            }
-        }
-
-        var schemas = CreateBuiltInSchemas();
-        if (Directory.Exists(path))
-        {
-            var loader = new YamlResourceProfileLoader();
-            var result = loader.LoadDirectory(path);
-            if (result.Errors.Count > 0)
-            {
-                foreach (var error in result.Errors)
-                {
-                    Console.Error.WriteLine($"warning: {error}");
-                    Console.Error.Flush();
-                }
-            }
-
-            LogProfileLoadWarnings(result.Warnings);
-
-            schemas.AddRange(result.Profiles.Select(profile => new ResourceSchemaDescription(
-                    profile.Id,
-                    profile.Name,
-                    profile.Version,
-                    profile.Enabled,
-                    "profile",
-                    profile.Resource.Platform,
-                    profile.Resource.Family,
-                    profile.Resource.Service,
-                    profile.Resource.Channel,
-                    profile.Resource.Provider,
-                    profile.Input.Table,
-                    profile.Input.Schema)));
-        }
-
-        schemas = schemas
-            .OrderBy(schema => schema.Source, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(schema => schema.Platform, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(schema => schema.Family, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(schema => schema.Id, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (format == "json")
-        {
-            Console.WriteLine(JsonSerializer.Serialize(schemas, NdjsonSerializerOptions.CreateDefault()));
-            Console.Out.Flush();
-            return;
-        }
-
-        Console.WriteLine("id\tsource\tplatform\tfamily\ttable\tschema");
-        foreach (var schema in schemas)
-        {
-            Console.WriteLine($"{schema.Id}\t{schema.Source}\t{schema.Platform}\t{schema.Family}\t{schema.Table}\t{schema.Schema}");
-        }
-        Console.Out.Flush();
-    }
-
     private static IReadOnlyList<ResourceProfile> LoadProfiles(string path)
     {
         var loader = new YamlResourceProfileLoader();
@@ -585,42 +344,25 @@ internal static partial class Program
     {
         Console.WriteLine("""
 Usage:
-  dzagentctl [<input>] [<target>] [json [<file.ndjson>]] [--profile <profile.yaml|profiles-dir>]
-  dzagentctl <input> [<arg>] [json [<file.ndjson>]] --kql <query> [--table <name>] [--schema <columns>]
-  dzagentctl schemas [<profiles-dir>] [table|json]
+  dzagentctl --tui [--profiles <profiles-dir>]
+  dzagentctl --metrics [--sqlite <path>]
+  dzagentctl --tail "<query>" <path>
+  dzagentctl start|stop|restart|status|reload [-v] [--service <name>]
 
-Inputs:
-  syslog <file>             Tail a local syslog-style file for new events.
-  syslogserver [options]    Listen for syslog lines over TCP (default 0.0.0.0:514).
-  fifo <path>               Create/read a Linux FIFO for syslog-style log lines.
-  csv <file.csv>            Process a CSV file and then exit.
-  auditd <file>             Process an auditd log file and then exit.
-  eventlog <logname>        Listen for new Windows Event Log events (Windows build).
-  evtx <file.evtx>          Process an EVTX file (Windows build).
-  etl <file.etl>            Process an ETL trace file (Windows build).
-  etw <session>             Listen to a real-time ETW session (Windows build).
-
-Outputs:
-  json [file.ndjson]        Write DeltaZulu NDJSON to stdout or append to a file (default).
-
-Options:
-  --profile <path>          Apply one profile, or every YAML profile under a directory.
-                           When used, <input> may be omitted and inferred from the profile resource family.
-  --kql, -q, --query        Apply inline KQL to the real-time input stream.
-  --table <name>            KQL table name for --kql (default Source).
-  --schema <columns>        Resource schema text to associate with --kql.
-  --resource-id <id>        Resource id to stamp on --kql output metadata.
-  --address <ip>            syslogserver bind address.
-  --port <port>             syslogserver TCP port.
+Controller modes:
+  --tui                    Open the Terminal.Gui-backed local KQL editor TUI with built-in local resource schemas.
+                           Use :schemas inside the TUI to discover queryable local tables.
+  --metrics                Open the Terminal.Gui-backed agent metrics TUI from the daemon SQLite state (agent metrics only, not system htop).
+  --tail "<query>" <path>  Open the Terminal.Gui-backed tail preflight and query file-backed resources with KQL; unknown formats fall back to a Lines table with a single line column.
+  start/stop/restart/status/reload
+                           Control the dzagentd service, systemctl-style.
 
 Examples:
-  dzagentctl /var/log/auth.log --profile profiles/linux/syslog/sshd.yaml
-  dzagentctl /var/log/auth.log json out.ndjson --profile profiles/linux/syslog
-  dzagentctl csv events.csv json out.ndjson --kql "EventLog | where RawMessage has 'sudo'"
-  dzagentctl eventlog --profile profiles/windows/eventlog
-  dzagentctl eventlog sysmon --kql "EventLog | where EventId == 1"
-  dzagentctl eventlog Security --kql "EventLog | where EventId == 4688"
-  dzagentctl schemas profiles json
+  dzagentctl --tui
+  # inside --tui: Processes\n| project name, memMB=workingSet/1024/1024\n| order by memMB desc\n| take 1
+  dzagentctl --metrics [--sqlite <path>]
+  dzagentctl --tail "Syslog | where Severity == 'error'" /var/log/syslog
+  dzagentctl status -v
 """);
         Console.Out.Flush();
     }

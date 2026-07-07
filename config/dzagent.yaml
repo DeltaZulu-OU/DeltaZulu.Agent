@@ -61,3 +61,7 @@ diagnostics:
   # Emit daemon/buffer health observations every N seconds. Set to null or remove
   # this value to disable periodic diagnostics.
   intervalSeconds: 60
+  # Optional current-state SQLite database read by dzagentctl --metrics before IPC is available.
+  sqliteFile: ./state/dzagent-metrics.sqlite
+  # SQLite state is for local controller reads, so keep it fresher than console/file diagnostics.
+  sqliteIntervalSeconds: 3

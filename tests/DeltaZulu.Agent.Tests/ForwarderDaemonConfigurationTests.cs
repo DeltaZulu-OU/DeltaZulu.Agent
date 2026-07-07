@@ -60,6 +60,53 @@ public sealed class ForwarderDaemonConfigurationTests
         Assert.AreEqual(20, configuration.ResourceQuotas.CpuPercent);
     }
 
+
+    [TestMethod]
+    public void YamlForwarderDaemonConfigurationLoader_LoadFile_LoadsDiagnosticsSqliteSettings()
+    {
+        using var directory = new TemporaryDirectory();
+        var configPath = Path.Combine(directory.Path, "dzagent.yaml");
+        File.WriteAllText(configPath, """
+            id: test-agent
+            profilesPath: profiles
+            pipeline:
+              input:
+                mode: profiles
+              filter:
+                mode: profiles
+              output:
+                mode: console
+            buffer:
+              path: ./buffer
+            relp:
+              endpoints:
+                - host: 127.0.0.1
+                  port: 6514
+            diagnostics:
+              sqliteFile: ./state/dzagent-metrics.sqlite
+              sqliteIntervalSeconds: 3
+            """);
+
+        var configuration = new YamlForwarderDaemonConfigurationLoader().LoadFile(configPath);
+
+        Assert.AreEqual("./state/dzagent-metrics.sqlite", configuration.Diagnostics.SqliteFile);
+        Assert.AreEqual(3d, configuration.Diagnostics.SqliteIntervalSeconds);
+    }
+
+    [TestMethod]
+    public void Validate_RejectsDiagnosticsSqliteIntervalOutsideSupportedRange()
+    {
+        var configuration = new ForwarderDaemonConfiguration {
+            Diagnostics = new ForwarderDaemonDiagnosticsConfiguration {
+                SqliteIntervalSeconds = 0
+            }
+        };
+
+        var exception = Assert.ThrowsExactly<InvalidDataException>(() =>
+            YamlForwarderDaemonConfigurationLoader.Validate(configuration, "dzagent.yaml"));
+        Assert.Contains("diagnostics.sqliteIntervalSeconds must be greater than 0", exception.Message);
+    }
+
     [TestMethod]
     public void Validate_AllowsRelpCollectorInputWithConsoleOutput()
     {
