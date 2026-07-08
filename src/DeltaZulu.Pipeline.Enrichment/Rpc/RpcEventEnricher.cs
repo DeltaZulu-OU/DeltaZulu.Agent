@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Net;
 using DeltaZulu.Pipeline.Core.Events;
 
-namespace DeltaZulu.Pipeline.Enrichment;
+namespace DeltaZulu.Pipeline.Enrichment.Rpc;
 
 public static class RpcEventEnricher
 {
@@ -13,17 +13,11 @@ public static class RpcEventEnricher
 
     public static IReadOnlyDictionary<string, object?>? BuildRpcEnrichment(
         IReadOnlyDictionary<string, object?> fields,
-        ResourceMetadata? metadata = null)
-    {
-        return IsRpcSource(metadata, fields) ? BuildRpcEnrichmentCore(fields) : null;
-    }
+        ResourceMetadata? metadata = null) => IsRpcSource(metadata, fields) ? BuildRpcEnrichmentCore(fields) : null;
 
     public static IReadOnlyDictionary<string, object?>? BuildRpcEnrichment(
         IReadOnlyDictionary<string, object?> fields,
-        IReadOnlyDictionary<string, object?> metadata)
-    {
-        return IsRpcSource(metadata, fields) ? BuildRpcEnrichmentCore(fields) : null;
-    }
+        IReadOnlyDictionary<string, object?> metadata) => IsRpcSource(metadata, fields) ? BuildRpcEnrichmentCore(fields) : null;
 
     private static IReadOnlyDictionary<string, object?>? BuildRpcEnrichmentCore(IReadOnlyDictionary<string, object?> fields)
     {

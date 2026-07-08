@@ -61,7 +61,13 @@ public sealed class WorkbenchQueryRunner
             : new WorkbenchRunResult(rows, new WorkbenchCounters(read, matched, 1, rows.Count, lastEvent), error.GetBaseException().Message, truncated);
     }
 
-    public IDisposable RunLive(WorkbenchRunRequest request, Action<ResourceOutputRecord> onRow, Action<WorkbenchCounters> onCounters, Action<Exception> onError, CancellationToken cancellationToken)
+    public IDisposable RunLive(
+        WorkbenchRunRequest request,
+        Action<ResourceOutputRecord> onRow,
+        Action<WorkbenchCounters> onCounters,
+        Action<Exception> onError,
+        CancellationToken cancellationToken,
+        Action? onCompleted = null)
     {
         var validation = WorkbenchQueryValidator.Validate(request.Query, request.Source.Schema);
         if (!validation.IsValid)
@@ -93,7 +99,8 @@ public sealed class WorkbenchQueryRunner
                 errors++;
                 onCounters(new WorkbenchCounters(read, matched, errors, matched, lastEvent));
                 onError(ex);
-            });
+            },
+            () => onCompleted?.Invoke());
 
         return new CompositeDisposableAdapter(subscription, executor);
     }

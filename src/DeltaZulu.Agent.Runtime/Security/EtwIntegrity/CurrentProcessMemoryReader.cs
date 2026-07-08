@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-namespace DeltaZulu.Agent.Security.EtwIntegrity;
+namespace DeltaZulu.Agent.Runtime.Security.EtwIntegrity;
 
 public sealed class CurrentProcessMemoryReader : IProcessMemoryReader
 {
@@ -50,7 +50,7 @@ public sealed class CurrentProcessMemoryReader : IProcessMemoryReader
 
         UIntPtr result = NativeMethods.VirtualQuery(
             address,
-            out NativeMethods.MEMORY_BASIC_INFORMATION mbi,
+            out var mbi,
             new UIntPtr((uint)Marshal.SizeOf<NativeMethods.MEMORY_BASIC_INFORMATION>()));
 
         if (result == UIntPtr.Zero)

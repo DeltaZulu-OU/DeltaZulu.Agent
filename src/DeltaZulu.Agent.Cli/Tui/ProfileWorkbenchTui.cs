@@ -1,10 +1,10 @@
 using System.Data;
 using DeltaZulu.Agent.ProfileWorkbench;
-using Terminal.Gui.App;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
+using Application = Terminal.Gui.App.Application;
 
-namespace DeltaZulu.Agent.Cli;
+namespace DeltaZulu.Agent.Cli.Tui;
 
 internal static class ProfileWorkbenchTui
 {
@@ -23,17 +23,15 @@ internal static class ProfileWorkbenchTui
             using var app = Application.Create().Init();
             using Window window = new() { Title = "DeltaZulu Profile Query Workbench" };
 
-            var status = new StatusBar
-            {
+            var status = new StatusBar {
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
                 Height = 1,
-                Text = "Profile workbench | Run tests daemon profile filters locally | Save is explicit"
+                Text = "Profile workbench | live query stream | Save is explicit"
             };
 
-            var profileTree = new TreeView
-            {
+            var profileTree = new TreeView {
                 X = 0,
                 Y = Pos.Bottom(status),
                 Width = Dim.Percent(30),
@@ -43,8 +41,7 @@ internal static class ProfileWorkbenchTui
             profileTree.AddObjects(BuildProfileTree(profiles));
             profileTree.ExpandAll();
 
-            var sourceLabel = new Label
-            {
+            var sourceLabel = new Label {
                 X = Pos.Right(profileTree) + 1,
                 Y = Pos.Bottom(status),
                 Width = 14,
@@ -52,8 +49,7 @@ internal static class ProfileWorkbenchTui
                 Text = "Source:"
             };
 
-            var sourceText = new TextField
-            {
+            var sourceText = new TextField {
                 X = Pos.Right(sourceLabel) + 1,
                 Y = Pos.Bottom(status),
                 Width = Dim.Fill(),
@@ -61,40 +57,42 @@ internal static class ProfileWorkbenchTui
                 Text = initialSource ?? string.Empty
             };
 
-            var previousButton = new Button
-            {
+            var previousButton = new Button {
                 X = Pos.Right(profileTree) + 1,
                 Y = Pos.Bottom(sourceText) + 1,
                 Text = "_Previous",
                 AssignHotKeys = true
             };
 
-            var nextButton = new Button
-            {
+            var nextButton = new Button {
                 X = Pos.Right(previousButton) + 1,
                 Y = Pos.Bottom(sourceText) + 1,
                 Text = "_Next",
                 AssignHotKeys = true
             };
 
-            var runButton = new Button
-            {
+            var runButton = new Button {
                 X = Pos.Right(nextButton) + 1,
                 Y = Pos.Bottom(sourceText) + 1,
-                Text = "_Run",
+                Text = "_Follow",
                 AssignHotKeys = true
             };
 
-            var saveButton = new Button
-            {
+            var clearButton = new Button {
                 X = Pos.Right(runButton) + 1,
+                Y = Pos.Bottom(sourceText) + 1,
+                Text = "_Clear",
+                AssignHotKeys = true
+            };
+
+            var saveButton = new Button {
+                X = Pos.Right(clearButton) + 1,
                 Y = Pos.Bottom(sourceText) + 1,
                 Text = "_Save",
                 AssignHotKeys = true
             };
 
-            var queryEditor = new TextView
-            {
+            var queryEditor = new TextView {
                 X = Pos.Right(profileTree) + 1,
                 Y = Pos.Bottom(runButton) + 1,
                 Width = Dim.Fill(),
@@ -102,13 +100,12 @@ internal static class ProfileWorkbenchTui
                 Title = "Profile KQL"
             };
 
-            var results = new TableView
-            {
+            var results = new TableView {
                 X = Pos.Right(profileTree) + 1,
                 Y = Pos.Bottom(queryEditor) + 1,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(),
-                Title = "Matched Rows"
+                Title = "Live Matched Rows"
             };
 
             var tableModel = new BoundTableModel(ResultLimit);
@@ -117,42 +114,129 @@ internal static class ProfileWorkbenchTui
 
             var index = 0;
             var initialSourceBinding = NormalizeOptionalText(initialSource);
-            ResourceProfileDocument current = library.Open(profiles[index]);
+            var current = library.Open(profiles[index]);
+            IDisposable? liveSubscription = null;
+            CancellationTokenSource? liveCts = null;
+            WorkbenchCounters lastCounters = new(0, 0, 0, 0, null);
+
+            void PostUi(Action action)
+            {
+                try
+                {
+                    app.Invoke(action);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Late observable callbacks can arrive while the TUI is closing.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Terminal.Gui rejects dispatch after the instance application has stopped.
+                }
+            }
+
+            void StopLive(string? message = null)
+            {
+                liveCts?.Cancel();
+                liveSubscription?.Dispose();
+                liveCts?.Dispose();
+                liveSubscription = null;
+                liveCts = null;
+                runButton.Text = "_Follow";
+
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    status.Text = message;
+                    status.SetNeedsDraw();
+                }
+
+                runButton.SetNeedsDraw();
+            }
+
+            void SetSourceTextFromProfile()
+            {
+                if (!string.IsNullOrWhiteSpace(initialSource))
+                {
+                    return;
+                }
+
+                var candidate = sourceRegistry.CandidateFromProfile(current.Profile);
+                sourceText.Text = candidate.PathOrResource ?? string.Empty;
+                sourceText.SetNeedsDraw();
+            }
 
             void LoadCurrentProfile()
             {
+                StopLive();
                 current = library.Open(profiles[index]);
                 queryEditor.Text = current.Query;
+                SetSourceTextFromProfile();
                 var candidate = sourceRegistry.CandidateFromProfile(current.Profile);
                 sourceText.Text = initialSourceBinding ?? candidate.PathOrResource ?? string.Empty;
                 var binding = candidate.RequiresBinding ? "source required" : $"source {candidate.PathOrResource}";
                 status.Text = $"Profile {index + 1}/{profiles.Count}: {current.Profile.Id} | {candidate.DisplayName} | {binding} | schema fields {candidate.Schema.Fields.Count}";
-                tableModel.Reset(["Result"]);
+                tableModel.Reset(candidate.Schema.Fields.Count > 0 ? candidate.Schema.Fields.Select(field => field.Name) : ["Result"]);
                 results.SetNeedsDraw();
                 status.SetNeedsDraw();
             }
 
-            void RunQuery()
+            void UpdateStatus(WorkbenchCounters counters)
             {
+                lastCounters = counters;
+                status.Text = $"following | read {counters.Read} | matched {counters.Matched} | shown {tableModel.Count} | errors {counters.Errors} | last {FormatTimestamp(counters.LastEventUtc)}";
+                status.SetNeedsDraw();
+            }
+
+            void StartLive()
+            {
+                if (liveSubscription is not null)
+                {
+                    StopLive($"stopped | read {lastCounters.Read} | matched {lastCounters.Matched} | shown {tableModel.Count} | errors {lastCounters.Errors}");
+                    return;
+                }
+
                 try
                 {
                     current.Query = queryEditor.Text?.ToString() ?? string.Empty;
-                    var source = sourceRegistry.Bind(current.Profile, NormalizeOptionalText(sourceText.Text?.ToString()), WorkbenchRunMode.Replay);
-                    var request = new WorkbenchRunRequest(current, source, current.Query, ResultLimit, WorkbenchRunMode.Replay);
-                    var result = runner.RunOnce(request, TimeSpan.FromSeconds(10));
-                    tableModel.SetRows(result.Rows);
-                    var suffix = result.Truncated ? " | truncated" : string.Empty;
-                    status.Text = result.Error is null
-                        ? $"Read {result.Counters.Read} | matched {result.Counters.Matched} | displayed {result.Counters.Displayed}{suffix}"
-                        : $"Query failed: {result.Error}";
+                    var source = sourceRegistry.Bind(current.Profile, sourceText.Text?.ToString(), WorkbenchRunMode.Follow);
+                    var request = new WorkbenchRunRequest(current, source, current.Query, ResultLimit, WorkbenchRunMode.Follow);
+                    liveCts = new CancellationTokenSource();
+                    lastCounters = new WorkbenchCounters(0, 0, 0, 0, null);
+                    tableModel.Reset(source.Schema.Fields.Count > 0 ? source.Schema.Fields.Select(field => field.Name) : ["Result"]);
                     results.SetNeedsDraw();
+
+                    liveSubscription = runner.RunLive(
+                    request,
+                    record => PostUi(() => {
+                        tableModel.Append(record.Event);
+                        results.SetNeedsDraw();
+                    }),
+                    counters => PostUi(() => UpdateStatus(counters)),
+                    ex => PostUi(() => StopLive($"live query error: {ex.GetBaseException().Message}")),
+                    liveCts.Token,
+                    () => PostUi(() => StopLive($"source completed | read {lastCounters.Read} | matched {lastCounters.Matched} | shown {tableModel.Count} | errors {lastCounters.Errors}")));
+
+                    runButton.Text = "_Stop";
+                    runButton.SetNeedsDraw();
+                    status.Text = $"following {source.DisplayName} | waiting for matching rows";
                     status.SetNeedsDraw();
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
                 {
-                    status.Text = $"Run failed: {ex.GetBaseException().Message}";
+                    StopLive();
+                    status.Text = $"follow failed: {ex.GetBaseException().Message}";
                     status.SetNeedsDraw();
                 }
+            }
+
+            void ClearResults()
+            {
+                tableModel.Clear();
+                results.SetNeedsDraw();
+                status.Text = liveSubscription is null
+                                    ? "results cleared"
+                                    : $"following | read {lastCounters.Read} | matched {lastCounters.Matched} | shown 0 | errors {lastCounters.Errors} | last {FormatTimestamp(lastCounters.LastEventUtc)}";
+                status.SetNeedsDraw();
             }
 
             void SaveProfile()
@@ -171,12 +255,20 @@ internal static class ProfileWorkbenchTui
                 index = (index + 1) % profiles.Count;
                 LoadCurrentProfile();
             };
-            runButton.Accepting += (_, _) => RunQuery();
+            runButton.Accepting += (_, _) => StartLive();
             saveButton.Accepting += (_, _) => SaveProfile();
+            clearButton.Accepting += (_, _) => ClearResults();
 
-            window.Add(status, profileTree, sourceLabel, sourceText, previousButton, nextButton, runButton, saveButton, queryEditor, results);
+            window.Add(status, profileTree, sourceLabel, sourceText, previousButton, nextButton, runButton, clearButton, saveButton, queryEditor, results);
             LoadCurrentProfile();
-            app.Run(window);
+            try
+            {
+                app.Run(window);
+            }
+            finally
+            {
+                StopLive();
+            }
             return true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
@@ -188,6 +280,8 @@ internal static class ProfileWorkbenchTui
 
     private static string? NormalizeOptionalText(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string FormatTimestamp(DateTimeOffset? value) => value?.ToString("O") ?? "-";
 
     private static IEnumerable<ITreeNode> BuildProfileTree(IEnumerable<ProfileLibraryItem> profiles)
     {

@@ -40,10 +40,7 @@ public sealed record ResourceOutputRecord
     public static ResourceOutputRecord FromKqlProjection(
         IReadOnlyDictionary<string, object?> projectedFields,
         string profileId,
-        string? profileVersion)
-    {
-        return FromKqlProjection(projectedFields, profileId, profileVersion, sourceMetadata: null);
-    }
+        string? profileVersion) => FromKqlProjection(projectedFields, profileId, profileVersion, sourceMetadata: null);
 
     public static ResourceOutputRecord FromKqlProjection(
         IReadOnlyDictionary<string, object?> projectedFields,

@@ -1,5 +1,6 @@
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Enrichment;
+using DeltaZulu.Pipeline.Enrichment.Events;
+using DeltaZulu.Pipeline.Enrichment.Rpc;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -172,10 +173,7 @@ public sealed class RpcEventEnricherTests
     [DataRow("49679", "localhost")]
     [DataRow("49679", "127.0.0.1")]
     [DataRow("49679", "::1")]
-    public void IsLikelyLocalRpc_LocalForms_ReturnTrue(string endpoint, string? networkAddress)
-    {
-        Assert.IsTrue(RpcEventEnricher.IsLikelyLocalRpc(endpoint, networkAddress));
-    }
+    public void IsLikelyLocalRpc_LocalForms_ReturnTrue(string endpoint, string? networkAddress) => Assert.IsTrue(RpcEventEnricher.IsLikelyLocalRpc(endpoint, networkAddress));
 
     [TestMethod]
     public void BuildRpcEnrichment_UnknownRpcCall_RetainsRawRpcIdentityWithoutSemanticNames()

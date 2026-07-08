@@ -37,10 +37,7 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
         private set;
     }
 
-    public void OnNext(ResourceOutputRecord value)
-    {
-        WriteMessage(SinkMessage.Next(value));
-    }
+    public void OnNext(ResourceOutputRecord value) => WriteMessage(SinkMessage.Next(value));
 
     public void OnError(Exception error)
     {

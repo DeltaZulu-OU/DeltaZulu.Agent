@@ -56,7 +56,7 @@ public sealed class RpcArchitectureProfileTests
         foreach (var relativeRoot in searchRoots)
         {
             var path = Path.Combine(root, relativeRoot);
-            IEnumerable<string> files = File.Exists(path)
+            var files = File.Exists(path)
                 ? new[] { path }
                 : Directory.Exists(path)
                     ? Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)

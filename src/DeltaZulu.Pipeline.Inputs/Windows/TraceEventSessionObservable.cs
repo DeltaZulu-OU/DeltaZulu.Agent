@@ -14,15 +14,11 @@ internal static class TraceEventSessionObservable
         NativeEtwIdentityFilter? nativeFilter = null,
         IReadOnlySet<string>? selectedPayloadFields = null,
         EtwCollectorMetrics? metrics = null,
-        Action<string>? warn = null)
-    {
-        return System.Reactive.Linq.Observable.Create<SourceEvent>(observer =>
-        {
+        Action<string>? warn = null) => System.Reactive.Linq.Observable.Create<SourceEvent>(observer => {
             var disposed = 0;
             var projectionWarnings = new EtwPayloadProjectionWarningLimiter(warn, sourceName);
 
-            session.Source.Dynamic.All += data =>
-            {
+            session.Source.Dynamic.All += data => {
                 try
                 {
                     metrics?.IncrementEtwCallbackEventsReceived();
@@ -55,8 +51,7 @@ internal static class TraceEventSessionObservable
                 }
             };
 
-            var processing = Task.Run(() =>
-            {
+            var processing = Task.Run(() => {
                 try
                 {
                     session.Source.Process();
@@ -77,8 +72,7 @@ internal static class TraceEventSessionObservable
                 }
             });
 
-            return Disposable.Create(() =>
-            {
+            return Disposable.Create(() => {
                 if (Interlocked.Exchange(ref disposed, 1) != 0)
                 {
                     return;
@@ -101,7 +95,6 @@ internal static class TraceEventSessionObservable
                 }
             });
         });
-    }
 
     private static bool IsExpectedShutdownException(Exception ex) =>
         ex is InvalidOperationException || ex is ObjectDisposedException;

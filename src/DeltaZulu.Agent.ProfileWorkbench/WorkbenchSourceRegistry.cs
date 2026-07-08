@@ -80,7 +80,9 @@ public sealed class WorkbenchSourceRegistry
 
         return sourceKind switch {
             "syslog" => new SyslogFileTailInput(RequirePath(bindingOverride, "syslog")),
-            "auditd" => new AuditdFileInput(RequirePath(bindingOverride, "auditd")),
+            "auditd" => mode == WorkbenchRunMode.Follow
+                            ? new AuditdTailSourceInput(RequirePath(pathOrResource, "auditd"))
+                            : new AuditdFileInput(RequirePath(pathOrResource, "auditd")),
             "csv" => new CsvFileInput(RequirePath(bindingOverride, "csv")),
             "lines" => new LinesSourceInput(RequirePath(bindingOverride, "lines"), mode == WorkbenchRunMode.Follow),
 #if WINDOWS
@@ -98,12 +100,7 @@ public sealed class WorkbenchSourceRegistry
 #if WINDOWS
     private ISourceInput CreateEtwInput(ResourceProfile profile, string? sessionOverride)
     {
-        var session = FirstNonWhiteSpace(sessionOverride, profile.Resource.Session);
-        if (session is null)
-        {
-            throw new ArgumentException($"profile '{profile.Id}' etw binding requires resource.session or an explicit session name.");
-        }
-
+        var session = FirstNonWhiteSpace(sessionOverride, profile.Resource.Session) ?? throw new ArgumentException($"profile '{profile.Id}' etw binding requires resource.session or an explicit session name.");
         if (profile.Resource.Mode.Equals("managed", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(profile.Resource.Provider))
@@ -194,15 +191,7 @@ public sealed class WorkbenchSourceRegistry
         _ => ""
     };
 
-    private static bool RequiresExternalBinding(string sourceKind, ResourceProfile profile)
-    {
-        if (sourceKind is "eventlog" or "etw" && (!string.IsNullOrWhiteSpace(profile.Resource.Channel) || !string.IsNullOrWhiteSpace(profile.Resource.Session)))
-        {
-            return false;
-        }
-
-        return true;
-    }
+    private static bool RequiresExternalBinding(string sourceKind, ResourceProfile profile) => !(sourceKind is "eventlog" or "etw") || (string.IsNullOrWhiteSpace(profile.Resource.Channel) && string.IsNullOrWhiteSpace(profile.Resource.Session));
 
     private static string BuildDisplayName(ResourceProfile profile)
     {

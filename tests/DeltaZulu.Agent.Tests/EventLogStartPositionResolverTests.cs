@@ -28,11 +28,8 @@ public sealed class EventLogStartPositionResolverTests
     }
 
     [TestMethod]
-    public void FromRecordId_WithoutRecordId_Throws()
-    {
-        Assert.ThrowsExactly<ArgumentException>(() =>
-            EventLogStartPositionResolver.Resolve(EventLogStartPosition.FromRecordId));
-    }
+    public void FromRecordId_WithoutRecordId_Throws() => Assert.ThrowsExactly<ArgumentException>(() =>
+                                                                  EventLogStartPositionResolver.Resolve(EventLogStartPosition.FromRecordId));
 
     [TestMethod]
     public void Lookback_ResolvesToWindow()
@@ -43,11 +40,8 @@ public sealed class EventLogStartPositionResolverTests
     }
 
     [TestMethod]
-    public void Lookback_WithoutDuration_Throws()
-    {
-        Assert.ThrowsExactly<ArgumentException>(() =>
-            EventLogStartPositionResolver.Resolve(EventLogStartPosition.Lookback));
-    }
+    public void Lookback_WithoutDuration_Throws() => Assert.ThrowsExactly<ArgumentException>(() =>
+                                                              EventLogStartPositionResolver.Resolve(EventLogStartPosition.Lookback));
 
     [TestMethod]
     public void Bookmark_WithValidToken_ResumesAfterThatRecord()

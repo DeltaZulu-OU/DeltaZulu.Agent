@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
-using DeltaZulu.Agent.Security.EtwIntegrity;
+using DeltaZulu.Agent.Runtime.Security.EtwIntegrity;
 
 namespace DeltaZulu.Agent.Tests;
 

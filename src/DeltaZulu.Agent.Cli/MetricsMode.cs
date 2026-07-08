@@ -1,3 +1,5 @@
+using DeltaZulu.Agent.Cli.Tui;
+
 namespace DeltaZulu.Agent.Cli;
 
 internal static class MetricsMode

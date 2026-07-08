@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 
-namespace DeltaZulu.Agent.Security.EtwIntegrity;
+namespace DeltaZulu.Agent.Runtime.Security.EtwIntegrity;
 
 public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
 {
@@ -63,14 +63,14 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
                 _options.ValidatePortable();
             }
 
-            IReadOnlyList<EtwFunctionBaseline> baselines = _baselineFactory(_memoryReader);
+            var baselines = _baselineFactory(_memoryReader);
             if (baselines.Count == 0)
             {
                 throw new InvalidOperationException("No ETW target baselines could be created.");
             }
 
             _targets.Clear();
-            foreach (EtwFunctionBaseline baseline in baselines)
+            foreach (var baseline in baselines)
             {
                 _targets.Add(new EtwTargetState(baseline));
             }
@@ -92,8 +92,8 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
             return;
         }
 
-        CancellationTokenSource? cts = _cts;
-        Task? task = _monitorTask;
+        var cts = _cts;
+        var task = _monitorTask;
         cts?.Cancel();
 
         if (task is not null)
@@ -124,7 +124,7 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
 
         while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
         {
-            foreach (EtwTargetState target in _targets)
+            foreach (var target in _targets)
             {
                 await CheckTargetAsync(target, cancellationToken).ConfigureAwait(false);
             }
@@ -138,7 +138,7 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
             return;
         }
 
-        MemoryReadResult read = _memoryReader.TryRead(target.Baseline.LiveAddress, _options.PrologueSize);
+        var read = _memoryReader.TryRead(target.Baseline.LiveAddress, _options.PrologueSize);
         if (!read.Success)
         {
             target.ReadFailureCount++;
@@ -146,7 +146,7 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
             if (target.ReadFailureCount >= _options.ConsecutiveReadFailuresBeforeDisable)
             {
                 target.Valid = false;
-                EtwIntegrityFinding finding = BuildReadFailureFinding(target, read.Error ?? "Unknown read failure.");
+                var finding = BuildReadFailureFinding(target, read.Error ?? "Unknown read failure.");
                 await SafeReportAsync(finding, cancellationToken).ConfigureAwait(false);
             }
 
@@ -154,7 +154,7 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
         }
 
         target.ReadFailureCount = 0;
-        EtwIntegrityDetectionResult result = EtwBypassPatternDetector.Detect(
+        var result = EtwBypassPatternDetector.Detect(
             read.Bytes,
             target.Baseline.BaselineBytes,
             target.Baseline.FunctionName,
@@ -178,7 +178,7 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
         }
 
         target.LastReportedCurrentSha256 = currentSha256;
-        EtwIntegrityFinding tamperFinding = BuildTamperFinding(target, read.Bytes, currentSha256, result);
+        var tamperFinding = BuildTamperFinding(target, read.Bytes, currentSha256, result);
         await SafeReportAsync(tamperFinding, cancellationToken).ConfigureAwait(false);
     }
 

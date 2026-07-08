@@ -14,12 +14,11 @@ namespace DeltaZulu.Agent.Filter.Prefilter;
 /// </summary>
 public static class DefaultConditionEvaluators
 {
-    public static IReadOnlyList<IResourceConditionEvaluator> ForCurrentPlatform()
-    {
+    public static IReadOnlyList<IResourceConditionEvaluator> ForCurrentPlatform() =>
 #if WINDOWS
-        return [new WmiConditionEvaluator()];
+        [new WmiConditionEvaluator()];
 #else
-        return [];
+        [];
 #endif
-    }
+
 }

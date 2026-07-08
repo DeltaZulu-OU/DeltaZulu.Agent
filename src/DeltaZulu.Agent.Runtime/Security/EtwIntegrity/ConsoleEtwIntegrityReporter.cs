@@ -1,4 +1,4 @@
-namespace DeltaZulu.Agent.Security.EtwIntegrity;
+namespace DeltaZulu.Agent.Runtime.Security.EtwIntegrity;
 
 public sealed class ConsoleEtwIntegrityReporter : IEtwIntegrityReporter
 {

@@ -1,6 +1,6 @@
 using System.Data;
 
-namespace DeltaZulu.Agent.Cli;
+namespace DeltaZulu.Agent.Cli.Tui;
 
 internal sealed class BoundTableModel
 {

@@ -3,7 +3,7 @@ using Terminal.Gui.App;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 
-namespace DeltaZulu.Agent.Cli;
+namespace DeltaZulu.Agent.Cli.Tui;
 
 internal static class TailTableTui
 {
@@ -51,14 +51,30 @@ internal static class TailTableTui
                 status.SetNeedsDraw();
             }
 
+            void PostUi(Action action)
+            {
+                try
+                {
+                    app.Invoke(action);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Late observable callbacks can arrive while the TUI is closing.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Terminal.Gui rejects dispatch after the instance application has stopped.
+                }
+            }
+
             var subscription = runner.RunLive(
                 request,
-                record => Application.Invoke(() => {
+                record => PostUi(() => {
                     tableModel.Append(record.Event);
                     table.SetNeedsDraw();
                 }),
-                counters => Application.Invoke(() => UpdateStatus(counters)),
-                ex => Application.Invoke(() => {
+                counters => PostUi(() => UpdateStatus(counters)),
+                ex => PostUi(() => {
                     status.Text = $"tail error: {ex.GetBaseException().Message}";
                     status.SetNeedsDraw();
                 }),

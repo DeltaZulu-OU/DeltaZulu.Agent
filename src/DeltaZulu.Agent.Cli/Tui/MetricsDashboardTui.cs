@@ -2,7 +2,7 @@ using Terminal.Gui.App;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 
-namespace DeltaZulu.Agent.Cli;
+namespace DeltaZulu.Agent.Cli.Tui;
 
 internal static class MetricsDashboardTui
 {

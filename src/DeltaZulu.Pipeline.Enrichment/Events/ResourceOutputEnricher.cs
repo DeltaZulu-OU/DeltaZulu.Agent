@@ -1,6 +1,8 @@
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Enrichment.Etw;
+using DeltaZulu.Pipeline.Enrichment.Rpc;
 
-namespace DeltaZulu.Pipeline.Enrichment;
+namespace DeltaZulu.Pipeline.Enrichment.Events;
 
 public static class ResourceOutputEnricher
 {

@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace DeltaZulu.Agent.Security.EtwIntegrity;
+namespace DeltaZulu.Agent.Runtime.Security.EtwIntegrity;
 
 public sealed class NtdllEtwTargetResolver
 {
@@ -38,7 +38,7 @@ public sealed class NtdllEtwTargetResolver
                 continue;
             }
 
-            MemoryReadResult read = _memoryReader.TryRead(address, prologueSize);
+            var read = _memoryReader.TryRead(address, prologueSize);
             if (!read.Success)
             {
                 continue;

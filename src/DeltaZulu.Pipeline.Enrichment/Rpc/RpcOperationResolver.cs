@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Enrichment;
+namespace DeltaZulu.Pipeline.Enrichment.Rpc;
 
 public sealed record RpcOperationDescriptor(
     string InterfaceUuid,
@@ -90,10 +90,7 @@ public static class RpcOperationResolver
     private static void AddInterface(
         IDictionary<string, string> map,
         string interfaceUuid,
-        string interfaceName)
-    {
-        map[NormalizeUuid(interfaceUuid)] = interfaceName;
-    }
+        string interfaceName) => map[NormalizeUuid(interfaceUuid)] = interfaceName;
 
     private static void Add(
         IDictionary<(string InterfaceUuid, int ProcNum), RpcOperationDescriptor> map,

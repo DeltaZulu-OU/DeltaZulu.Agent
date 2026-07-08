@@ -488,7 +488,7 @@ public sealed class WindowsEventLogInput : ISourceInput
         try
         {
             var document = XDocument.Parse(eventXml, LoadOptions.None);
-            XNamespace ns = document.Root?.Name.Namespace ?? XNamespace.None;
+            var ns = document.Root?.Name.Namespace ?? XNamespace.None;
             var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var data in document.Descendants(ns + "EventData").Elements(ns + "Data"))

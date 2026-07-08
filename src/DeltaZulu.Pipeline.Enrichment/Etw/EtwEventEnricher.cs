@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace DeltaZulu.Pipeline.Enrichment;
+namespace DeltaZulu.Pipeline.Enrichment.Etw;
 
 public static class EtwEventEnricher
 {

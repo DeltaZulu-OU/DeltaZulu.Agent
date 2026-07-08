@@ -13,10 +13,7 @@ internal static class TraceEventSourceEventMapper
     // explicit schema extension with provenance metadata.
     public static IReadOnlyDictionary<string, object?> ToDictionary(
         TraceEvent data,
-        IReadOnlySet<string>? selectedPayloadFields = null)
-    {
-        return ToDictionary(data, selectedPayloadFields, out _);
-    }
+        IReadOnlySet<string>? selectedPayloadFields = null) => ToDictionary(data, selectedPayloadFields, out _);
 
     public static IReadOnlyDictionary<string, object?> ToDictionary(
         TraceEvent data,

@@ -48,8 +48,5 @@ public sealed class EtlFileInput : ISourceInput
         }
     }
 
-    private void OnEventDropped(Exception ex)
-    {
-        _dropWarningLimiter.OnEventDropped(ex);
-    }
+    private void OnEventDropped(Exception ex) => _dropWarningLimiter.OnEventDropped(ex);
 }

@@ -32,7 +32,11 @@ internal sealed class LinesSourceInput : ISourceInput
                     }
 
                     using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                    if (position > stream.Length)
+                    if (_follow && position == 0)
+                    {
+                        position = stream.Length;
+                    }
+                    else if (position > stream.Length)
                     {
                         position = 0;
                     }
