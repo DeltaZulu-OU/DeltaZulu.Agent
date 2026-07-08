@@ -7,6 +7,8 @@
     <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
   </Folder>
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
+  <Project Path="src/DeltaZulu.Agent.SchemaMetadata/DeltaZulu.Agent.SchemaMetadata.csproj" />
+  <Project Path="src/DeltaZulu.Agent.ProfileWorkbench/DeltaZulu.Agent.ProfileWorkbench.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
   <Project Path="src/DeltaZulu.Pipeline.Inputs/DeltaZulu.Pipeline.Inputs.csproj" />
   <Project Path="src/DeltaZulu.Agent.Filter/DeltaZulu.Agent.Filter.csproj" />

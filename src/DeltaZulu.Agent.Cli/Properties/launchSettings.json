@@ -2,7 +2,7 @@
   "profiles": {
     "DeltaZulu.Agent.Cli": {
       "commandName": "Project",
-      "commandLineArgs": " --tui"
+      "commandLineArgs": " --tui --profiles ./../../../../../profiles/windows"
     }
   }
 }

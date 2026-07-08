@@ -9,7 +9,7 @@ internal static class MetricsMode
             ?? "./state/dzagent-metrics.sqlite";
 
         var snapshot = SqliteMetricsStateProvider.Read(sqlitePath);
-        if (context.UseTerminalGui && TerminalGuiShell.TryRunMetricsDashboard(snapshot, context.Warn))
+        if (context.UseTerminalGui && MetricsDashboardTui.TryRun(snapshot, context.Warn))
         {
             return 0;
         }

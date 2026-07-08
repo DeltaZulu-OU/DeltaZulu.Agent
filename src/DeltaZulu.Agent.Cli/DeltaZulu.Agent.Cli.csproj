@@ -8,7 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Terminal.Gui" Version="2.4.16" />
+    <PackageReference Include="Terminal.Gui" Version="2.4.18-develop.4" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
         <!-- Overridden -->
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
@@ -17,10 +17,7 @@
     <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.3" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Inputs\DeltaZulu.Pipeline.Inputs.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Outputs\DeltaZulu.Pipeline.Outputs.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.ProfileWorkbench\DeltaZulu.Agent.ProfileWorkbench.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Agent.SchemaMetadata\DeltaZulu.Agent.SchemaMetadata.csproj" />
   </ItemGroup>
 </Project>
