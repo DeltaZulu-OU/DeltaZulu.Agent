@@ -2,6 +2,8 @@ using System.Data;
 using DeltaZulu.Agent.ProfileWorkbench;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
+using Terminal.Gui.Editor;
+using Terminal.Gui.Editor.Document;
 using Application = Terminal.Gui.App.Application;
 
 namespace DeltaZulu.Agent.Cli.Tui;
@@ -92,12 +94,16 @@ internal static class ProfileWorkbenchTui
                 AssignHotKeys = true
             };
 
-            var queryEditor = new TextView {
+            var queryEditor = new Editor {
                 X = Pos.Right(profileTree) + 1,
                 Y = Pos.Bottom(runButton) + 1,
                 Width = Dim.Fill(),
                 Height = Dim.Percent(42),
-                Title = "Profile KQL"
+                Title = "Profile KQL",
+                ConvertTabsToSpaces = true,
+                IndentationSize = 4,
+                GutterOptions = GutterOptions.LineNumbers,
+                ViewportSettings = ViewportSettingsFlags.HasScrollBars
             };
 
             var results = new TableView {
@@ -169,7 +175,7 @@ internal static class ProfileWorkbenchTui
             {
                 StopLive();
                 current = library.Open(profiles[index]);
-                queryEditor.Text = current.Query;
+                queryEditor.Document = new TextDocument(current.Query);
                 SetSourceTextFromProfile();
                 var candidate = sourceRegistry.CandidateFromProfile(current.Profile);
                 sourceText.Text = initialSourceBinding ?? candidate.PathOrResource ?? string.Empty;
@@ -197,7 +203,7 @@ internal static class ProfileWorkbenchTui
 
                 try
                 {
-                    current.Query = queryEditor.Text?.ToString() ?? string.Empty;
+                    current.Query = queryEditor.Document?.Text ?? string.Empty;
                     var source = sourceRegistry.Bind(current.Profile, sourceText.Text?.ToString(), WorkbenchRunMode.Follow);
                     var request = new WorkbenchRunRequest(current, source, current.Query, ResultLimit, WorkbenchRunMode.Follow);
                     liveCts = new CancellationTokenSource();
@@ -241,7 +247,7 @@ internal static class ProfileWorkbenchTui
 
             void SaveProfile()
             {
-                current.Query = queryEditor.Text?.ToString() ?? string.Empty;
+                current.Query = queryEditor.Document?.Text ?? string.Empty;
                 var save = library.Save(current);
                 status.Text = save.Success ? $"Saved {save.Path}" : $"Save failed: {save.Error}";
                 status.SetNeedsDraw();
