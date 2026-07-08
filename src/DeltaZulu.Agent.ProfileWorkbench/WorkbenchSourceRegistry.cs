@@ -4,8 +4,6 @@ using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Pipeline.Inputs.Auditd;
 using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
-using YamlDotNet.Core.Tokens;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 #if WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
@@ -24,6 +22,7 @@ public sealed class WorkbenchSourceRegistry
 
     public WorkbenchSourceCandidate CandidateFromProfile(ResourceProfile profile)
     {
+        EnsureProfileEnabled(profile);
         var sourceKind = NormalizeFamily(profile.Resource.Family);
         var table = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
         var schema = SchemaTextParser.Parse(table, profile.Input.Schema, sourceKind, executable: false);
@@ -36,6 +35,7 @@ public sealed class WorkbenchSourceRegistry
 
     public BoundWorkbenchSource Bind(ResourceProfile profile, string? pathOrResource, WorkbenchRunMode mode)
     {
+        EnsureProfileEnabled(profile);
         var sourceKind = NormalizeFamily(profile.Resource.Family);
         var table = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
         var schema = SchemaTextParser.Parse(table, profile.Input.Schema, sourceKind, executable: true);
@@ -67,6 +67,13 @@ public sealed class WorkbenchSourceRegistry
         return new BoundWorkbenchSource(sourceKind, path, table, schema, input);
     }
 
+    private static void EnsureProfileEnabled(ResourceProfile profile)
+    {
+        if (!profile.Enabled)
+        {
+            throw new InvalidOperationException($"profile '{profile.Id}' is disabled and cannot be used by the workbench.");
+        }
+    }
     private ISourceInput CreateInput(ResourceProfile profile, string sourceKind, string? pathOrResource, WorkbenchRunMode mode)
     {
         var bindingOverride = NormalizeBindingOverride(pathOrResource);

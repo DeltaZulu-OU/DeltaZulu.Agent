@@ -30,14 +30,16 @@ public sealed record ProfileSaveResult(bool Success, string Path, string? Error 
 public sealed class ProfileLibrary
 {
     private readonly string _root;
+    private readonly ProfileAvailabilityFilter _availabilityFilter;
     private readonly YamlResourceProfileLoader _loader = new();
     private readonly ISerializer _serializer = new SerializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
 
-    public ProfileLibrary(string root)
+    public ProfileLibrary(string root, ProfileAvailabilityFilter? availabilityFilter = null)
     {
         _root = root;
+        _availabilityFilter = availabilityFilter ?? new ProfileAvailabilityFilter();
     }
 
     public IReadOnlyList<ProfileLibraryItem> ListProfiles()
@@ -53,6 +55,11 @@ public sealed class ProfileLibrary
             try
             {
                 var profile = _loader.LoadFile(file);
+                if (!_availabilityFilter.ShouldList(profile))
+                {
+                    continue;
+                }
+
                 items.Add(new ProfileLibraryItem(
                     profile.Id,
                     profile.Name,
@@ -64,7 +71,8 @@ public sealed class ProfileLibrary
             }
             catch
             {
-                // Profile validation errors are surfaced when the user opens the file. The list remains usable.
+                // Invalid profiles are not listable. Profile validation diagnostics belong to
+                // explicit validation/reporting flows, not to the selectable workbench catalog.
             }
         }
 

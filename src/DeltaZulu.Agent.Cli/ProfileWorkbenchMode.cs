@@ -19,7 +19,8 @@ internal static class ProfileWorkbenchMode
         var profiles = library.ListProfiles();
         if (profiles.Count == 0)
         {
-            Console.Error.WriteLine($"error: no resource profiles were found under '{profilesPath}'.");
+            Console.Error.WriteLine($"error: no enabled, applicable resource profiles were found under '{profilesPath}'.");
+            Console.Error.WriteLine("Disabled profiles, platform-mismatched profiles, condition-failed profiles, and unavailable resources are intentionally hidden from the workbench catalog.");
             Console.Error.Flush();
             return 1;
         }
