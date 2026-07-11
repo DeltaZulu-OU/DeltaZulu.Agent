@@ -262,8 +262,12 @@ internal static class ProfileWorkbenchTui
                 }
 
                 var currentText = queryEditor.Document?.Text ?? string.Empty;
-                queryEditor.Document = new TextDocument(currentText + insertion);
+                var separator = string.IsNullOrEmpty(currentText) || currentText.EndsWith('\n') || currentText.EndsWith(' ')
+                    ? string.Empty
+                    : Environment.NewLine;
+                queryEditor.Document = new TextDocument(currentText + separator + insertion);
                 status.Text = $"inserted {node.Text}";
+                queryEditor.SetFocus();
                 queryEditor.SetNeedsDraw();
                 status.SetNeedsDraw();
             }

@@ -47,12 +47,24 @@ public sealed class WorkbenchSchemaTreeTests
         Assert.AreEqual("Eventlog | Source ~= \"Microsoft-Windows-AppLocker/EXE and DLL\" ", WorkbenchSchemaTree.InsertionText(eventlog));
     }
 
-    private static ResourceProfile CreateProfile(string family, string table, string? channel, string? provider, string schema) => new()
+    [TestMethod]
+    public void Build_ExpandsKnownNativeSchemaAliasesToFieldChildren()
+    {
+        var syslog = WorkbenchSchemaTree.Build([
+            CreateProfile("syslog", "EventLog", null, null, "LinuxSyslog.Native", service: "sshd")
+        ]).Children.Single();
+
+        Assert.AreEqual("EventLog/sshd", syslog.Text);
+        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "Message");
+        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "ProcessName");
+    }
+
+    private static ResourceProfile CreateProfile(string family, string table, string? channel, string? provider, string schema, string? service = null) => new()
     {
         Id = $"test.{family}.{channel ?? provider}",
         Name = "test",
         Enabled = true,
-        Resource = new ResourceDescriptor { Platform = "test", Family = family, Channel = channel, Provider = provider },
+        Resource = new ResourceDescriptor { Platform = "test", Family = family, Channel = channel, Provider = provider, Service = service },
         Input = new ResourceInputContract { Table = table, Schema = schema },
         Output = new ResourceOutputContract { Format = "ndjson", PreserveOriginalFieldNames = true }
     };

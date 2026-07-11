@@ -113,9 +113,26 @@ public static class WorkbenchSchemaTree
             "eventlog" => TrimOperationalSuffix(profile.Resource.Channel),
             "etw" => TrimOperationalSuffix(profile.Resource.Provider ?? profile.Resource.Session ?? profile.Resource.Channel),
             "auditd" => profile.Resource.RecordTypes.FirstOrDefault(type => !string.IsNullOrWhiteSpace(type)) ?? FirstConfiguredOption(profile, "type", "recordType", "syscallType") ?? profile.Resource.Channel ?? profile.Resource.Family,
-            "syslog" => FirstConfiguredOption(profile, "application", "appName", "processName") ?? profile.Resource.Channel ?? profile.Resource.Family,
-            _ => profile.Resource.Channel ?? profile.Resource.Provider ?? profile.Resource.Session ?? profile.Resource.Family
+            "syslog" => FirstNonWhiteSpace(
+                profile.Resource.Service,
+                FirstConfiguredOption(profile, "application", "appName", "processName"),
+                profile.Resource.Channel,
+                profile.Resource.Family),
+            _ => FirstNonWhiteSpace(profile.Resource.Service, profile.Resource.Channel, profile.Resource.Provider, profile.Resource.Session, profile.Resource.Family)
         };
+    }
+
+    private static string? FirstNonWhiteSpace(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
     }
 
     private static string? TrimOperationalSuffix(string? value)

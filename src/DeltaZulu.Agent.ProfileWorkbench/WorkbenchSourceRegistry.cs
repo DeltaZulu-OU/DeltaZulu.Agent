@@ -28,7 +28,7 @@ public sealed class WorkbenchSourceRegistry
         var schema = SchemaTextParser.Parse(table, profile.Input.Schema, sourceKind, executable: false);
         var display = BuildDisplayName(profile);
         var requiresBinding = RequiresExternalBinding(sourceKind, profile);
-        var resource = profile.Resource.Channel ?? profile.Resource.Session ?? profile.Resource.Provider;
+        var resource = FirstNonWhiteSpace(profile.Resource.Service, profile.Resource.Channel, profile.Resource.Session, profile.Resource.Provider);
 
         return new WorkbenchSourceCandidate(sourceKind, display, table, resource, schema, requiresBinding);
     }
@@ -196,7 +196,7 @@ public sealed class WorkbenchSourceRegistry
     private static string BuildDisplayName(ResourceProfile profile)
     {
         var table = string.IsNullOrWhiteSpace(profile.Input.Table) ? "Source" : profile.Input.Table;
-        var resource = profile.Resource.Channel ?? profile.Resource.Session ?? profile.Resource.Provider ?? profile.Resource.Family;
+        var resource = FirstNonWhiteSpace(profile.Resource.Service, profile.Resource.Channel, profile.Resource.Session, profile.Resource.Provider, profile.Resource.Family);
         return $"{table} ({resource})";
     }
 }
