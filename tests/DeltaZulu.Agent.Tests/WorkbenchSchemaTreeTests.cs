@@ -58,7 +58,7 @@ public sealed class WorkbenchSchemaTreeTests
             CreateProfile("syslog", "EventLog", null, null, "LinuxSyslog.Native", service: "sshd")
         ]).Children.Single();
 
-        Assert.AreEqual("EventLog/sshd", syslog.Text);
+        Assert.AreEqual("Eventlog/sshd", syslog.Text);
         CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "Message");
         CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "ProcessName");
     }
