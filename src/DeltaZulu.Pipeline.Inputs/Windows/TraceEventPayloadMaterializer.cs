@@ -21,7 +21,7 @@ internal sealed class TraceEventPayloadMaterializer : IEtwPayloadMaterializer
         var materialized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var failed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var payloadName in EtwPayloadProjection.SelectPayloadNames(data.PayloadNames, selectedPayloadFields))
+        foreach (var payloadName in EtwPayloadProjection.SelectPayloadNames(TraceEventSourceEventMapper.SafePayloadNames(data), selectedPayloadFields))
         {
             try
             {

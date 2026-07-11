@@ -399,7 +399,7 @@ public sealed class WindowsEventLogInput : ISourceInput
             ["ProcessId"] = record.ProcessId,
             ["ThreadId"] = record.ThreadId,
             ["TimeCreated"] = record.TimeCreated,
-            ["EventData"] = record.Properties.Select(property => property.Value).ToArray(),
+            ["EventData"] = SafeGetEventData(record),
             ["RawEvent"] = SafeGet(record.ToXml)
         };
 
@@ -427,6 +427,38 @@ public sealed class WindowsEventLogInput : ISourceInput
         return fields;
     }
 
+
+
+    private static object?[] SafeGetEventData(EventRecord record)
+    {
+        try
+        {
+            return record.Properties
+                .Select(SafeGetEventPropertyValue)
+                .Where(value => value is not null)
+                .ToArray();
+        }
+        catch (Exception ex) when (ex is EventLogException or Win32Exception or InvalidOperationException)
+        {
+            // Provider metadata, localized message DLLs, or individual payload slots can be
+            // unavailable even though the record itself is readable. Preserve the event envelope
+            // and raw XML rather than failing the whole polling batch.
+            return [];
+        }
+    }
+
+
+    private static object? SafeGetEventPropertyValue(EventProperty property)
+    {
+        try
+        {
+            return property.Value;
+        }
+        catch (Exception ex) when (ex is EventLogException or Win32Exception or InvalidOperationException)
+        {
+            return null;
+        }
+    }
 
     private static void AddSecurityEventAliases(IDictionary<string, object?> fields)
     {

@@ -35,7 +35,7 @@ internal static class TraceEventSourceEventMapper
         const int EnvelopeFieldCount = 21;
         var payloadFieldCount = selectedPayloadFields is { Count: > 0 }
             ? selectedPayloadFields.Count
-            : data.PayloadNames.Length;
+            : SafePayloadNames(data).Length;
 
         return EnvelopeFieldCount + payloadFieldCount;
     }
@@ -64,6 +64,18 @@ internal static class TraceEventSourceEventMapper
         PayloadLength = GetOptional<int?>(data, "EventDataLength", "PayloadLength")
     };
 
+    internal static string[] SafePayloadNames(TraceEvent data)
+    {
+        try
+        {
+            return data.PayloadNames;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
     private static T? GetOptional<T>(TraceEvent data, params string[] propertyNames)
     {
         foreach (var propertyName in propertyNames)
@@ -74,7 +86,16 @@ internal static class TraceEventSourceEventMapper
                 continue;
             }
 
-            var value = property.GetValue(data);
+            object? value;
+            try
+            {
+                value = property.GetValue(data);
+            }
+            catch
+            {
+                continue;
+            }
+
             if (value is null)
             {
                 return default;
@@ -85,8 +106,15 @@ internal static class TraceEventSourceEventMapper
                 return typed;
             }
 
-            var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
-            return (T)Convert.ChangeType(value, targetType);
+            try
+            {
+                var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+                return (T)Convert.ChangeType(value, targetType);
+            }
+            catch
+            {
+                continue;
+            }
         }
 
         return default;
