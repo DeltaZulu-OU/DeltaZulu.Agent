@@ -23,14 +23,14 @@ internal static class ProfileWorkbenchTui
         try
         {
             using var app = Application.Create().Init();
-            using Window window = new() { Title = "DeltaZulu Profile Query Workbench" };
+            using Window window = new() { Title = "DeltaZulu Source Query Workbench" };
 
             var status = new StatusBar {
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
                 Height = 1,
-                Text = "Profile workbench | live query stream | Save is explicit"
+                Text = "Source workbench | live query stream | select sources or fields to insert KQL"
             };
 
             var profileTree = new TreeView {
@@ -38,9 +38,9 @@ internal static class ProfileWorkbenchTui
                 Y = Pos.Bottom(status),
                 Width = Dim.Percent(30),
                 Height = Dim.Fill(),
-                Title = "Profile Library"
+                Title = "Schema"
             };
-            profileTree.AddObjects(BuildProfileTree(profiles));
+            profileTree.AddObjects(BuildSchemaTree(library, profiles));
             profileTree.ExpandAll();
 
             var sourceLabel = new Label {
@@ -99,7 +99,7 @@ internal static class ProfileWorkbenchTui
                 Y = Pos.Bottom(runButton) + 1,
                 Width = Dim.Fill(),
                 Height = Dim.Percent(42),
-                Title = "Profile KQL",
+                Title = "KQL",
                 ConvertTabsToSpaces = true,
                 IndentationSize = 4,
                 GutterOptions = GutterOptions.LineNumbers,
@@ -253,6 +253,28 @@ internal static class ProfileWorkbenchTui
                 status.SetNeedsDraw();
             }
 
+            void InsertSchemaSelection(WorkbenchSchemaTreeNode node)
+            {
+                var insertion = WorkbenchSchemaTree.InsertionText(node);
+                if (string.IsNullOrWhiteSpace(insertion))
+                {
+                    return;
+                }
+
+                var currentText = queryEditor.Document?.Text ?? string.Empty;
+                queryEditor.Document = new TextDocument(currentText + insertion);
+                status.Text = $"inserted {node.Text}";
+                queryEditor.SetNeedsDraw();
+                status.SetNeedsDraw();
+            }
+
+            profileTree.Activated += (_, args) => {
+                if (args.Value?.Value is ProfileNode { Tag: WorkbenchSchemaTreeNode schemaNode })
+                {
+                    InsertSchemaSelection(schemaNode);
+                }
+            };
+
             previousButton.Accepting += (_, _) => {
                 index = index == 0 ? profiles.Count - 1 : index - 1;
                 LoadCurrentProfile();
@@ -289,23 +311,21 @@ internal static class ProfileWorkbenchTui
 
     private static string FormatTimestamp(DateTimeOffset? value) => value?.ToString("O") ?? "-";
 
-    private static IEnumerable<ITreeNode> BuildProfileTree(IEnumerable<ProfileLibraryItem> profiles)
+    private static IEnumerable<ITreeNode> BuildSchemaTree(ProfileLibrary library, IEnumerable<ProfileLibraryItem> profiles)
     {
-        var root = new ProfileNode("Profiles");
-        foreach (var platformGroup in profiles.GroupBy(p => string.IsNullOrWhiteSpace(p.Platform) ? "unknown" : p.Platform, StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+        var documents = profiles.Select(profile => library.Open(profile).Profile);
+        return [ToTreeNode(WorkbenchSchemaTree.Build(documents))];
+    }
+
+    private static ProfileNode ToTreeNode(WorkbenchSchemaTreeNode schemaNode)
+    {
+        var node = new ProfileNode(schemaNode.Text) { Tag = schemaNode };
+        foreach (var child in schemaNode.Children)
         {
-            var platform = root.Add(platformGroup.Key);
-            foreach (var familyGroup in platformGroup.GroupBy(p => string.IsNullOrWhiteSpace(p.Family) ? "unknown" : p.Family, StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
-            {
-                var family = platform.Add(familyGroup.Key);
-                foreach (var profile in familyGroup.OrderBy(p => p.Id, StringComparer.OrdinalIgnoreCase))
-                {
-                    family.Add($"{profile.Id} [{profile.Table}]");
-                }
-            }
+            node.Children.Add(ToTreeNode(child));
         }
 
-        return [root];
+        return node;
     }
 
     private sealed class ProfileNode(string text) : ITreeNode

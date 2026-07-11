@@ -76,6 +76,8 @@ flowchart LR
 
 Source events expose a KQL `source` column from the native source name. Daemon profiles use that column to select channels or providers; ETW profiles use `resource.session` for the live session name and `resource.provider` for filtering/identity, for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`.
 
+The TUI presents this as a source-first schema tree rather than a profile browser. Minimum Windows and Linux source/field expectations are documented in [`docs/ENDPOINT_SCHEMA_EXPECTATIONS.md`](ENDPOINT_SCHEMA_EXPECTATIONS.md).
+
 The runtime follows a Logstash-like order: input adapters produce `SourceEvent` records, profile KQL performs filtering, deterministic enrichment runs only on kept records, and output writers receive the final `ResourceOutputRecord`.
 
 ETW payload fields remain native provider facts at the live input boundary. Any resolved, normalized, enriched, or correlated field is DeltaZulu-derived schema and must carry documented provenance; see [`docs/ETW_SCHEMA_BOUNDARIES.md`](ETW_SCHEMA_BOUNDARIES.md).
