@@ -166,6 +166,18 @@ filter:
         Assert.IsFalse(profile.Filter.Query.Contains("_resolved", StringComparison.OrdinalIgnoreCase));
     }
 
+
+    [TestMethod]
+    public void LoadFile_AuditdProfileKeepsAllAuditdEvents()
+    {
+        var profile = new YamlResourceProfileLoader().LoadFile(Path.Combine("profiles", "linux", "auditd", "auditd.yaml"));
+
+        Assert.AreEqual("linux.auditd", profile.Id);
+        Assert.IsEmpty(profile.Resource.RecordTypes);
+        Assert.IsFalse(profile.Filter.Query.Contains("execve", StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(profile.Filter.Query.Contains("source =~ \"auditd\"", StringComparison.OrdinalIgnoreCase));
+    }
+
     [TestMethod]
     public void LoadDirectory_WindowsProfilesDoNotProjectFieldsForRawLogPreservation()
     {

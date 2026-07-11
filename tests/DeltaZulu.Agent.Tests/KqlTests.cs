@@ -214,6 +214,56 @@ public sealed class KqlTests
         Assert.AreEqual("ExplicitSource", row["source"]);
     }
 
+
+    [TestMethod]
+    public void Execute_DocumentedAuditdLaurelStyleQueryRunsOnAgentKqlSubset()
+    {
+        using var executor = new ResourceKqlProfileExecutor();
+        var source = new SourceEvent(
+            new ResourceMetadata { SourceType = "LinuxAuditd", SourceName = "auditd", Platform = "linux", Hostname = "host01" },
+            new Dictionary<string, object?> {
+                ["SYSCALL"] = new Dictionary<string, object?> {
+                    ["SYSCALL"] = "execve",
+                    ["syscall"] = 59,
+                    ["UID"] = "1000",
+                    ["exe"] = "/usr/bin/curl",
+                    ["key"] = "network"
+                },
+                ["EXECVE"] = new Dictionary<string, object?> {
+                    ["ARGV"] = new[] { "/usr/bin/curl", "-s", "https://example.com" }
+                },
+                ["PROCTITLE"] = new Dictionary<string, object?> {
+                    ["ARGV"] = new[] { "/usr/bin/curl", "-s", "https://example.com" }
+                }
+            });
+
+        var profile = CreatePassThroughProfile();
+        profile.Input.Table = "EventLog";
+        profile.Filter.Query = """
+            EventLog
+            | where source =~ "auditd"
+            | where SYSCALL.SYSCALL == "execve" or SYSCALL.syscall == 59
+            | extend user = tostring(SYSCALL.UID)
+            | extend exe = tostring(SYSCALL.exe)
+            | extend audit_key = tostring(SYSCALL.key)
+            | extend argv_from_execve = strcat_array(EXECVE.ARGV, " ")
+            | extend argv_from_proctitle = strcat_array(PROCTITLE.ARGV, " ")
+            | extend full_cli = iff(isnotempty(argv_from_proctitle), argv_from_proctitle, argv_from_execve)
+            | project user, exe, audit_key, full_cli
+            """;
+
+        var rows = executor.Execute(Observable.Return(source), profile, TestContext.CancellationToken)
+            .Timeout(TimeSpan.FromSeconds(5))
+            .ToList()
+            .Wait();
+
+        Assert.HasCount(1, rows);
+        Assert.AreEqual("1000", rows[0].Event["user"]);
+        Assert.AreEqual("/usr/bin/curl", rows[0].Event["exe"]);
+        Assert.AreEqual("network", rows[0].Event["audit_key"]);
+        Assert.AreEqual("/usr/bin/curl -s https://example.com", rows[0].Event["full_cli"]);
+    }
+
     private static ResourceProfile CreatePassThroughProfile() => new() {
         SchemaVersion = 1,
         Id = "test.pass-through",

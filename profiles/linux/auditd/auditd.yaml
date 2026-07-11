@@ -1,6 +1,6 @@
 schemaVersion: 1
-id: linux.auditd.execve
-name: Linux auditd execve resource filter
+id: linux.auditd
+name: Linux auditd resource filter
 version: 1.0.0
 enabled: true
 mandatory: true
@@ -8,12 +8,6 @@ resource:
   platform: linux
   family: auditd
   service: auditd
-  recordTypes:
-    - SYSCALL
-    - EXECVE
-    - CWD
-    - PATH
-    - PROCTITLE
 input:
   table: EventLog
   schema: LinuxAuditd.AssembledEvent
@@ -30,4 +24,3 @@ filter:
   query: |
     EventLog
     | where source =~ "auditd"
-    | where SYSCALL.SYSCALL == "execve" or SYSCALL.syscall == 59
