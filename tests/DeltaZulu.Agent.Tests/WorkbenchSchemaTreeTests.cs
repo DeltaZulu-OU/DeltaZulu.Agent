@@ -21,9 +21,13 @@ public sealed class WorkbenchSchemaTreeTests
         CollectionAssert.AreEqual(
             new[] { "EventId", "Image" },
             tree.Children[0].Children.Select(child => child.Text).ToArray());
+        Assert.AreEqual("test.etw.Windows-Kernel-Process", tree.Children[0].ProfileId);
+        Assert.IsTrue(tree.Children[0].Children.All(child => child.ProfileId == tree.Children[0].ProfileId));
         CollectionAssert.AreEqual(
             new[] { "EventId", "TargetUserName" },
             tree.Children[1].Children.Select(child => child.Text).ToArray());
+        Assert.AreEqual("test.eventlog.Security", tree.Children[1].ProfileId);
+        Assert.IsTrue(tree.Children[1].Children.All(child => child.ProfileId == tree.Children[1].ProfileId));
     }
 
     [TestMethod]

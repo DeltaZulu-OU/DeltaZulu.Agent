@@ -4,6 +4,7 @@ using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Terminal.Gui.Editor;
 using Terminal.Gui.Editor.Document;
+using Terminal.Gui.Input;
 using Application = Terminal.Gui.App.Application;
 
 namespace DeltaZulu.Agent.Cli.Tui;
@@ -253,8 +254,39 @@ internal static class ProfileWorkbenchTui
                 status.SetNeedsDraw();
             }
 
+            bool TrySelectProfile(WorkbenchSchemaTreeNode node)
+            {
+                if (string.IsNullOrWhiteSpace(node.ProfileId))
+                {
+                    return false;
+                }
+
+                for (var candidateIndex = 0; candidateIndex < profiles.Count; candidateIndex++)
+                {
+                    if (!profiles[candidateIndex].Id.Equals(node.ProfileId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (candidateIndex == index)
+                    {
+                        return true;
+                    }
+
+                    index = candidateIndex;
+                    LoadCurrentProfile();
+                    return true;
+                }
+
+                status.Text = $"profile '{node.ProfileId}' is not available in this workbench session";
+                status.SetNeedsDraw();
+                return false;
+            }
+
             void InsertSchemaSelection(WorkbenchSchemaTreeNode node)
             {
+                TrySelectProfile(node);
+
                 var insertion = WorkbenchSchemaTree.InsertionText(node);
                 if (string.IsNullOrWhiteSpace(insertion))
                 {
@@ -266,7 +298,7 @@ internal static class ProfileWorkbenchTui
                     ? string.Empty
                     : Environment.NewLine;
                 queryEditor.Document = new TextDocument(currentText + separator + insertion);
-                status.Text = $"inserted {node.Text}";
+                status.Text = $"selected {current.Profile.Id} | inserted {node.Text}";
                 queryEditor.SetFocus();
                 queryEditor.SetNeedsDraw();
                 status.SetNeedsDraw();
@@ -279,17 +311,26 @@ internal static class ProfileWorkbenchTui
                 }
             };
 
-            previousButton.Accepting += (_, _) => {
+
+            void WireButton(Button button, Action action)
+            {
+                //button.MouseBindings.Add(MouseFlags.LeftButtonClicked, Command.Accept);
+                button.Accepting += (_, args) => {
+                    args.Handled = true;
+                    action();
+                };
+            }
+            WireButton(previousButton, () => {
                 index = index == 0 ? profiles.Count - 1 : index - 1;
                 LoadCurrentProfile();
-            };
-            nextButton.Accepting += (_, _) => {
+            });
+            WireButton(nextButton, () => {
                 index = (index + 1) % profiles.Count;
                 LoadCurrentProfile();
-            };
-            runButton.Accepting += (_, _) => StartLive();
-            saveButton.Accepting += (_, _) => SaveProfile();
-            clearButton.Accepting += (_, _) => ClearResults();
+            });
+            WireButton(runButton, StartLive);
+            WireButton(saveButton, SaveProfile);
+            WireButton(clearButton, ClearResults);
 
             window.Add(status, profileTree, sourceLabel, sourceText, previousButton, nextButton, runButton, clearButton, saveButton, queryEditor, results);
             LoadCurrentProfile();

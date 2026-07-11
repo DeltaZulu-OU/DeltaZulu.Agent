@@ -9,6 +9,7 @@ public sealed record WorkbenchSchemaTreeNode(
     string? Table = null,
     string? Source = null,
     string? Field = null,
+    string? ProfileId = null,
     IReadOnlyList<WorkbenchSchemaTreeNode>? Children = null)
 {
     public IReadOnlyList<WorkbenchSchemaTreeNode> Children { get; init; } = Children ?? [];
@@ -45,7 +46,8 @@ public static class WorkbenchSchemaTree
                         WorkbenchSchemaTreeNodeKind.Field,
                         group.First().Table,
                         group.First().Source,
-                        field.Key))
+                        field.Key,
+                        group.First().ProfileId))
                     .ToArray();
 
                 return new WorkbenchSchemaTreeNode(
@@ -53,6 +55,7 @@ public static class WorkbenchSchemaTree
                     WorkbenchSchemaTreeNodeKind.LogSource,
                     group.First().Table,
                     group.First().Source,
+                    ProfileId: group.First().ProfileId,
                     Children: fields);
             })
             .ToArray();
@@ -79,7 +82,7 @@ public static class WorkbenchSchemaTree
         }
 
         var schema = SchemaTextParser.Parse(table, profile.Input.Schema, NormalizeFamily(profile.Resource.Family), executable: false);
-        return new SourceSchema(table, source, schema.Fields);
+        return new SourceSchema(table, source, profile.Id, schema.Fields);
     }
 
     private static string NormalizeTable(string? family, string? table)
@@ -172,5 +175,5 @@ public static class WorkbenchSchemaTree
 
     private static string EscapeFieldName(string field) => field.All(c => char.IsLetterOrDigit(c) || c == '_') ? field : $"['{field.Replace("'", "\\'")}']";
 
-    private sealed record SourceSchema(string Table, string Source, IReadOnlyList<SchemaFieldDescriptor> Fields);
+    private sealed record SourceSchema(string Table, string Source, string ProfileId, IReadOnlyList<SchemaFieldDescriptor> Fields);
 }

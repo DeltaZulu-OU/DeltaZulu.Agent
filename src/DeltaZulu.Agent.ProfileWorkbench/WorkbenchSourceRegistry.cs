@@ -1,6 +1,7 @@
 using DeltaZulu.Agent.SchemaMetadata;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Profiles;
+using DeltaZulu.Pipeline.Core.Windows;
 using DeltaZulu.Pipeline.Inputs.Auditd;
 using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
@@ -86,7 +87,10 @@ public sealed class WorkbenchSourceRegistry
             "csv" => new CsvFileInput(RequirePath(bindingOverride, "csv")),
             "lines" => new LinesSourceInput(RequirePath(bindingOverride, "lines"), mode == WorkbenchRunMode.Follow),
 #if WINDOWS
-            "eventlog" => new WindowsEventLogInput(FirstNonWhiteSpace(bindingOverride, profile.Resource.Channel) ?? throw new ArgumentException($"profile '{profile.Id}' eventlog binding requires resource.channel or an explicit channel.")),
+            "eventlog" => new WindowsEventLogInput(
+                FirstNonWhiteSpace(bindingOverride, profile.Resource.Channel) ?? throw new ArgumentException($"profile '{profile.Id}' eventlog binding requires resource.channel or an explicit channel."),
+                startPosition: EventLogStartPosition.Lookback,
+                lookback: TimeSpan.FromMinutes(5)),
             "evtx" => new EvtxFileInput(RequirePath(bindingOverride, "evtx")),
             "etl" => new EtlFileInput(RequirePath(bindingOverride, "etl"), warn: _warn),
             "etw" => CreateEtwInput(profile, bindingOverride),
