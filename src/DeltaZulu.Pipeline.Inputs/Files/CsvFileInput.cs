@@ -75,11 +75,6 @@ public sealed class CsvFileInput : ISourceInput
             return null;
         }
 
-        if (DateTimeOffset.TryParse(value, out var dto))
-        {
-            return dto;
-        }
-
         if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l))
         {
             return l;
@@ -93,6 +88,11 @@ public sealed class CsvFileInput : ISourceInput
         if (bool.TryParse(value, out var b))
         {
             return b;
+        }
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto))
+        {
+            return dto;
         }
 
         return value;
