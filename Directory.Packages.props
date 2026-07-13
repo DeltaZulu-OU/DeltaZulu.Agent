@@ -15,7 +15,7 @@
     <PackageVersion Include="System.Management" Version="10.0.9" />
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="System.Runtime.Caching" Version="10.0.9" />
-    <PackageVersion Include="Terminal.Gui" Version="2.4.18-develop.4" />
+    <PackageVersion Include="Terminal.Gui" Version="2.4.18-develop.6" />
     <PackageVersion Include="Terminal.Gui.Editor" Version="2.5.8-develop.1" />
     <PackageVersion Include="Tx.Windows" Version="3.0.6" />
     <PackageVersion Include="Tx.Windows.Logs" Version="3.0.3" />
