@@ -8,14 +8,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Terminal.Gui" Version="2.4.18-develop.4" />
-    <PackageReference Include="Terminal.Gui.Editor" Version="2.5.3-develop.*" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
-        <!-- Overridden -->
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
-    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.3" />
-    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
-    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.3" />
+    <PackageReference Include="Terminal.Gui" />
+    <PackageReference Include="Terminal.Gui.Editor" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Agent.ProfileWorkbench\DeltaZulu.Agent.ProfileWorkbench.csproj" />
