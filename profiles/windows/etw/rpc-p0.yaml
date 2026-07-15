@@ -1,6 +1,9 @@
 id: windows.etw.rpc.p0
 name: Microsoft RPC ETW P0 selected-interface call tracing
 version: 1.1.0
+output:
+  preserveRawEvent: true
+  metadataEnvelope: true
 resource:
   platform: windows
   family: etw

@@ -28,7 +28,7 @@ public sealed record RelpHealthObservation
             ["maxInFlightChunks"] = Health.Buffer.MaxInFlightChunks,
             ["dispatchQueueDepth"] = Health.Buffer.DispatchQueueDepth,
             ["dispatchQueueCapacity"] = Health.Buffer.DispatchQueueCapacity,
-            ["dispatcherWaitReason"] = Health.Buffer.DispatcherWaitReason,
+            ["dispatcherWaitReason"] = FormatDispatcherWaitReason(Health.Buffer.DispatcherWaitReason),
             ["oldestChunkAgeMs"] = Health.Buffer.OldestChunkAge?.TotalMilliseconds,
             ["oldestAvailableChunkAgeMs"] = Health.Buffer.OldestAvailableChunkAge?.TotalMilliseconds,
             ["oldestDispatchedChunkAgeMs"] = Health.Buffer.OldestDispatchedChunkAge?.TotalMilliseconds,
@@ -57,4 +57,12 @@ public sealed record RelpHealthObservation
             Event = eventFields
         };
     }
+
+    private static string FormatDispatcherWaitReason(object? reason) =>
+        reason?.ToString() switch
+        {
+            nameof(DeltaZulu.DurableBuffer.Abstractions.DispatchWaitReason.NoAvailableChunks) => "idle",
+            { } value => value,
+            null => "unknown"
+        };
 }
