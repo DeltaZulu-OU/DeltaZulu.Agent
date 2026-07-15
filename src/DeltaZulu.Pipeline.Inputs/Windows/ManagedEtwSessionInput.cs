@@ -172,9 +172,15 @@ public sealed class ManagedEtwSessionInput : ISourceInput
     private static int? GetWin32ErrorCode(Exception ex)
     {
         if (ex is Win32Exception w32)
+        {
             return w32.NativeErrorCode;
+        }
+
         if (ex.InnerException is Win32Exception inner)
+        {
             return inner.NativeErrorCode;
+        }
+
         return ex.HResult == 0 ? null : ex.HResult & 0xFFFF;
     }
 

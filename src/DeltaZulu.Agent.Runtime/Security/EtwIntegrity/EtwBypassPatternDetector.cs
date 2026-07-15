@@ -65,7 +65,7 @@ public static class EtwBypassPatternDetector
 
         if (current[0] == 0xB8 && current[5] == 0xC3)
         {
-            uint value = BinaryPrimitives.ReadUInt32LittleEndian(current.Slice(1, 4));
+            var value = BinaryPrimitives.ReadUInt32LittleEndian(current.Slice(1, 4));
 
             return EtwIntegrityDetectionResult.Detected(
                 EtwIntegrityPattern.MovEaxImmediateRet,
@@ -76,7 +76,7 @@ public static class EtwBypassPatternDetector
                 forcedReturnValue: value);
         }
 
-        for (int i = 0; i < prologueSize; i++)
+        for (var i = 0; i < prologueSize; i++)
         {
             if (current[i] != baseline[i])
             {
@@ -97,9 +97,9 @@ public static class EtwBypassPatternDetector
 
     private static int? FirstChangedOffset(ReadOnlySpan<byte> current, ReadOnlySpan<byte> baseline)
     {
-        int length = Math.Min(current.Length, baseline.Length);
+        var length = Math.Min(current.Length, baseline.Length);
 
-        for (int i = 0; i < length; i++)
+        for (var i = 0; i < length; i++)
         {
             if (current[i] != baseline[i])
             {
@@ -112,13 +112,13 @@ public static class EtwBypassPatternDetector
 
     private static byte? GetExpected(ReadOnlySpan<byte> current, ReadOnlySpan<byte> baseline)
     {
-        int? offset = FirstChangedOffset(current, baseline);
+        var offset = FirstChangedOffset(current, baseline);
         return offset is null ? null : baseline[offset.Value];
     }
 
     private static byte? GetActual(ReadOnlySpan<byte> current, ReadOnlySpan<byte> baseline)
     {
-        int? offset = FirstChangedOffset(current, baseline);
+        var offset = FirstChangedOffset(current, baseline);
         return offset is null ? null : current[offset.Value];
     }
 }

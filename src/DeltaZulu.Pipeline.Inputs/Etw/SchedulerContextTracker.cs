@@ -2,7 +2,7 @@ namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public sealed class SchedulerContextTracker
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<int, ThreadSchedulingState> _threadStates = [];
     private readonly Dictionary<int, CpuRunningState> _cpuStates = [];
     private readonly int _maximumThreadStates;
@@ -19,7 +19,11 @@ public sealed class SchedulerContextTracker
 
     public int ThreadStateCount
     {
-        get { lock (_gate) return _threadStates.Count; }
+        get { lock (_gate)
+            {
+                return _threadStates.Count;
+            }
+        }
     }
 
     public bool LastSwitchHadMismatchedPreviousThread { get; private set; }
@@ -93,7 +97,7 @@ public sealed class SchedulerContextTracker
                 StoreThreadState(nextState);
             }
 
-            return previous.Status == ThreadIdentityStatus.Resolved ? _threadStates[previous.ThreadId.Value] : nextState;
+            return previous.Status == ThreadIdentityStatus.Resolved ? _threadStates[previous!.ThreadId!.Value] : nextState;
         }
     }
 

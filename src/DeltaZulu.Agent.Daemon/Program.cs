@@ -448,6 +448,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         return lease is null ? null : [lease.Certificate];
     }
 
+#pragma warning disable CA5359 // Do Not Disable Certificate Validation
     private static System.Net.Security.RemoteCertificateValidationCallback? CreateServerCertificateValidationCallback(RelpTlsConfiguration tls) =>
         tls.CertificateValidation switch {
             RelpCertificateValidationMode.Disabled => (_, _, _, _) => true,
@@ -458,6 +459,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                     StringComparer.OrdinalIgnoreCase),
             _ => null
         };
+#pragma warning restore CA5359 // Do Not Disable Certificate Validation
 }
 
 internal sealed class PassthroughProfileExecutor : IProfileExecutor

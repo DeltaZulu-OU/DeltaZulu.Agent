@@ -14,7 +14,7 @@ public sealed class TcpTunnel : IAsyncDisposable, IDisposable
     private readonly TcpTunnelOptions _options;
     private readonly CancellationTokenSource _stopping = new();
     private readonly List<Task> _connections = [];
-    private readonly object _connectionsLock = new();
+    private readonly Lock _connectionsLock = new();
     private TcpListener? _listener;
     private Task? _acceptLoop;
     private int _endpointIndex;

@@ -99,9 +99,9 @@ public sealed class EtwResourceOptionsAdapterTests
         var fields = EtwPayloadProjection.BuildSelectedPayloadFields(resource);
 
         Assert.IsNotNull(fields);
-        Assert.IsTrue(fields.Contains("image"));
-        Assert.IsTrue(fields.Contains("COMMANDLINE"));
-        Assert.IsFalse(fields.Contains("ParentImage"));
+        Assert.Contains("image", fields);
+        Assert.Contains("COMMANDLINE", fields);
+        Assert.DoesNotContain("ParentImage", fields);
     }
 
     [TestMethod]

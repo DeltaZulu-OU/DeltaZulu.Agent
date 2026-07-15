@@ -171,7 +171,7 @@ public sealed class EtwIntegrityMonitor : IAsyncDisposable, IDisposable
             return;
         }
 
-        string currentSha256 = Convert.ToHexString(SHA256.HashData(read.Bytes));
+        var currentSha256 = Convert.ToHexString(SHA256.HashData(read.Bytes));
         if (StringComparer.Ordinal.Equals(target.LastReportedCurrentSha256, currentSha256))
         {
             return;

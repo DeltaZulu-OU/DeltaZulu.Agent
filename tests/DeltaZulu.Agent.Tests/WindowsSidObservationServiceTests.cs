@@ -17,7 +17,7 @@ public sealed class WindowsSidObservationServiceTests
 
         var observations = service.Observe(CreateSource(fields), fields);
 
-        Assert.AreEqual(1, observations.Count);
+        Assert.HasCount(1, observations);
         Assert.AreEqual("Sid", observations[0].EventType);
         Assert.AreEqual(StubResolver.Sid, fields["TargetUserSid"]);
         Assert.AreEqual("-", fields["TargetUserName"]);

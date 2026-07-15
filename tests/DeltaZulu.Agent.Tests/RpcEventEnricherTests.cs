@@ -29,8 +29,8 @@ public sealed class RpcEventEnricherTests
         Assert.AreEqual("ServiceCreate", rpc["OperationCategory"]);
         Assert.AreEqual("49679", rpc["Endpoint"]);
         Assert.AreEqual("192.168.10.25", rpc["NetworkAddress"]);
-        Assert.AreEqual(false, rpc["IsLocal"]);
-        Assert.AreEqual(true, rpc["IsRemote"]);
+        Assert.IsFalse((bool?)rpc["IsLocal"]);
+        Assert.IsTrue((bool?)rpc["IsRemote"]);
         Assert.AreEqual(RpcOperationResolver.CurrentResolverVersion, rpc["ResolverVersion"]);
     }
 
@@ -75,8 +75,8 @@ public sealed class RpcEventEnricherTests
         Assert.AreEqual(3, rpc["ProcNum"]);
         Assert.AreEqual("SCMActivatorGetClassObject", rpc["OperationName"]);
         Assert.AreEqual("ComActivation", rpc["OperationCategory"]);
-        Assert.AreEqual(true, rpc["IsLocal"]);
-        Assert.AreEqual(false, rpc["IsRemote"]);
+        Assert.IsTrue((bool?)rpc["IsLocal"]);
+        Assert.IsFalse((bool?)rpc["IsRemote"]);
     }
 
     [TestMethod]
@@ -101,7 +101,7 @@ public sealed class RpcEventEnricherTests
         Assert.AreEqual("MS-SCMR", rpc["InterfaceName"]);
         Assert.AreEqual("RCreateServiceW", rpc["OperationName"]);
         Assert.AreEqual("ServiceCreate", rpc["OperationCategory"]);
-        Assert.AreEqual(true, rpc["IsRemote"]);
+        Assert.IsTrue((bool?)rpc["IsRemote"]);
     }
 
     [TestMethod]
@@ -165,7 +165,7 @@ public sealed class RpcEventEnricherTests
         Assert.AreEqual("MS-SCMR", rpc["InterfaceName"]);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("LRPC-1234", "192.168.10.25")]
     [DataRow("49679", null)]
     [DataRow("49679", "")]

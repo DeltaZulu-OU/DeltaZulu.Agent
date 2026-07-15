@@ -85,8 +85,8 @@ public sealed class EtwEventEnricherTests
         Assert.AreEqual("Delayed", timing["TimestampSkewStatus"]);
 
         var quality = RequireMap(enriched.Enrichment, "Quality");
-        Assert.AreEqual(false, quality["HasActivityId"]);
-        Assert.AreEqual(false, quality["HasRelatedActivityId"]);
+        Assert.IsFalse((bool?)quality["HasActivityId"]);
+        Assert.IsFalse((bool?)quality["HasRelatedActivityId"]);
         Assert.AreEqual(180, quality["PayloadLength"]);
     }
 

@@ -21,7 +21,7 @@ public sealed class RpcOperationResolverTests
         Assert.IsFalse(resolved.OperationCategory.Contains("LateralMovement", StringComparison.OrdinalIgnoreCase));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, "RCloseServiceHandle", "ServiceControl")]
     [DataRow(1, "RControlService", "ServiceControl")]
     [DataRow(2, "RDeleteService", "ServiceDelete")]

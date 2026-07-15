@@ -18,7 +18,7 @@ public sealed class WindowsEventTemplateParserTests
 
         var fields = WindowsEventTemplateParser.ExtractFields(template);
 
-        Assert.AreEqual(3, fields.Count);
+        Assert.HasCount(3, fields);
         Assert.AreEqual("SubjectUserSid", fields[0].Name);
         Assert.AreEqual("win:SID", fields[0].Type);
         Assert.AreEqual("TargetUserName", fields[1].Name);
@@ -41,15 +41,15 @@ public sealed class WindowsEventTemplateParserTests
 
         var fields = WindowsEventTemplateParser.ExtractFields(template);
 
-        Assert.AreEqual(1, fields.Count);
+        Assert.HasCount(1, fields);
         Assert.AreEqual("Keep", fields[0].Name);
     }
 
     [TestMethod]
     public void ExtractFields_MalformedOrEmpty_ReturnsEmpty()
     {
-        Assert.AreEqual(0, WindowsEventTemplateParser.ExtractFields(null).Count);
-        Assert.AreEqual(0, WindowsEventTemplateParser.ExtractFields("").Count);
-        Assert.AreEqual(0, WindowsEventTemplateParser.ExtractFields("<template><data name=").Count);
+        Assert.IsEmpty(WindowsEventTemplateParser.ExtractFields(null));
+        Assert.IsEmpty(WindowsEventTemplateParser.ExtractFields(""));
+        Assert.IsEmpty(WindowsEventTemplateParser.ExtractFields("<template><data name="));
     }
 }

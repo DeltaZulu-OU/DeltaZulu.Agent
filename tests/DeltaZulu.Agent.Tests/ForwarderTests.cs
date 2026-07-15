@@ -434,7 +434,7 @@ public sealed class ForwarderTests
                 Port = port
             });
 
-            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => relpInput.Open().Subscribe(_ => { }));
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => relpInput.Open(TestContext.CancellationToken).Subscribe(_ => { }));
 
             Assert.Contains($"{IPAddress.Loopback}:{port}", exception.Message);
             Assert.IsInstanceOfType<SocketException>(exception.InnerException);
@@ -592,7 +592,7 @@ public sealed class ForwarderTests
                     ChunksDeadLetterEvictedTotal = 0,
                     QuarantineBytesLimit = 10_000,
                     QuarantineBytesUsed = 0,
-                    ChunksQuarantineEvictedTotal = 0
+                    ChunksQuarantineEvictedTotal = 0,
                 },
                 Transport = new RelpTransportSnapshot {
                     SendAttemptsTotal = 12,
@@ -618,7 +618,7 @@ public sealed class ForwarderTests
         Assert.AreEqual(12L, record.Event["transportSendAttemptsTotal"]);
         Assert.AreEqual(9L, record.Event["transportSendSuccessesTotal"]);
         Assert.AreEqual(3L, record.Event["transportTransientFailuresTotal"]);
-        Assert.AreEqual(true, record.Event["transportIsRunning"]);
+        Assert.IsTrue((bool?)record.Event["transportIsRunning"]);
         Assert.AreEqual(now, record.Event["lastForwarderActivityUtc"]);
     }
 

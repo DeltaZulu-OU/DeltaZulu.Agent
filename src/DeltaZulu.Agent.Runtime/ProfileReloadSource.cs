@@ -4,7 +4,7 @@ namespace DeltaZulu.Agent.Runtime;
 
 public sealed class ProfileReloadSource
 {
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private ResourceProfile _current;
 
     public ProfileReloadSource(ResourceProfile initialProfile)

@@ -49,7 +49,7 @@ public sealed class NativeEtwEnvelopeTests
     public void EtwSelfProcessFilter_DropsOnlyCurrentProcessEvents()
     {
         Assert.IsTrue(EtwSelfProcessFilter.IsSelfProcessEvent(EtwSelfProcessFilter.CurrentProcessId));
-        Assert.IsTrue(EtwSelfProcessFilter.CurrentAgentProcessNames.Count > 0);
+        Assert.IsNotEmpty(EtwSelfProcessFilter.CurrentAgentProcessNames);
         Assert.IsTrue(EtwSelfProcessFilter.IsSelfProcessEvent(0, EtwSelfProcessFilter.CurrentAgentProcessNames.First()));
         Assert.IsFalse(EtwSelfProcessFilter.IsSelfProcessEvent(0));
         Assert.IsFalse(EtwSelfProcessFilter.IsSelfProcessEvent(0, "notepad"));

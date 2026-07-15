@@ -19,9 +19,21 @@ public sealed record CollectorObservationMetadata
             ["observedAt"] = ObservedAt
         };
 
-        if (!string.IsNullOrWhiteSpace(FilterId)) values["filterId"] = FilterId;
-        if (WindowStart is not null) values["windowStart"] = WindowStart;
-        if (WindowEnd is not null) values["windowEnd"] = WindowEnd;
+        if (!string.IsNullOrWhiteSpace(FilterId))
+        {
+            values["filterId"] = FilterId;
+        }
+
+        if (WindowStart is not null)
+        {
+            values["windowStart"] = WindowStart;
+        }
+
+        if (WindowEnd is not null)
+        {
+            values["windowEnd"] = WindowEnd;
+        }
+
         return values;
     }
 }

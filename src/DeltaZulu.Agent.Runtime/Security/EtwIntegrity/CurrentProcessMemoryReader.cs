@@ -17,19 +17,19 @@ public sealed class CurrentProcessMemoryReader : IProcessMemoryReader
             return MemoryReadResult.Fail("Byte count must be greater than zero.");
         }
 
-        if (!IsReadableRange(address, byteCount, out string? validationError))
+        if (!IsReadableRange(address, byteCount, out var validationError))
         {
             return MemoryReadResult.Fail(validationError ?? "Memory range is not readable.");
         }
 
-        byte[] buffer = new byte[byteCount];
+        var buffer = new byte[byteCount];
 
-        bool ok = NativeMethods.ReadProcessMemory(
+        var ok = NativeMethods.ReadProcessMemory(
             NativeMethods.GetCurrentProcess(),
             address,
             buffer,
             new UIntPtr((uint)byteCount),
-            out UIntPtr bytesRead);
+            out var bytesRead);
 
         if (!ok)
         {
@@ -48,7 +48,7 @@ public sealed class CurrentProcessMemoryReader : IProcessMemoryReader
     {
         error = null;
 
-        UIntPtr result = NativeMethods.VirtualQuery(
+        var result = NativeMethods.VirtualQuery(
             address,
             out var mbi,
             new UIntPtr((uint)Marshal.SizeOf<NativeMethods.MEMORY_BASIC_INFORMATION>()));
@@ -83,11 +83,11 @@ public sealed class CurrentProcessMemoryReader : IProcessMemoryReader
             return false;
         }
 
-        ulong start = unchecked((ulong)address.ToInt64());
-        ulong regionStart = unchecked((ulong)mbi.BaseAddress.ToInt64());
-        ulong regionSize = mbi.RegionSize.ToUInt64();
-        ulong regionEnd = regionStart + regionSize;
-        ulong requestedEnd = start + (ulong)byteCount;
+        var start = unchecked((ulong)address.ToInt64());
+        var regionStart = unchecked((ulong)mbi.BaseAddress.ToInt64());
+        var regionSize = mbi.RegionSize.ToUInt64();
+        var regionEnd = regionStart + regionSize;
+        var requestedEnd = start + (ulong)byteCount;
 
         if (regionEnd < regionStart || requestedEnd < start)
         {
@@ -106,7 +106,7 @@ public sealed class CurrentProcessMemoryReader : IProcessMemoryReader
 
     private static bool IsPotentiallyReadableProtection(uint protect)
     {
-        uint normalized = protect & 0xFF;
+        var normalized = protect & 0xFF;
 
         return normalized is
             NativeMethods.PAGE_READONLY or

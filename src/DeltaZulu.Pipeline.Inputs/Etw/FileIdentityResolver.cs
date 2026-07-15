@@ -2,7 +2,7 @@ namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public sealed class FileIdentityResolver
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<ulong, FileIdentityState> _fileObjectMap = [];
     private readonly Dictionary<ulong, FileIdentityState> _fileKeyMap = [];
     private readonly TimeSpan _fileObjectTtl;
@@ -29,12 +29,20 @@ public sealed class FileIdentityResolver
 
     public int FileObjectCount
     {
-        get { lock (_gate) return _fileObjectMap.Count; }
+        get { lock (_gate)
+            {
+                return _fileObjectMap.Count;
+            }
+        }
     }
 
     public int FileKeyCount
     {
-        get { lock (_gate) return _fileKeyMap.Count; }
+        get { lock (_gate)
+            {
+                return _fileKeyMap.Count;
+            }
+        }
     }
 
     public void ObserveNativePath(

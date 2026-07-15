@@ -2,7 +2,7 @@ namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public sealed class IrpOperationTracker
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<ulong, StartedIoOperation> _started = [];
     private readonly int _maximumActiveOperations;
 
@@ -18,7 +18,11 @@ public sealed class IrpOperationTracker
 
     public int ActiveOperationCount
     {
-        get { lock (_gate) return _started.Count; }
+        get { lock (_gate)
+            {
+                return _started.Count;
+            }
+        }
     }
 
     public IReadOnlyList<IoOperationCorrelation> ObserveStart(

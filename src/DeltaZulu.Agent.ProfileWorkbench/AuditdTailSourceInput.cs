@@ -36,7 +36,7 @@ internal sealed class AuditdTailSourceInput : ISourceInput
                         continue;
                     }
 
-                    using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    await using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                     if (position == 0)
                     {
                         position = stream.Length;

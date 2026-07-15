@@ -70,12 +70,10 @@ public sealed class FileTunnelCertificateProvider : ITunnelCertificateProvider
         }
 
         var extension = Path.GetExtension(options.CertificatePath);
-        if (extension.Equals(".pfx", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".p12", StringComparison.OrdinalIgnoreCase))
-        {
-            return X509CertificateLoader.LoadPkcs12FromFile(options.CertificatePath!, options.CertificatePassword);
-        }
 
-        return X509CertificateLoader.LoadCertificateFromFile(options.CertificatePath!);
+        return !string.IsNullOrWhiteSpace(extension) && (extension.Equals(".pfx", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".p12", StringComparison.OrdinalIgnoreCase))
+            ? X509CertificateLoader.LoadPkcs12FromFile(options.CertificatePath!, options.CertificatePassword)
+            : X509CertificateLoader.LoadCertificateFromFile(options.CertificatePath!);
     }
 }

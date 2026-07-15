@@ -56,7 +56,7 @@ public static class AgentScalarFunctions
             return ProcessNameCache.Get(key)?.ToString() ?? string.Empty;
         }
 
-        string result = string.Empty;
+        var result = string.Empty;
         try
         {
             using var process = Process.GetProcessById((int)pid);

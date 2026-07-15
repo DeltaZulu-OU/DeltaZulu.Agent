@@ -13,7 +13,7 @@ public sealed class LogFieldNormalizerTests
         Assert.AreEqual("alice smith", fields["user"]);
         Assert.AreEqual(@"/tmp/a\", fields["path"]);
         Assert.AreEqual(3L, fields["retries"]);
-        Assert.AreEqual(true, fields["success"]);
+        Assert.IsTrue((bool?)fields["success"]);
         Assert.AreEqual(12.5m, fields["latency"]);
         Assert.IsFalse(fields.ContainsKey("ignored-token"));
     }

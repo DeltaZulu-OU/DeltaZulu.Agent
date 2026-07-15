@@ -150,8 +150,8 @@ public sealed class ObservabilityTests
         Assert.AreEqual("Detailed Tracking", record.Event["auditPolicyCategory"]);
         Assert.AreEqual("Process Creation", record.Event["auditPolicySubcategory"]);
         Assert.AreEqual("0cce922b-69ae-11d9-bed3-505054503030", record.Event["auditPolicySubcategoryGuid"]);
-        Assert.AreEqual(true, record.Event["auditSuccessEnabled"]);
-        Assert.AreEqual(true, record.Event["sourceExists"]);
+        Assert.IsTrue((bool?)record.Event["auditSuccessEnabled"]);
+        Assert.IsTrue((bool?)record.Event["sourceExists"]);
         Assert.AreEqual(8L, record.Event["actualReadCount"]);
         Assert.AreEqual(7L, record.Event["keptAfterFilterCount"]);
         Assert.AreEqual(1L, record.Event["discardedCount"]);

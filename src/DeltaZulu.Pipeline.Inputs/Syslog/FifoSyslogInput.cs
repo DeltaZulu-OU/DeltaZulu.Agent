@@ -44,7 +44,7 @@ public sealed class FifoSyslogInput : ISourceInput
 
                 while (!cts.IsCancellationRequested)
                 {
-                    using var stream = new FileStream(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
+                    await using var stream = new FileStream(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
                     using var reader = new StreamReader(stream);
 
                     while (!cts.IsCancellationRequested)
@@ -115,10 +115,10 @@ public sealed class FifoSyslogInput : ISourceInput
 
     private static bool IsFifo(StatBuffer buffer) => (buffer.Mode & StatModeTypeMask) == StatModeFifoMask;
 
-    [DllImport("libc", EntryPoint = "mkfifo", SetLastError = true, CharSet = CharSet.Ansi)]
+    [DllImport("libc", EntryPoint = "mkfifo", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern int mkfifo(string pathname, uint mode);
 
-    [DllImport("libc", EntryPoint = "stat", SetLastError = true, CharSet = CharSet.Ansi)]
+    [DllImport("libc", EntryPoint = "stat", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern int stat(string pathname, out StatBuffer buffer);
 
     [StructLayout(LayoutKind.Sequential)]

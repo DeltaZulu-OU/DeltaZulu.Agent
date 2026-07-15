@@ -32,11 +32,13 @@ internal static partial class NativeMethods
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern IntPtr GetModuleHandleW(string lpModuleName);
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Ansi, ExactSpelling = true)]
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
 
+#pragma warning disable CA1838 // Avoid 'StringBuilder' parameters for P/Invokes
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern uint GetModuleFileNameW(IntPtr hModule, StringBuilder lpFilename, int nSize);
+#pragma warning restore CA1838 // Avoid 'StringBuilder' parameters for P/Invokes
 
     [DllImport("kernel32.dll")]
     public static extern IntPtr GetCurrentProcess();

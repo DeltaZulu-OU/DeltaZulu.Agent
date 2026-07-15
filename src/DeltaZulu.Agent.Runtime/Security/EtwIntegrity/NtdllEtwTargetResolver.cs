@@ -18,21 +18,21 @@ public sealed class NtdllEtwTargetResolver
         IReadOnlyList<string> targetFunctions,
         int prologueSize)
     {
-        IntPtr ntdll = NativeMethods.GetModuleHandleW("ntdll.dll");
+        var ntdll = NativeMethods.GetModuleHandleW("ntdll.dll");
 
         if (ntdll == IntPtr.Zero)
         {
             throw new Win32Exception("Failed to resolve loaded ntdll.dll.");
         }
 
-        string modulePath = GetModulePath(ntdll);
-        int processId = Environment.ProcessId;
-        string architecture = RuntimeInformation.ProcessArchitecture.ToString();
+        var modulePath = GetModulePath(ntdll);
+        var processId = Environment.ProcessId;
+        var architecture = RuntimeInformation.ProcessArchitecture.ToString();
         var baselines = new List<EtwFunctionBaseline>();
 
-        foreach (string functionName in targetFunctions)
+        foreach (var functionName in targetFunctions)
         {
-            IntPtr address = NativeMethods.GetProcAddress(ntdll, functionName);
+            var address = NativeMethods.GetProcAddress(ntdll, functionName);
             if (address == IntPtr.Zero)
             {
                 continue;
@@ -62,12 +62,12 @@ public sealed class NtdllEtwTargetResolver
 
     private static string GetModulePath(IntPtr moduleHandle)
     {
-        int capacity = 260;
+        var capacity = 260;
 
         while (capacity <= 32768)
         {
             var buffer = new StringBuilder(capacity);
-            uint length = NativeMethods.GetModuleFileNameW(moduleHandle, buffer, buffer.Capacity);
+            var length = NativeMethods.GetModuleFileNameW(moduleHandle, buffer, buffer.Capacity);
 
             if (length == 0)
             {

@@ -8,7 +8,7 @@ internal sealed class SqliteMetricsStateWriter : IOutputWriter
 {
     private const int SchemaVersion = 1;
     private readonly string _path;
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
 
     public SqliteMetricsStateWriter(string path)
     {

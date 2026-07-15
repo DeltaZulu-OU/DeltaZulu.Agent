@@ -31,7 +31,7 @@ internal sealed class LinesSourceInput : ISourceInput
                         continue;
                     }
 
-                    using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    await using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                     if (_follow && position == 0)
                     {
                         position = stream.Length;

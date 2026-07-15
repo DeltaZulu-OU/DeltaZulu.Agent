@@ -2,7 +2,7 @@ namespace DeltaZulu.Pipeline.Inputs.Etw;
 
 public sealed class ProcessIdentityResolver
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<int, ProcessIdentityState> _latestByPid = [];
     private readonly Dictionary<ProcessIdentityKey, ProcessIdentityState> _byGeneration = [];
     private readonly TimeSpan _ttl;

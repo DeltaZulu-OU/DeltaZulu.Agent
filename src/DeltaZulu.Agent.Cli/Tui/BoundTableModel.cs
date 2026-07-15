@@ -2,34 +2,34 @@ using System.Data;
 
 namespace DeltaZulu.Agent.Cli.Tui;
 
-internal sealed class BoundTableModel
+internal sealed class BoundTableModel : IDisposable
 {
     private readonly int _limit;
-    private readonly DataTable _table = new("WorkbenchResults");
     private readonly Queue<object[]> _rows = new();
+    private bool disposedValue;
 
     public BoundTableModel(int limit)
     {
         _limit = Math.Max(1, limit);
     }
 
-    public DataTable Table => _table;
+    public DataTable Table { get; } = new("WorkbenchResults");
 
     public int Count => _rows.Count;
 
     public void Reset(IEnumerable<string> columns)
     {
-        _table.Rows.Clear();
-        _table.Columns.Clear();
+        Table.Rows.Clear();
+        Table.Columns.Clear();
         _rows.Clear();
         foreach (var column in columns)
         {
-            _table.Columns.Add(column, typeof(string));
+            Table.Columns.Add(column, typeof(string));
         }
 
-        if (_table.Columns.Count == 0)
+        if (Table.Columns.Count == 0)
         {
-            _table.Columns.Add("Result", typeof(string));
+            Table.Columns.Add("Result", typeof(string));
         }
     }
 
@@ -54,9 +54,9 @@ internal sealed class BoundTableModel
 
     public void Append(IReadOnlyDictionary<string, object?> row)
     {
-        if (_table.Columns.Count == 0 || row.Keys.Any(key => !_table.Columns.Contains(key)))
+        if (Table.Columns.Count == 0 || row.Keys.Any(key => !Table.Columns.Contains(key)))
         {
-            var columns = _table.Columns.Cast<DataColumn>().Select(column => column.ColumnName)
+            var columns = Table.Columns.Cast<DataColumn>().Select(column => column.ColumnName)
                 .Concat(row.Keys)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
@@ -68,12 +68,12 @@ internal sealed class BoundTableModel
             }
         }
 
-        AddRaw([.. _table.Columns.Cast<DataColumn>().Select(column => Format(row.TryGetValue(column.ColumnName, out var value) ? value : null))]);
+        AddRaw([.. Table.Columns.Cast<DataColumn>().Select(column => Format(row.TryGetValue(column.ColumnName, out var value) ? value : null))]);
     }
 
     public void Clear()
     {
-        _table.Rows.Clear();
+        Table.Rows.Clear();
         _rows.Clear();
     }
 
@@ -82,14 +82,14 @@ internal sealed class BoundTableModel
         while (_rows.Count >= _limit)
         {
             _rows.Dequeue();
-            if (_table.Rows.Count > 0)
+            if (Table.Rows.Count > 0)
             {
-                _table.Rows.RemoveAt(0);
+                Table.Rows.RemoveAt(0);
             }
         }
 
         _rows.Enqueue(values);
-        _table.Rows.Add(values);
+        Table.Rows.Add(values);
     }
 
     private static string Format(object? value) => value switch
@@ -99,4 +99,23 @@ internal sealed class BoundTableModel
         DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O"),
         _ => value.ToString() ?? string.Empty
     };
+
+    private void Dispose(bool disposing)
+    {
+        if (!disposedValue)
+        {
+            if (disposing)
+            {
+                Table.Dispose();
+            }
+            disposedValue = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }

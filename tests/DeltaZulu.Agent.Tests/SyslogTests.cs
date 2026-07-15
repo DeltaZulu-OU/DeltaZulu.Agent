@@ -54,7 +54,7 @@ public sealed class SyslogTests
     public async Task SyslogFileTailInput_ContinuesAfterFileTruncation()
     {
         var path = Path.Combine(Path.GetTempPath(), $"deltazulu-syslog-tail-{Guid.NewGuid():N}.log");
-        await File.WriteAllTextAsync(path, "<38>Mar  9 10:11:12 web sudo[321]: old=true\n");
+        await File.WriteAllTextAsync(path, "<38>Mar  9 10:11:12 web sudo[321]: old=true\n", TestContext.CancellationToken);
         var input = new SyslogFileTailInput(path, "tail-test", TimeSpan.FromMilliseconds(20));
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var seen = new List<string>();
@@ -68,7 +68,7 @@ public sealed class SyslogTests
             }
         });
 
-        await File.AppendAllTextAsync(path, "<38>Mar  9 10:11:13 web sudo[321]: first=true\n");
+        await File.AppendAllTextAsync(path, "<38>Mar  9 10:11:13 web sudo[321]: first=true\n", TestContext.CancellationToken);
         await WaitUntilAsync(() => {
             lock (seen)
             {
@@ -76,7 +76,7 @@ public sealed class SyslogTests
             }
         }, cts.Token);
 
-        await File.WriteAllTextAsync(path, "<38>Mar  9 10:11:14 web sudo[321]: after_truncate=true\n");
+        await File.WriteAllTextAsync(path, "<38>Mar  9 10:11:14 web sudo[321]: after_truncate=true\n", TestContext.CancellationToken);
         await WaitUntilAsync(() => {
             lock (seen)
             {
@@ -125,4 +125,6 @@ public sealed class SyslogTests
             }
         }
     }
+
+    public TestContext TestContext { get; set; }
 }
