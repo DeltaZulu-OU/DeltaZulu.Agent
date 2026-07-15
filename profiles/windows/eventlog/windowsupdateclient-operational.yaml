@@ -1,27 +1,12 @@
-schemaVersion: 1
 id: windows.eventlog.windowsupdateclient-operational
 name: Windows Update Client Operational Event Log
-version: 1.0.0
-enabled: true
 mandatory: false
 resource:
   platform: windows
   family: eventlog
   channel: Microsoft-Windows-WindowsUpdateClient/Operational
   provider: Microsoft-Windows-WindowsUpdateClient
-input:
-  table: EventLog
-  schema: WindowsEventLog.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     EventLog
     | where source =~ "Microsoft-Windows-WindowsUpdateClient/Operational"

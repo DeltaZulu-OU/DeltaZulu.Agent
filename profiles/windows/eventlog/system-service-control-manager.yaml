@@ -1,27 +1,12 @@
-schemaVersion: 1
 id: windows.eventlog.system-service-control-manager
 name: System Service Control Manager security-relevant service events
-version: 1.0.0
-enabled: true
 mandatory: false
 resource:
   platform: windows
   family: eventlog
   channel: System
   provider: Service Control Manager
-input:
-  table: EventLog
-  schema: WindowsEventLog.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     EventLog
     | where source =~ "System"

@@ -1,28 +1,12 @@
-schemaVersion: 1
 id: windows.etw.crypto-dpapi-events
 name: Microsoft Crypto DPAPI ETW protection events
-version: 1.0.0
-enabled: true
-mandatory: true
 resource:
   platform: windows
   family: etw
   mode: managed
   session: DeltaZulu-Crypto-DPAPI-Events
   provider: Microsoft-Windows-Crypto-DPAPI-Events
-input:
-  table: Etw
-  schema: WindowsEtw.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Crypto-DPAPI-Events"

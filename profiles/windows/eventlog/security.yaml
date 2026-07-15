@@ -1,27 +1,11 @@
-schemaVersion: 1
 id: windows.eventlog.security
 name: Windows Security Event Log security collection profile
-version: 1.0.0
-enabled: true
-mandatory: true
 resource:
   platform: windows
   family: eventlog
   channel: Security
   provider: Microsoft-Windows-Security-Auditing
-input:
-  table: EventLog
-  schema: WindowsEventLog.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     EventLog
     | where source =~ "Security"

@@ -1,28 +1,12 @@
-schemaVersion: 1
 id: windows.etw.ldap-client
 name: Microsoft LDAP Client ETW tracing
-version: 1.0.0
-enabled: true
-mandatory: true
 resource:
   platform: windows
   family: etw
   mode: managed
   session: DeltaZulu-LDAP-Client
   provider: Microsoft-Windows-LDAP-Client
-input:
-  table: Etw
-  schema: WindowsEtw.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-LDAP-Client"

@@ -1,28 +1,12 @@
-schemaVersion: 1
 id: windows.etw.kernel-network
 name: Microsoft Kernel Network ETW connections
-version: 1.0.0
-enabled: true
-mandatory: true
 resource:
   platform: windows
   family: etw
   mode: managed
   session: DeltaZulu-Kernel-Network
   provider: Microsoft-Windows-Kernel-Network
-input:
-  table: Etw
-  schema: WindowsEtw.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-Kernel-Network"

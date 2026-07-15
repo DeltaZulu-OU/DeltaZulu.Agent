@@ -35,14 +35,16 @@ public sealed class ResourceProfileValidator
             errors.Add("resource.family is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(profile.Input.Table))
+        if (string.IsNullOrWhiteSpace(profile.Input.Table)
+            && string.IsNullOrWhiteSpace(YamlResourceProfileLoader.DefaultInputTable(profile.Resource.Family)))
         {
-            errors.Add("input.table is required.");
+            errors.Add("input.table is required when no default exists for resource.family.");
         }
 
-        if (string.IsNullOrWhiteSpace(profile.Input.Schema))
+        if (string.IsNullOrWhiteSpace(profile.Input.Schema)
+            && string.IsNullOrWhiteSpace(YamlResourceProfileLoader.DefaultInputSchema(profile.Resource.Family)))
         {
-            errors.Add("input.schema is required.");
+            errors.Add("input.schema is required when no default exists for resource.family.");
         }
 
         if (!string.IsNullOrWhiteSpace(profile.Filter.Language)

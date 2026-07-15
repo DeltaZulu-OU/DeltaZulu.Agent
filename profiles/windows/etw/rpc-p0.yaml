@@ -1,28 +1,13 @@
-schemaVersion: 1
 id: windows.etw.rpc.p0
 name: Microsoft RPC ETW P0 selected-interface call tracing
 version: 1.1.0
-enabled: true
-mandatory: true
 resource:
   platform: windows
   family: etw
   mode: managed
   session: DeltaZulu-RPC
   provider: Microsoft-Windows-RPC
-input:
-  table: Etw
-  schema: WindowsEtw.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-RPC"

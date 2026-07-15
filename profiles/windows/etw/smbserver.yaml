@@ -1,9 +1,5 @@
-schemaVersion: 1
 id: windows.etw.smbserver
 name: Microsoft SMB Server ETW share access
-version: 1.0.0
-enabled: true
-mandatory: true
 resource:
   platform: windows
   family: etw
@@ -14,19 +10,7 @@ condition:
   type: wmi
   query: select * from Win32_ServerFeature where ID=255
   mandatory: false
-input:
-  table: Etw
-  schema: WindowsEtw.Native
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     Etw
     | where ProviderName =~ "Microsoft-Windows-SMBServer"

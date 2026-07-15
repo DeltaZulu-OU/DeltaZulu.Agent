@@ -1,26 +1,10 @@
-schemaVersion: 1
 id: linux.auditd
 name: Linux auditd resource filter
-version: 1.0.0
-enabled: true
-mandatory: true
 resource:
   platform: linux
   family: auditd
   service: auditd
-input:
-  table: EventLog
-  schema: LinuxAuditd.AssembledEvent
-output:
-  mode: FilterAndSelect
-  format: ndjson
-  preserveOriginalFieldNames: true
-  preserveRawEvent: true
-  metadataEnvelope: true
-  eventEnvelope: true
-  onNoMatch: drop
 filter:
-  language: kql
   query: |
     EventLog
     | where source =~ "auditd"

@@ -66,9 +66,40 @@ public sealed class YamlResourceProfileLoader
     private ResourceProfile DeserializeFile(string path)
     {
         using var reader = File.OpenText(path);
-        return _deserializer.Deserialize<ResourceProfile>(reader)
+        var profile = _deserializer.Deserialize<ResourceProfile>(reader)
             ?? throw new InvalidDataException($"Profile file '{path}' did not contain a resource profile.");
+        ApplyProfileDefaults(profile);
+        return profile;
     }
+
+    internal static void ApplyProfileDefaults(ResourceProfile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.Input.Table))
+        {
+            profile.Input.Table = DefaultInputTable(profile.Resource.Family);
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.Input.Schema))
+        {
+            profile.Input.Schema = DefaultInputSchema(profile.Resource.Family);
+        }
+    }
+
+    internal static string DefaultInputTable(string family) => family.ToLowerInvariant() switch
+    {
+        "auditd" or "eventlog" or "syslog" => "EventLog",
+        "etw" => "Etw",
+        _ => string.Empty
+    };
+
+    internal static string DefaultInputSchema(string family) => family.ToLowerInvariant() switch
+    {
+        "auditd" => "LinuxAuditd.AssembledEvent",
+        "etw" => "WindowsEtw.Native",
+        "eventlog" => "WindowsEventLog.Native",
+        "syslog" => "LinuxSyslog.Native",
+        _ => string.Empty
+    };
 
     private static void AddProfileLoadIssue(
         ResourceProfile profile,
