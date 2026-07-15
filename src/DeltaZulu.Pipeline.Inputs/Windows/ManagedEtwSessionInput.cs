@@ -14,10 +14,12 @@ namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 public sealed class ManagedEtwSessionInput : ISourceInput
 {
-    // Managed ETW sessions need enough room for bursty Security/DNS events while
-    // keeping orphaned sessions bounded if the process exits abruptly. Use a
-    // 256 KB ETW buffer quantum for large PowerShell/Security payloads and a
-    // 64 MB pool budget, which yields 256 maximum buffers.
+    /// <summary>
+    /// Managed ETW sessions need enough room for bursty Security/DNS events while
+    /// keeping orphaned sessions bounded if the process exits abruptly. Use a
+    /// 256 KB ETW buffer quantum for large PowerShell/Security payloads and a
+    /// 64 MB pool budget, which yields 256 maximum buffers.
+    /// </summary>
     internal const int ManagedSessionBufferSizeKilobytes = 256;
     internal const int ManagedSessionMemoryBudgetMegabytes = 64;
     internal const int ManagedSessionMaximumBuffers = ManagedSessionMemoryBudgetMegabytes * 1024 / ManagedSessionBufferSizeKilobytes;
@@ -86,8 +88,8 @@ public sealed class ManagedEtwSessionInput : ISourceInput
             var activeCount = GetActiveSessionCount();
             throw new InvalidOperationException(
                 $"ETW session limit reached ({activeCount} active sessions). " +
-                $"The OS allows 64 concurrent ETW sessions by default (max 256 via registry). " +
-                $"Stop unused sessions or increase the limit via HKLM\\SYSTEM\\CurrentControlSet\\Control\\WMI\\EtwMaxLoggers.",
+                "The OS allows 64 concurrent ETW sessions by default (max 256 via registry). " +
+                "Stop unused sessions or increase the limit via HKLM\\SYSTEM\\CurrentControlSet\\Control\\WMI\\EtwMaxLoggers.",
                 ex);
         }
     }
@@ -113,12 +115,13 @@ public sealed class ManagedEtwSessionInput : ISourceInput
         }
     }
 
-
+    /// <summary>
+    /// TraceEvent exposes the total ETW buffer pool as BufferSizeMB, but not
+    /// EVENT_TRACE_PROPERTIES.BufferSize. The field below is TraceEvent's
+    /// backing buffer quantum, set before EnableProvider starts the session.
+    /// </summary>
     private static void ConfigureBufferSize(TraceEventSession session)
     {
-        // TraceEvent exposes the total ETW buffer pool as BufferSizeMB, but not
-        // EVENT_TRACE_PROPERTIES.BufferSize. The field below is TraceEvent's
-        // backing buffer quantum, set before EnableProvider starts the session.
         var field = typeof(TraceEventSession).GetField(
             TraceEventBufferQuantumFieldName,
             BindingFlags.Instance | BindingFlags.NonPublic);

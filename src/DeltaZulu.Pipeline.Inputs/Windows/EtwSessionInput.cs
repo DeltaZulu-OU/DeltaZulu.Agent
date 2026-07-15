@@ -84,7 +84,7 @@ public sealed class EtwSessionInput : ISourceInput
 
     private InvalidOperationException CreateInvalidSessionException(ArgumentException innerException) => new(
         $"ETW session '{_sessionName}' could not be opened in attach mode because TraceEvent rejected the session name or attach options. " +
-        $"Attach-mode ETW profiles require resource.session to name an already running ETW session. Managed ETW profiles must use resource.mode: managed and resource.provider so DeltaZulu can create its own session.",
+        "Attach-mode ETW profiles require resource.session to name an already running ETW session. Managed ETW profiles must use resource.mode: managed and resource.provider so DeltaZulu can create its own session.",
         innerException);
 
     private InvalidOperationException CreateSessionOpenException(Exception innerException)

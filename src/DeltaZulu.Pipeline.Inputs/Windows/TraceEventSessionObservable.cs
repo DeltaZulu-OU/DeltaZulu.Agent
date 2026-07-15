@@ -28,13 +28,13 @@ internal static class TraceEventSessionObservable
                         return;
                     }
 
-                    if (nativeFilter is not null && !nativeFilter.Matches(
+                    if (nativeFilter?.Matches(
                         data.ProviderName ?? string.Empty,
                         data.ProviderGuid,
                         (int)data.ID,
                         Convert.ToInt32(data.Opcode),
                         data.Version,
-                        unchecked((long)data.Keywords)))
+                        unchecked((long)data.Keywords)) == false)
                     {
                         metrics?.IncrementEtwCallbackEventsRejectedByNativeFilter();
                         return;
