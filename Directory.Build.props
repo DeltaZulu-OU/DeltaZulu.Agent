@@ -9,7 +9,7 @@
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CA1014;CA1305;CA1822;CA1859;CA2263</NoWarn>
+    <NoWarn>$(NoWarn);CA1014;CA1305;CS1591;CA1707;CA1711;CA1720;CA1822;CA1848;CA1859;CA1861;CA2263</NoWarn>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     <IsPackable>false</IsPackable>
