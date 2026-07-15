@@ -580,7 +580,15 @@ public sealed class ForwarderTests
                     MemoryBytesUsed = 512,
                     OpenChunkBytes = 256,
                     SealedChunkCount = 2,
+                    AvailableChunks = 2,
+                    InFlightChunks = 0,
+                    MaxInFlightChunks = 4,
+                    DispatchQueueDepth = 0,
+                    DispatchQueueCapacity = 16,
+                    DispatcherWaitReason = DispatchWaitReason.NoAvailableChunks,
                     OldestChunkAge = TimeSpan.FromSeconds(5),
+                    OldestAvailableChunkAge = TimeSpan.FromSeconds(5),
+                    OldestDispatchedChunkAge = null,
                     RecordsAcceptedTotal = 100,
                     RecordsRejectedTotal = 0,
                     RecordsDroppedTotal = 0,
@@ -611,6 +619,14 @@ public sealed class ForwarderTests
 
         Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("Healthy", record.Event["bufferState"]);
+        Assert.AreEqual(2, record.Event["availableChunks"]);
+        Assert.AreEqual(0, record.Event["inFlightChunks"]);
+        Assert.AreEqual(4, record.Event["maxInFlightChunks"]);
+        Assert.AreEqual(0, record.Event["dispatchQueueDepth"]);
+        Assert.AreEqual(16, record.Event["dispatchQueueCapacity"]);
+        Assert.AreEqual("idle", record.Event["dispatcherWaitReason"]);
+        Assert.AreEqual(5000d, record.Event["oldestAvailableChunkAgeMs"]);
+        Assert.IsNull(record.Event["oldestDispatchedChunkAgeMs"]);
         Assert.AreEqual(100L, record.Event["recordsAcceptedTotal"]);
         Assert.AreEqual(9L, record.Event["chunksCompletedTotal"]);
         Assert.AreEqual(2L, record.Event["chunksReleasedTotal"]);

@@ -53,9 +53,13 @@ internal sealed class AuditdTailSourceInput : ISourceInput
 
                     stream.Seek(position, SeekOrigin.Begin);
                     using var reader = new StreamReader(stream, leaveOpen: true);
-                    while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+                    while (!cancellationToken.IsCancellationRequested)
                     {
                         var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                        if (line is null)
+                        {
+                            break;
+                        }
                         if (string.IsNullOrWhiteSpace(line))
                         {
                             continue;

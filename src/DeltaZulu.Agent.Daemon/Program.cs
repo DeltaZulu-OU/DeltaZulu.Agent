@@ -120,13 +120,37 @@ This executable is service-shaped from the start: it hosts configured DeltaZulu 
 
 internal sealed class ForwarderDaemonService(string configPath, ILogger<ForwarderDaemonService> logger) : BackgroundService
 {
+    private static readonly Action<ILogger, string, string, Exception?> StartingAgentDaemon =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Information,
+            new EventId(1, nameof(StartingAgentDaemon)),
+            "Starting DeltaZulu agent daemon {AgentId} from {ConfigPath}.");
+
+    private static readonly Action<ILogger, string, string, int, Exception?> ConfiguredRelpCollectorInput =
+        LoggerMessage.Define<string, string, int>(
+            LogLevel.Information,
+            new EventId(2, nameof(ConfiguredRelpCollectorInput)),
+            "Configured RELP collector input for daemon {AgentId} on {Address}:{Port}.");
+
+    private static readonly Action<ILogger, string, string, string, Exception?> ConfiguredProfile =
+        LoggerMessage.Define<string, string, string>(
+            LogLevel.Information,
+            new EventId(3, nameof(ConfiguredProfile)),
+            "Configured profile {ProfileId} ({Family}) for daemon {AgentId}.");
+
+    private static readonly Action<ILogger, string, Exception?> ProfileConditionNotSatisfied =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(4, nameof(ProfileConditionNotSatisfied)),
+            "Profile '{ProfileId}' condition is not satisfied.");
+
     private readonly List<IDisposable> _disposables = [];
     private readonly ResourceProfilePrefilter _prefilter = new(DefaultConditionEvaluators.ForCurrentPlatform());
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var configuration = new YamlForwarderDaemonConfigurationLoader().LoadFile(configPath);
-        logger.LogInformation("Starting DeltaZulu agent daemon {AgentId} from {ConfigPath}.", configuration.Id, configPath);
+        StartingAgentDaemon(logger, configuration.Id, configPath, null);
         ApplyResourceQuotas(configuration);
 
         var outputSink = CreateOutputSink(configuration);
@@ -148,11 +172,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     {
         var executor = new PassthroughProfileExecutor();
         _disposables.Add(executor);
-        logger.LogInformation(
-            "Configured RELP collector input for daemon {AgentId} on {Address}:{Port}.",
-            configuration.Id,
-            configuration.RelpInput.Address,
-            configuration.RelpInput.Port);
+        ConfiguredRelpCollectorInput(logger, configuration.Id, configuration.RelpInput.Address, configuration.RelpInput.Port, null);
 
         return [new ProfileBinding(
             new RelpInput(new RelpInputConfiguration {
@@ -241,7 +261,15 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         {
             if (!IsProfileConditionSatisfied(profile, out var conditionWarning))
             {
-                logger.LogWarning("{Warning}", conditionWarning ?? $"Profile '{profile.Id}' condition is not satisfied.");
+                if (conditionWarning is null)
+                {
+                    ProfileConditionNotSatisfied(logger, profile.Id, null);
+                }
+                else
+                {
+                    logger.LogWarning("{Warning}", conditionWarning);
+                }
+
                 continue;
             }
 
@@ -253,7 +281,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
             var executor = new ResourceKqlProfileExecutor();
             _disposables.Add(executor);
-            logger.LogInformation("Configured profile {ProfileId} ({Family}) for daemon {AgentId}.", profile.Id, profile.Resource.Family, configuration.Id);
+            ConfiguredProfile(logger, profile.Id, profile.Resource.Family, configuration.Id, null);
             bindings.Add(new ProfileBinding(CreateInput(profile), profile, executor));
         }
 
@@ -405,6 +433,11 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
     private (IReadOnlyList<RelpEndpoint> Endpoints, bool UseTls) StartRelpTunnel(ForwarderDaemonConfiguration configuration)
     {
+        if (configuration.Relp.Tls.CertificateValidation == RelpCertificateValidationMode.Disabled)
+        {
+            throw new InvalidOperationException("RELP tunnel mode does not support disabled server certificate validation. Use SystemTrust or Thumbprint validation for tunneled TLS.");
+        }
+
         var tunnel = new TcpTunnel(new TcpTunnelOptions {
             ListenEndpoint = new TunnelEndpoint {
                 Host = configuration.Tunnel.Listen.Host,
@@ -448,10 +481,8 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         return lease is null ? null : [lease.Certificate];
     }
 
-#pragma warning disable CA5359 // Do Not Disable Certificate Validation
     private static System.Net.Security.RemoteCertificateValidationCallback? CreateServerCertificateValidationCallback(RelpTlsConfiguration tls) =>
         tls.CertificateValidation switch {
-            RelpCertificateValidationMode.Disabled => (_, _, _, _) => true,
             RelpCertificateValidationMode.Thumbprint => (_, certificate, _, _) =>
                 certificate is not null
                 && tls.AllowedServerCertificateThumbprints.Contains(
@@ -459,7 +490,6 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                     StringComparer.OrdinalIgnoreCase),
             _ => null
         };
-#pragma warning restore CA5359 // Do Not Disable Certificate Validation
 }
 
 internal sealed class PassthroughProfileExecutor : IProfileExecutor

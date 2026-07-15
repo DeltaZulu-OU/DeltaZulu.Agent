@@ -16,14 +16,22 @@ public sealed record RelpHealthObservation
         metadata.EnsureCapacity(metadata.Count + 1);
         metadata["recordKind"] = RecordKind;
 
-        var eventFields = new Dictionary<string, object?>(24, StringComparer.OrdinalIgnoreCase) {
+        var eventFields = new Dictionary<string, object?>(32, StringComparer.OrdinalIgnoreCase) {
             ["bufferState"] = Health.Buffer.State.ToString(),
             ["diskBytesUsed"] = Health.Buffer.DiskBytesUsed,
             ["diskBytesLimit"] = Health.Buffer.DiskBytesLimit,
             ["memoryBytesUsed"] = Health.Buffer.MemoryBytesUsed,
             ["openChunkBytes"] = Health.Buffer.OpenChunkBytes,
             ["sealedChunkCount"] = Health.Buffer.SealedChunkCount,
+            ["availableChunks"] = Health.Buffer.AvailableChunks,
+            ["inFlightChunks"] = Health.Buffer.InFlightChunks,
+            ["maxInFlightChunks"] = Health.Buffer.MaxInFlightChunks,
+            ["dispatchQueueDepth"] = Health.Buffer.DispatchQueueDepth,
+            ["dispatchQueueCapacity"] = Health.Buffer.DispatchQueueCapacity,
+            ["dispatcherWaitReason"] = Health.Buffer.DispatcherWaitReason,
             ["oldestChunkAgeMs"] = Health.Buffer.OldestChunkAge?.TotalMilliseconds,
+            ["oldestAvailableChunkAgeMs"] = Health.Buffer.OldestAvailableChunkAge?.TotalMilliseconds,
+            ["oldestDispatchedChunkAgeMs"] = Health.Buffer.OldestDispatchedChunkAge?.TotalMilliseconds,
             ["recordsAcceptedTotal"] = Health.Buffer.RecordsAcceptedTotal,
             ["recordsRejectedTotal"] = Health.Buffer.RecordsRejectedTotal,
             ["recordsDroppedTotal"] = Health.Buffer.RecordsDroppedTotal,

@@ -98,19 +98,19 @@ public sealed class ResourceProfilePrefilterTests
     {
         public static FakeEvaluator ThatFailsToEvaluate(string type) => new(type, satisfied: false, canEvaluate: false);
 
-        public bool Handles(string conditionType) => conditionType.Equals(type, StringComparison.OrdinalIgnoreCase);
+        public bool CanHandle(string conditionType) => conditionType.Equals(type, StringComparison.OrdinalIgnoreCase);
 
-        public bool TryEvaluate(ResourceCondition condition, out bool isSatisfied, out Exception? error)
+        public bool TryEvaluate(ResourceCondition condition, out bool isSatisfied, out Exception? exception)
         {
             if (!canEvaluate)
             {
                 isSatisfied = false;
-                error = new InvalidOperationException("simulated evaluation failure");
+                exception = new InvalidOperationException("simulated evaluation failure");
                 return false;
             }
 
             isSatisfied = satisfied;
-            error = null;
+            exception = null;
             return true;
         }
     }

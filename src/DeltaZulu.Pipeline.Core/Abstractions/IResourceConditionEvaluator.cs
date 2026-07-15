@@ -9,7 +9,7 @@ namespace DeltaZulu.Pipeline.Core.Abstractions;
 /// </summary>
 public interface IResourceConditionEvaluator
 {
-    bool Handles(string conditionType);
+    bool CanHandle(string conditionType);
 
-    bool TryEvaluate(ResourceCondition condition, out bool isSatisfied, out Exception? error);
+    bool TryEvaluate(ResourceCondition condition, out bool isSatisfied, out Exception? exception);
 }

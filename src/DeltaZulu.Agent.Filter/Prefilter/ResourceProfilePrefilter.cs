@@ -36,30 +36,30 @@ public sealed class ResourceProfilePrefilter
             return true;
         }
 
-        var evaluator = _evaluators.FirstOrDefault(candidate => candidate.Handles(condition.Type));
+        var evaluator = _evaluators.FirstOrDefault(candidate => candidate.CanHandle(condition.Type));
         if (evaluator is null)
         {
-            return Reject(profile, condition, $"profile '{profile.Id}' condition.type '{condition.Type}' has no registered evaluator on this platform.", error: null, out warning);
+            return Reject(profile, condition, $"profile '{profile.Id}' condition.type '{condition.Type}' has no registered evaluator on this platform.", exception: null, out warning);
         }
 
-        if (!evaluator.TryEvaluate(condition, out var isSatisfied, out var error))
+        if (!evaluator.TryEvaluate(condition, out var isSatisfied, out var exception))
         {
-            return Reject(profile, condition, $"profile '{profile.Id}' condition could not be evaluated: {error?.Message ?? "unknown error"}", error, out warning);
+            return Reject(profile, condition, $"profile '{profile.Id}' condition could not be evaluated: {exception?.Message ?? "unknown error"}", exception, out warning);
         }
 
         if (!isSatisfied)
         {
-            return Reject(profile, condition, $"profile '{profile.Id}' condition '{condition.Type}' is not satisfied.", error: null, out warning);
+            return Reject(profile, condition, $"profile '{profile.Id}' condition '{condition.Type}' is not satisfied.", exception: null, out warning);
         }
 
         return true;
     }
 
-    private static bool Reject(ResourceProfile profile, ResourceCondition condition, string message, Exception? error, out string? warning)
+    private static bool Reject(ResourceProfile profile, ResourceCondition condition, string message, Exception? exception, out string? warning)
     {
         if (condition.Mandatory)
         {
-            throw new InvalidOperationException(message, error);
+            throw new InvalidOperationException(message, exception);
         }
 
         warning = message;

@@ -13,23 +13,23 @@ public sealed class WmiConditionEvaluator : IResourceConditionEvaluator
 {
     private const string DefaultScopePath = @"\\.\root\cimv2";
 
-    public bool Handles(string conditionType) =>
+    public bool CanHandle(string conditionType) =>
         conditionType.Equals("wmi", StringComparison.OrdinalIgnoreCase);
 
-    public bool TryEvaluate(ResourceCondition condition, out bool isSatisfied, out Exception? error)
+    public bool TryEvaluate(ResourceCondition condition, out bool isSatisfied, out Exception? exception)
     {
         var scopePath = string.IsNullOrWhiteSpace(condition.ScopePath) ? DefaultScopePath : condition.ScopePath;
 
         try
         {
             isSatisfied = Exists(condition.Query, scopePath);
-            error = null;
+            exception = null;
             return true;
         }
         catch (Exception ex) when (ex is ManagementException or UnauthorizedAccessException or COMException)
         {
             isSatisfied = false;
-            error = ex;
+            exception = ex;
             return false;
         }
     }
