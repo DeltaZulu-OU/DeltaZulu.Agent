@@ -44,7 +44,7 @@ public sealed class BufferedRelpSink : IOutputWriter
         _workerTask = Task.Run(() => _worker.RunAsync(_workerCts.Token), CancellationToken.None);
         try
         {
-            _host.StartAsync(cancellationToken).GetAwaiter().GetResult();
+            _host.StartAsync(cancellationToken).AsTask().GetAwaiter().GetResult();
         }
         catch
         {
@@ -77,7 +77,7 @@ public sealed class BufferedRelpSink : IOutputWriter
 
         var result = _host.Writer.WriteAsync(
             DeliveryRecord.FromResourceOutput(value),
-            _cancellationToken).GetAwaiter().GetResult();
+            _cancellationToken).AsTask().GetAwaiter().GetResult();
 
         if (!result.IsAccepted)
         {
@@ -102,7 +102,7 @@ public sealed class BufferedRelpSink : IOutputWriter
         }
 
         Stop();
-        _host.DisposeAsync().GetAwaiter().GetResult();
+        _host.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _workerCts.Dispose();
         DisposeTransport();
     }
@@ -116,7 +116,7 @@ public sealed class BufferedRelpSink : IOutputWriter
 
         // StopAsync flushes the open chunk and completes the channel; the worker
         // then drains the remaining sealed chunks before its read loop finishes.
-        _host.StopAsync(_cancellationToken).GetAwaiter().GetResult();
+        _host.StopAsync(_cancellationToken).AsTask().GetAwaiter().GetResult();
 
         try
         {
@@ -150,7 +150,7 @@ public sealed class BufferedRelpSink : IOutputWriter
         switch (_transport)
         {
             case IAsyncDisposable asyncDisposable:
-                asyncDisposable.DisposeAsync().GetAwaiter().GetResult();
+                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
                 break;
 
             case IDisposable disposable:
