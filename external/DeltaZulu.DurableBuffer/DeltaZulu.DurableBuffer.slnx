@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="src/DeltaZulu.DurableBuffer/DeltaZulu.DurableBuffer.csproj" />
-  <Project Path="tests/DeltaZulu.DurableBuffer.Tests/DeltaZulu.DurableBuffer.Tests.csproj" />
-</Solution>
