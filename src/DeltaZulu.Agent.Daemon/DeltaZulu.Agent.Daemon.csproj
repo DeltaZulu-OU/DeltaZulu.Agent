@@ -2,11 +2,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <AssemblyName>dzagentd</AssemblyName>
     <RootNamespace>DeltaZulu.Agent.Daemon</RootNamespace>
+    <AssemblyName>dzagentd</AssemblyName>
     <StartupObject>DeltaZulu.Agent.Daemon.Program</StartupObject>
-      <ApplicationManifest>app.manifest</ApplicationManifest>
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
@@ -14,7 +14,6 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
-
   <ItemGroup>
     <Content Include="..\..\config\dzagent.yaml" Link="config\dzagent.yaml" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\config\dzcollector.yaml" Link="config\dzcollector.yaml" CopyToOutputDirectory="PreserveNewest" />

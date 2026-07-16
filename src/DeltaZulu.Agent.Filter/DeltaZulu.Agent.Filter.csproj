@@ -1,17 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <OutputType>Library</OutputType>
+    <RootNamespace>DeltaZulu.Agent.Filter</RootNamespace>
+    <AssemblyName>DeltaZulu.Agent.Filter</AssemblyName>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Remove="Prefilter\Windows\**\*.cs" />
   </ItemGroup>
-
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <Compile Include="Prefilter\Windows\**\*.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Reactive" />
@@ -19,7 +17,6 @@
     <PackageReference Include="System.Runtime.Caching" />
     <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
   </ItemGroup>
-
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <PackageReference Include="System.Management" />
   </ItemGroup>

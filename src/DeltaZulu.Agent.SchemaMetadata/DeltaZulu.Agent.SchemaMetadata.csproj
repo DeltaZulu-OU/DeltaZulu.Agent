@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <OutputType>Library</OutputType>
+    <RootNamespace>DeltaZulu.Agent.SchemaMetadata</RootNamespace>
+    <AssemblyName>DeltaZulu.Agent.SchemaMetadata</AssemblyName>
   </PropertyGroup>
 </Project>

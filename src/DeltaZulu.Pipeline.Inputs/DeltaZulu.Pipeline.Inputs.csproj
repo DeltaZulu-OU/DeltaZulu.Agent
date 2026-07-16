@@ -1,18 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <OutputType>Library</OutputType>
+    <RootNamespace>DeltaZulu.Pipeline.Inputs</RootNamespace>
+    <AssemblyName>DeltaZulu.Pipeline.Inputs</AssemblyName>
   </PropertyGroup>
-
-    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
     <Compile Remove="Windows\**\*.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="CsvHelper" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
-
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Management" />
@@ -21,7 +19,6 @@
     <PackageReference Include="Tx.Windows" />
     <PackageReference Include="Tx.Windows.Logs" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
   </ItemGroup>

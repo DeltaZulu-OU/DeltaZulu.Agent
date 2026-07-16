@@ -1,14 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <OutputType>Library</OutputType>
+    <RootNamespace>DeltaZulu.Agent.ProfileWorkbench</RootNamespace>
+    <AssemblyName>DeltaZulu.Agent.ProfileWorkbench</AssemblyName>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="YamlDotNet" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
     <ProjectReference Include="..\DeltaZulu.Pipeline.Inputs\DeltaZulu.Pipeline.Inputs.csproj" />
