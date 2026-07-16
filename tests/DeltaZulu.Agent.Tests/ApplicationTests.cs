@@ -9,17 +9,18 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ApplicationTests
 {
     [TestMethod]
-    public void PipelineAssembly_DoesNotReferenceLegacyProjectsAndBcl()
+    public void PipelineAssembly_ReferencesOnlyExternalPipelineDependencies()
     {
         var applicationAssembly = typeof(ResourcePipeline).Assembly;
         var referencedAssemblies = applicationAssembly.GetReferencedAssemblies();
 
-        var projectReferences = referencedAssemblies
-            .Where(name => name.Name!.StartsWith("DeltaZulu", StringComparison.Ordinal))
+        var legacyProjectReferences = referencedAssemblies
+            .Where(name => name.Name!.StartsWith("DeltaZulu", StringComparison.Ordinal) && name.Name is not "DeltaZulu.DurableBuffer" and not "DeltaZulu.Relp")
             .Select(name => name.Name!)
             .ToList();
 
-        Assert.IsEmpty(projectReferences, $"Expected no DeltaZulu project references, found: {string.Join(", ", projectReferences)}");
+        Assert.IsEmpty(legacyProjectReferences,
+            $"Pipeline must not reference legacy DeltaZulu projects: {string.Join(", ", legacyProjectReferences)}");
     }
 
     [TestMethod]

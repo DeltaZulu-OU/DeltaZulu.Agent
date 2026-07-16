@@ -150,31 +150,16 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ```text
 src/
-  DeltaZulu.Agent.Pipeline/
-    Abstractions/
-    Delivery/
-    Events/
-    MessagePack/
-    Ndjson/
-    Observability/
-    Profiles/
-    Relp/
+  DeltaZulu.Pipeline/
+    Core/
+    Enrichment/
+    Inputs/
+    Outputs/
+    Tunnel/
   DeltaZulu.Agent.Runtime/
     Security/EtwIntegrity/
   DeltaZulu.Agent.Filter/
-  DeltaZulu.Agent.Outputs/
-    Ndjson/
-    Relp/
-    MessagePack/
   DeltaZulu.Agent.Daemon/
-  DeltaZulu.Agent.Inputs/
-    Relp/
-    Syslog/
-    MessagePack/
-    Files/
-    Auditd/
-    Windows/
-  DeltaZulu.DurableBuffer/  (git submodule)
 tests/
   DeltaZulu.Agent.Tests/
   DeltaZulu.DurableBuffer.Tests/
@@ -183,6 +168,7 @@ profiles/
   windows/
 docs/
 external/
+  DeltaZulu.DurableBuffer/  (git submodule)
   DeltaZulu.Relp/  (git submodule)
 ```
 

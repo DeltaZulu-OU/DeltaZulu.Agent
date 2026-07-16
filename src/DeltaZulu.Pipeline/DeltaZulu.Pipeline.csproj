@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
+    <RootNamespace>DeltaZulu.Pipeline</RootNamespace>
+    <AssemblyName>DeltaZulu.Pipeline</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
+    <Compile Remove="Inputs\Windows\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Polly.Core" />
+    <PackageReference Include="System.Reactive" />
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="System.Diagnostics.EventLog" />
+    <PackageReference Include="System.Management" />
+    <PackageReference Include="Tx.Windows" />
+    <PackageReference Include="Tx.Windows.Logs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\DeltaZulu.DurableBuffer\src\DeltaZulu.DurableBuffer\DeltaZulu.DurableBuffer.csproj" />
+    <ProjectReference Include="..\..\external\DeltaZulu.Relp\src\DeltaZulu.Relp\DeltaZulu.Relp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DeltaZulu.Agent.Tests" />
+  </ItemGroup>
+</Project>

@@ -9,8 +9,7 @@
     <PackageReference Include="YamlDotNet" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Inputs\DeltaZulu.Pipeline.Inputs.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
     <ProjectReference Include="..\DeltaZulu.Agent.SchemaMetadata\DeltaZulu.Agent.SchemaMetadata.csproj" />
   </ItemGroup>

@@ -58,7 +58,7 @@ Important consequence: DeltaZulu's checked-in profile KQL can use a profile-faci
 Relevant DeltaZulu locations:
 
 - `src/DeltaZulu.Agent.Filter/Kql/ResourceKqlProfileExecutor.cs`: normalizes table names and executes all rows through the internal `Source` observable.
-- `src/DeltaZulu.Pipeline.Core/Events/SourceEvent.cs`: materializes event fields, `source`, and `_metadata` for KQL.
+- `src/DeltaZulu.Pipeline/Core/Events/SourceEvent.cs`: materializes event fields, `source`, and `_metadata` for KQL.
 - `src/DeltaZulu.Agent.SchemaMetadata/SchemaDescriptor.cs`: represents table/schema metadata for discovery.
 - `src/DeltaZulu.Agent.SchemaMetadata/SchemaTextParser.cs`: parses known source-family schemas such as `WindowsEtw.Native`.
 

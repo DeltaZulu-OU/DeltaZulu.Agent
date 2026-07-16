@@ -1,8 +1,6 @@
 using System.Reflection;
 using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Outputs.Relp;
-using DeltaZulu.Pipeline.Tunnel;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -10,86 +8,29 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ArchitectureTests
 {
     [TestMethod]
-    public void PipelineAssembly_HasNoProjectReferences()
+    public void PipelineAssembly_ReferencesOnlyExternalPipelineDependencies()
     {
         var pipelineAssembly = typeof(SourceEvent).Assembly;
         var projectRefs = GetProjectReferences(pipelineAssembly);
 
-        Assert.IsEmpty(projectRefs,
-            $"Pipeline must have zero DeltaZulu project references but found: {string.Join(", ", projectRefs)}");
+        var unexpectedRefs = projectRefs
+            .Where(name => name is not "DeltaZulu.DurableBuffer" and not "DeltaZulu.Relp" and not "Relp")
+            .ToList();
+
+        Assert.IsEmpty(unexpectedRefs,
+            $"Pipeline must only reference external pipeline dependencies but found: {string.Join(", ", unexpectedRefs)}");
     }
 
     [TestMethod]
-    public void PipelineAssembly_DoesNotReferenceLegacyProjects()
+    public void PipelineAssembly_DoesNotReferenceAgentProjects()
     {
         var pipelineAssembly = typeof(ResourcePipeline).Assembly;
-        var projectRefs = GetProjectReferences(pipelineAssembly);
-
-        Assert.IsEmpty(projectRefs,
-            $"Pipeline should not reference other DeltaZulu projects but found: {string.Join(", ", projectRefs)}");
-    }
-
-    [TestMethod]
-    public void PipelineOutputs_DoesNotReferencePipelineTunnel()
-    {
-        var outputAssembly = typeof(RelpForwarderOptions).Assembly;
-        var projectRefs = GetProjectReferences(outputAssembly);
-
-        Assert.DoesNotContain("DeltaZulu.Pipeline.Tunnel", projectRefs,
-            "Pipeline outputs must stay independent of tunnel infrastructure; tunnel wiring belongs in the daemon composition root.");
-    }
-
-    [TestMethod]
-    public void PipelineTunnel_DoesNotReferenceAgentProjects()
-    {
-        var tunnelAssembly = typeof(TcpTunnel).Assembly;
-        var agentRefs = GetProjectReferences(tunnelAssembly)
+        var agentRefs = GetProjectReferences(pipelineAssembly)
             .Where(name => name.StartsWith("DeltaZulu.Agent", StringComparison.Ordinal))
             .ToList();
 
         Assert.IsEmpty(agentRefs,
-            $"Pipeline tunnel must remain generic and must not reference agent projects: {string.Join(", ", agentRefs)}");
-    }
-
-    [TestMethod]
-    public void InfrastructureProjects_DoNotReferenceOtherInfrastructure()
-    {
-        var infraAssemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "DeltaZulu.Pipeline.Inputs",
-            "DeltaZulu.Agent.Filter",
-            "DeltaZulu.Pipeline.Core",
-            "DeltaZulu.Pipeline.Enrichment",
-            "DeltaZulu.Pipeline.Outputs"
-        };
-
-        var allowedProjectRefs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "DeltaZulu.Pipeline.Core",
-            "DeltaZulu.DurableBuffer",
-            "DeltaZulu.Relp"
-        };
-
-        foreach (var assemblyName in infraAssemblyNames)
-        {
-            Assembly assembly;
-            try
-            {
-                assembly = Assembly.Load(assemblyName);
-            }
-            catch (FileNotFoundException)
-            {
-                continue;
-            }
-
-            var projectRefs = GetProjectReferences(assembly);
-            var illegalRefs = projectRefs
-                .Where(name => !allowedProjectRefs.Contains(name))
-                .ToList();
-
-            Assert.IsEmpty(illegalRefs,
-                $"{assemblyName} has disallowed project references: {string.Join(", ", illegalRefs)}");
-        }
+            $"Pipeline must remain generic and must not reference agent projects: {string.Join(", ", agentRefs)}");
     }
 
     private static List<string> GetProjectReferences(Assembly assembly) =>

@@ -4,12 +4,9 @@
     <AssemblyName>DeltaZulu.Agent.Runtime</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
+    <ProjectReference Include="..\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="DeltaZulu.Agent.Tests" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Enrichment\DeltaZulu.Pipeline.Enrichment.csproj" />
   </ItemGroup>
 </Project>

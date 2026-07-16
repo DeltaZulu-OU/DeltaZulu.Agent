@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <RootNamespace>DeltaZulu.Pipeline.Enrichment</RootNamespace>
-    <AssemblyName>DeltaZulu.Pipeline.Enrichment</AssemblyName>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
-  </ItemGroup>
-</Project>

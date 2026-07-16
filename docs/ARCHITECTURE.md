@@ -29,17 +29,18 @@ DeltaZulu.Agent currently has three executable hosts:
 
 ```text
 src/
-  DeltaZulu.Pipeline.Core/       Shared pipeline models, abstractions, profiles, observations, serializers, and helpers.
+  DeltaZulu.Pipeline/            Single pipeline assembly, organized by the component folders below.
+    Core/                        Shared pipeline models, abstractions, profiles, observations, serializers, and helpers.
+    Outputs/                     Output adapters grouped by type.
+      Ndjson/                    NDJSON console/file sinks, serializer options, and error records.
+      Relp/                      Buffered RELP sink, RELP-neutral transport port, DeltaZulu.Relp adapter, and health reporting.
+    Inputs/                      Resource-specific input adapters, including RELP server input.
+    Enrichment/                  Deterministic post-filter enrichment, including RPC resolver sidecars.
+    Tunnel/                      Pipeline tunnel support.
   DeltaZulu.Agent.Runtime/       Runtime orchestration that binds inputs, profiles, executors, and sinks; includes agent self-protection services such as ETW prologue integrity monitoring.
   DeltaZulu.Agent.Filter/        Logstash-like filter stage: KQL profile execution and resource prefiltering.
-  DeltaZulu.Pipeline.Outputs/    Output adapters grouped by type.
-    Ndjson/                      NDJSON console/file sinks, serializer options, and error records.
-    Relp/                        Buffered RELP sink, RELP-neutral transport port, DeltaZulu.Relp adapter, and health reporting.
   DeltaZulu.Agent.Daemon/        YAML-driven forwarder daemon composition root.
   DeltaZulu.Agent.Cli/           Development/exploration CLI composition root.
-  DeltaZulu.Pipeline.Inputs/     Resource-specific input adapters, including RELP server input.
-  DeltaZulu.Pipeline.Enrichment/ Deterministic post-filter enrichment, including RPC resolver sidecars.
-  DeltaZulu.Pipeline.Tunnel/     Pipeline tunnel support.
   DeltaZulu.DurableBuffer/       Durable disk buffer, retry, backpressure, dead-lettering, recovery.
 ```
 
@@ -141,7 +142,7 @@ This monitor is deliberately not a normal input source and does not produce endp
 
 ## Daemon roles and coordination
 
-`dzagentd` is the forwarding service boundary. It discovers enabled resource profiles from `profilesPath`, uses each profile's `resource` block as the input declaration, applies the profile KQL filter, then encodes delivery batches with MessagePack and sends them over RELP when `pipeline.output.mode: forward`. Daemon collector mode is the lab receiver: RELP MessagePack input, pass-through filtering, and configurable console/file NDJSON output via `config/dzcollector.yaml`. The `DeltaZulu.Pipeline.Outputs` project keeps RELP forwarding code under the `Relp` folder and `DeltaZulu.Pipeline.Outputs.Relp` namespace, while console/file sinks stay under `Ndjson` and `DeltaZulu.Pipeline.Outputs.Ndjson`; shared NDJSON serialization helpers live in `DeltaZulu.Pipeline.Core/Ndjson` under the `DeltaZulu.Pipeline.Core.Ndjson` namespace so inputs and outputs do not depend on each other.
+`dzagentd` is the forwarding service boundary. It discovers enabled resource profiles from `profilesPath`, uses each profile's `resource` block as the input declaration, applies the profile KQL filter, then encodes delivery batches with MessagePack and sends them over RELP when `pipeline.output.mode: forward`. Daemon collector mode is the lab receiver: RELP MessagePack input, pass-through filtering, and configurable console/file NDJSON output via `config/dzcollector.yaml`. The single `DeltaZulu.Pipeline` project keeps RELP forwarding code under `Outputs/Relp` and the `DeltaZulu.Pipeline.Outputs.Relp` namespace, while console/file sinks stay under `Outputs/Ndjson` and `DeltaZulu.Pipeline.Outputs.Ndjson`; shared NDJSON serialization helpers live in `Core/Ndjson` under the `DeltaZulu.Pipeline.Core.Ndjson` namespace.
 
 Coordination remains configuration-file based for the current split. The forwarder output path already owns durable queue state in `DeltaZulu.DurableBuffer`, while daemon configuration owns source/profile/output selection; no synchronous request/response decisions are required on the hot path. Named pipes or another IPC channel should only be introduced later for live reconfiguration, administrative health queries, or explicit control-plane commands that cannot be expressed safely by replacing configuration and restarting the supervised daemon process.
 

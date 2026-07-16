@@ -51,7 +51,7 @@ DeltaZulu already has many of the raw ingredients:
 
 Relevant DeltaZulu code locations:
 
-- `src/DeltaZulu.Pipeline.Core/Abstractions/ISourceInput.cs` defines the observable source interface.
+- `src/DeltaZulu.Pipeline/Core/Abstractions/ISourceInput.cs` defines the observable source interface.
 - `src/DeltaZulu.Agent.Filter/Kql/ResourceKqlProfileExecutor.cs` streams `SourceEvent.ToKqlRow()` dictionaries into `KqlNodeHub.FromFiles`.
 - `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchSourceRegistry.cs` maps profiles and `--tail` inputs to concrete `ISourceInput` instances.
 - `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchQueryRunner.cs` runs finite and live workbench queries over bound sources.

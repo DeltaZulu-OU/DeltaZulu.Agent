@@ -9,23 +9,23 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class DomainTests
 {
     [TestMethod]
-    public void Pipeline_Assembly_Has_No_Project_Dependencies()
+    public void Pipeline_Assembly_References_Only_External_Pipeline_Dependencies()
     {
         var pipelineAssembly = typeof(SourceEvent).Assembly;
         var referencedAssemblies = pipelineAssembly.GetReferencedAssemblies();
-        var projectReferences = referencedAssemblies
-            .Where(a => a.Name!.StartsWith("DeltaZulu.", StringComparison.OrdinalIgnoreCase))
+        var legacyProjectReferences = referencedAssemblies
+            .Where(a => a.Name!.StartsWith("DeltaZulu.", StringComparison.OrdinalIgnoreCase) && a.Name is not "DeltaZulu.DurableBuffer" and not "DeltaZulu.Relp")
             .Select(a => a.Name!)
             .ToList();
 
-        Assert.IsEmpty(projectReferences,
-            $"Pipeline assembly should have no DeltaZulu project dependencies but references: {string.Join(", ", projectReferences)}");
+        Assert.IsEmpty(legacyProjectReferences,
+            $"Pipeline assembly should not reference legacy DeltaZulu projects: {string.Join(", ", legacyProjectReferences)}");
     }
 
     [TestMethod]
     public void Pipeline_Types_Are_In_Pipeline_Assembly()
     {
-        const string domainAssemblyName = "DeltaZulu.Pipeline.Core";
+        const string domainAssemblyName = "DeltaZulu.Pipeline";
 
         Assert.AreEqual(domainAssemblyName, typeof(SourceEvent).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(ResourceMetadata).Assembly.GetName().Name);

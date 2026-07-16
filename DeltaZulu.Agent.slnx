@@ -10,11 +10,7 @@
   <Project Path="src/DeltaZulu.Agent.SchemaMetadata/DeltaZulu.Agent.SchemaMetadata.csproj" />
   <Project Path="src/DeltaZulu.Agent.ProfileWorkbench/DeltaZulu.Agent.ProfileWorkbench.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
-  <Project Path="src/DeltaZulu.Pipeline.Inputs/DeltaZulu.Pipeline.Inputs.csproj" />
+  <Project Path="src/DeltaZulu.Pipeline/DeltaZulu.Pipeline.csproj" />
   <Project Path="src/DeltaZulu.Agent.Filter/DeltaZulu.Agent.Filter.csproj" />
-  <Project Path="src/DeltaZulu.Pipeline.Core/DeltaZulu.Pipeline.Core.csproj" />
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
-  <Project Path="src/DeltaZulu.Pipeline.Tunnel/DeltaZulu.Pipeline.Tunnel.csproj" />
-  <Project Path="src/DeltaZulu.Pipeline.Outputs/DeltaZulu.Pipeline.Outputs.csproj" />
-  <Project Path="src/DeltaZulu.Pipeline.Enrichment/DeltaZulu.Pipeline.Enrichment.csproj" />
 </Solution>

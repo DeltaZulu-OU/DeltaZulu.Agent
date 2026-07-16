@@ -11,16 +11,10 @@
     <PackageReference Include="MSTest.TestFramework" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Outputs\DeltaZulu.Pipeline.Outputs.csproj" />
-    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Inputs\DeltaZulu.Pipeline.Inputs.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
-    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Core\DeltaZulu.Pipeline.Core.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.Daemon\DeltaZulu.Agent.Daemon.csproj" />
     <ProjectReference Include="..\..\src\DeltaZulu.Agent.ProfileWorkbench\DeltaZulu.Agent.ProfileWorkbench.csproj" />
-    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Tunnel\DeltaZulu.Pipeline.Tunnel.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline.Enrichment\DeltaZulu.Pipeline.Enrichment.csproj" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <RootNamespace>DeltaZulu.Pipeline.Tunnel</RootNamespace>
-    <AssemblyName>DeltaZulu.Pipeline.Tunnel</AssemblyName>
-  </PropertyGroup>
-</Project>
