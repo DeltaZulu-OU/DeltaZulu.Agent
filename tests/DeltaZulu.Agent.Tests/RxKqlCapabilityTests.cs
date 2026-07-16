@@ -12,7 +12,7 @@ namespace DeltaZulu.Agent.Tests;
 [TestClass]
 public sealed class RxKqlCapabilityTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("Source", "Value")]
     [DataRow("Source | where Value == 2 and Label has \"ok\"", "Value")]
     [DataRow("Source | extend Twice = Value * 2", "Twice")]
@@ -26,7 +26,7 @@ public sealed class RxKqlCapabilityTests
         Assert.IsTrue(rows[0].Event.ContainsKey(expectedField), $"Expected '{expectedField}' in the Rx.Kql output.");
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("Source | summarize Total = count()")]
     [DataRow("Source | union Source")]
     [DataRow("Source | join (Source) on Value")]
@@ -45,7 +45,33 @@ public sealed class RxKqlCapabilityTests
         var rows = Execute("EventLog | where Value notin (1) and Label has_any (\"ok\", \"other\") | extend Present = isnotempty(Label)", "EventLog");
 
         Assert.HasCount(1, rows);
-        Assert.AreEqual(true, rows[0].Event["Present"]);
+        Assert.IsTrue((bool?)rows[0].Event["Present"]);
+    }
+
+    [TestMethod]
+    public void QueryResultProvenance_DistinguishesSourceShapedExtendedAndProjectedOutputs()
+    {
+        var sourceShapedRows = Execute("Source | where Value == 2");
+        Assert.HasCount(1, sourceShapedRows);
+        var sourceShaped = sourceShapedRows[0];
+        Assert.IsTrue((bool?)sourceShaped.Metadata["rawPreserved"]);
+        Assert.AreEqual(ResourceOutputRecord.SourceShapedQueryResult, sourceShaped.Metadata[ResourceOutputRecord.QueryResultShapeMetadataKey]);
+        Assert.IsFalse((bool?)sourceShaped.Metadata[ResourceOutputRecord.DerivedFromSourceMetadataKey]);
+        Assert.IsEmpty((string[])sourceShaped.Metadata[ResourceOutputRecord.QueryDerivedFieldsMetadataKey]!);
+
+        var extendedRows = Execute("Source | extend Twice = Value * 2");
+        Assert.HasCount(1, extendedRows);
+        var extended = extendedRows[0];
+        Assert.AreEqual(ResourceOutputRecord.DerivedProjectedQueryResult, extended.Metadata[ResourceOutputRecord.QueryResultShapeMetadataKey]);
+        Assert.IsTrue((bool?)extended.Metadata[ResourceOutputRecord.DerivedFromSourceMetadataKey]);
+        Assert.Contains("Twice", (string[])extended.Metadata[ResourceOutputRecord.QueryDerivedFieldsMetadataKey]!);
+
+        var projectedRows = Execute("Source | project Renamed = Value");
+        Assert.HasCount(1, projectedRows);
+        var projected = projectedRows[0];
+        Assert.AreEqual(ResourceOutputRecord.DerivedProjectedQueryResult, projected.Metadata[ResourceOutputRecord.QueryResultShapeMetadataKey]);
+        Assert.IsTrue((bool?)projected.Metadata[ResourceOutputRecord.DerivedFromSourceMetadataKey]);
+        Assert.Contains("Renamed", (string[])projected.Metadata[ResourceOutputRecord.QueryDerivedFieldsMetadataKey]!);
     }
 
     [TestMethod]
@@ -58,7 +84,7 @@ public sealed class RxKqlCapabilityTests
         Assert.AreEqual(KqlQueryFailureStage.RxKqlParsing, failure.Stage);
         Assert.AreEqual(query, failure.OriginalQuery);
         Assert.AreEqual(query, failure.NormalizedQuery);
-        StringAssert.Contains(failure.Message, "profiles.capability.diagnostic");
+        Assert.Contains("profiles.capability.diagnostic", failure.Message);
         Assert.IsFalse(failure.Message.Contains(query, StringComparison.Ordinal));
     }
 
@@ -72,7 +98,7 @@ public sealed class RxKqlCapabilityTests
             Filter = new ResourceFilter { Query = query }
         };
         var source = new SourceEvent(
-            new ResourceMetadata { SourceName = "capability" },
+            new ResourceMetadata { SourceName = "capability", RawPreserved = true },
             new Dictionary<string, object?> { ["Value"] = 2, ["Label"] = "ok" });
 
         return executor.Execute(Observable.Return(source), profile).ToList().Wait();

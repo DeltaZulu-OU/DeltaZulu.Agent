@@ -1,5 +1,6 @@
 using System.Data;
 using DeltaZulu.Agent.ProfileWorkbench;
+using DeltaZulu.Pipeline.Core.Events;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Terminal.Gui.Editor;
@@ -226,6 +227,17 @@ internal static class ProfileWorkbenchTui
                     request,
                     record => PostUi(() => {
                         tableModel.Append(record.Event);
+                        var sourceFields = source.Schema.Fields.Select(field => field.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                        var derivedFields = record.Metadata.TryGetValue(ResourceOutputRecord.QueryDerivedFieldsMetadataKey, out var value) && value is IEnumerable<string> fields
+                            ? fields.ToArray()
+                            : record.Event.Keys.Where(field => !sourceFields.Contains(field)).ToArray();
+                        var shape = record.Metadata.TryGetValue(ResourceOutputRecord.QueryResultShapeMetadataKey, out var resultShape)
+                            ? resultShape?.ToString()
+                            : "unknown";
+                        tableLabel.Text = derivedFields.Length == 0
+                            ? $"Table: {source.Schema.Table} | Result: {shape} | all displayed fields are source fields"
+                            : $"Table: {source.Schema.Table} | Result: {shape} | query-derived: {string.Join(", ", derivedFields)}";
+                        tableLabel.SetNeedsDraw();
                         results.SetNeedsDraw();
                     }),
                     counters => PostUi(() => UpdateStatus(counters)),

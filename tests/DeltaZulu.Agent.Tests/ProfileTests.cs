@@ -49,7 +49,7 @@ public sealed class ProfileTests
         var errors = new ResourceProfileValidator().Validate(profile);
 
         Assert.HasCount(1, errors);
-        CollectionAssert.Contains(errors.ToList(), "condition.query is required when condition is specified.");
+        Assert.Contains("condition.query is required when condition is specified.", errors.ToList());
     }
 
     [TestMethod]
@@ -76,10 +76,10 @@ public sealed class ProfileTests
 
         var errors = new ResourceProfileValidator().Validate(profile);
 
-        CollectionAssert.Contains(errors.ToList(), "schemaVersion must be greater than zero.");
-        CollectionAssert.Contains(errors.ToList(), "Only filter.language: kql is supported in this implementation.");
-        CollectionAssert.Contains(errors.ToList(), "Only output.format: ndjson is supported in this implementation.");
-        CollectionAssert.Contains(errors.ToList(), "preserveOriginalFieldNames must remain true. Server-side normalization owns semantic field mapping.");
+        Assert.Contains("schemaVersion must be greater than zero.", errors.ToList());
+        Assert.Contains("Only filter.language: kql is supported in this implementation.", errors.ToList());
+        Assert.Contains("Only output.format: ndjson is supported in this implementation.", errors.ToList());
+        Assert.Contains("preserveOriginalFieldNames must remain true. Server-side normalization owns semantic field mapping.", errors.ToList());
     }
 
     [TestMethod]
@@ -288,9 +288,9 @@ filter:
         Assert.IsEmpty(result.Errors);
         Assert.IsEmpty(result.Warnings);
         Assert.IsGreaterThanOrEqualTo(70, result.Profiles.Count);
-        CollectionAssert.Contains(result.Profiles.Select(profile => profile.Id).ToList(), "windows.eventlog.security");
-        CollectionAssert.Contains(result.Profiles.Select(profile => profile.Id).ToList(), "windows.eventlog.system-service-control-manager");
-        CollectionAssert.Contains(result.Profiles.Select(profile => profile.Id).ToList(), "windows.eventlog.windowsupdateclient-operational");
+        Assert.Contains("windows.eventlog.security", result.Profiles.Select(profile => profile.Id).ToList());
+        Assert.Contains("windows.eventlog.system-service-control-manager", result.Profiles.Select(profile => profile.Id).ToList());
+        Assert.Contains("windows.eventlog.windowsupdateclient-operational", result.Profiles.Select(profile => profile.Id).ToList());
     }
 
     private static string FindRepositoryPath(params string[] segments)

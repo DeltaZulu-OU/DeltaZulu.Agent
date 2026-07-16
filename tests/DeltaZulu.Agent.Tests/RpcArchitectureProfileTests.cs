@@ -8,15 +8,15 @@ public sealed class RpcArchitectureProfileTests
     {
         var profile = File.ReadAllText(ProfilePath("windows", "etw", "rpc-p0.yaml"));
 
-        StringAssert.Contains(profile, "id: windows.etw.rpc.p0");
-        StringAssert.Contains(profile, "preserveRawEvent: true");
-        StringAssert.Contains(profile, "metadataEnvelope: true");
-        StringAssert.Contains(profile, "InterfaceUuidNormalized = trim");
+        Assert.Contains("id: windows.etw.rpc.p0", profile);
+        Assert.Contains("preserveRawEvent: true", profile);
+        Assert.Contains("metadataEnvelope: true", profile);
+        Assert.Contains("InterfaceUuidNormalized = trim", profile);
         Assert.IsFalse(profile.Contains("isempty(InterfaceUuidNormalized)", StringComparison.OrdinalIgnoreCase));
-        StringAssert.Contains(profile, "367abb81-9844-35f1-ad32-98f038001003");
-        StringAssert.Contains(profile, "e3514235-4b06-11d1-ab04-00c04fc2dcd2");
-        StringAssert.Contains(profile, "svcctl");
-        StringAssert.Contains(profile, "drsuapi");
+        Assert.Contains("367abb81-9844-35f1-ad32-98f038001003", profile);
+        Assert.Contains("e3514235-4b06-11d1-ab04-00c04fc2dcd2", profile);
+        Assert.Contains("svcctl", profile);
+        Assert.Contains("drsuapi", profile);
     }
 
     [TestMethod]
@@ -24,7 +24,7 @@ public sealed class RpcArchitectureProfileTests
     {
         var profile = File.ReadAllText(ProfilePath("windows", "eventlog", "security.yaml"));
 
-        StringAssert.Contains(profile, "5152, 5156, 5157");
+        Assert.Contains("5152, 5156, 5157", profile);
     }
 
     [TestMethod]
@@ -32,18 +32,18 @@ public sealed class RpcArchitectureProfileTests
     {
         var profile = File.ReadAllText(ProfilePath("windows", "eventlog", "security-rpc-correlation.yaml"));
 
-        StringAssert.Contains(profile, "id: windows.eventlog.security.rpc-correlation");
-        StringAssert.Contains(profile, "| where EventId in (4624, 4662, 5156)");
-        StringAssert.Contains(profile, @"C:\Windows\System32\services.exe");
-        StringAssert.Contains(profile, @"C:\Windows\System32\lsass.exe");
-        StringAssert.Contains(profile, "ApplicationPath in~");
-        StringAssert.Contains(profile, "ApplicationName in~");
-        StringAssert.Contains(profile, "Application_Name in~");
-        StringAssert.Contains(profile, "['Application Name'] in~");
-        StringAssert.Contains(profile, "DestPort between (49152 .. 65535)");
-        StringAssert.Contains(profile, "DestinationPort between (49152 .. 65535)");
-        StringAssert.Contains(profile, "Destination_Port between (49152 .. 65535)");
-        StringAssert.Contains(profile, "['Destination Port'] between (49152 .. 65535)");
+        Assert.Contains("id: windows.eventlog.security.rpc-correlation", profile);
+        Assert.Contains("| where EventId in (4624, 4662, 5156)", profile);
+        Assert.Contains(@"C:\Windows\System32\services.exe", profile);
+        Assert.Contains(@"C:\Windows\System32\lsass.exe", profile);
+        Assert.Contains("ApplicationPath in~", profile);
+        Assert.Contains("ApplicationName in~", profile);
+        Assert.Contains("Application_Name in~", profile);
+        Assert.Contains("['Application Name'] in~", profile);
+        Assert.Contains("DestPort between (49152 .. 65535)", profile);
+        Assert.Contains("DestinationPort between (49152 .. 65535)", profile);
+        Assert.Contains("Destination_Port between (49152 .. 65535)", profile);
+        Assert.Contains("['Destination Port'] between (49152 .. 65535)", profile);
     }
 
 

@@ -159,7 +159,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
             // Guards every terminal notification sent to `observer` (error, source completion, or
             // cancellation) so exactly one of them wins, regardless of which fires first.
             var terminalSignaled = 0;
-            ResourceMetadata? capturedMetadata = null;
+            SourceEvent? capturedSource = null;
 
             var kqlRows = new Subject<IDictionary<string, object>>();
             disposables.Add(kqlRows);
@@ -170,7 +170,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                 // Otherwise synchronous or finite sources can complete the Subject before the hub sees events.
                 var hub = KqlNodeHub.FromFiles(
                     kqlRows,
-                    kqlOutput => OnKqlOutput(kqlOutput, profile, observer, capturedMetadata),
+                    kqlOutput => OnKqlOutput(kqlOutput, profile, observer, capturedSource),
                     observableName,
                     queryPath);
 
@@ -207,7 +207,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
                 var sourceSubscription = source.Subscribe(
                     sourceEvent => {
-                        Interlocked.CompareExchange(ref capturedMetadata, sourceEvent.Metadata, null);
+                        Interlocked.Exchange(ref capturedSource, sourceEvent);
                         TryNotifyKqlRows(kqlRows, rows => rows.OnNext(DictionaryCoercion.ToKqlDictionary(sourceEvent.ToKqlRow())));
                     },
                     error => {
@@ -560,12 +560,12 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
 
     private static bool IsKqlIdentifierCharacter(char value) => char.IsLetterOrDigit(value) || value == '_';
 
-    private static void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output, ResourceMetadata? sourceMetadata)
+    private static void OnKqlOutput(KqlOutput kqlOutput, ResourceProfile profile, IObserver<ResourceOutputRecord> output, SourceEvent? sourceEvent)
     {
         try
         {
             var projected = kqlOutput.Output.ToDictionary(k => k.Key, v => (object?)v.Value, StringComparer.OrdinalIgnoreCase);
-            var record = ResourceOutputRecord.FromKqlProjection(projected, profile.Id, profile.Version, sourceMetadata);
+            var record = ResourceOutputRecord.FromKqlProjection(projected, profile.Id, profile.Version, sourceEvent?.Metadata, sourceEvent);
             output.OnNext(record);
         }
         catch (Exception ex)

@@ -4,6 +4,12 @@ namespace DeltaZulu.Pipeline.Core.Events;
 
 public sealed record ResourceOutputRecord
 {
+    public const string QueryResultShapeMetadataKey = "queryResultShape";
+    public const string DerivedFromSourceMetadataKey = "derivedFromSource";
+    public const string QueryDerivedFieldsMetadataKey = "queryDerivedFields";
+    public const string SourceShapedQueryResult = "source-shaped";
+    public const string DerivedProjectedQueryResult = "derived/projected";
+
     [JsonPropertyName("_metadata")]
     public IReadOnlyDictionary<string, object?> Metadata { get; init; } = new Dictionary<string, object?>();
 
@@ -46,7 +52,8 @@ public sealed record ResourceOutputRecord
         IReadOnlyDictionary<string, object?> projectedFields,
         string profileId,
         string? profileVersion,
-        ResourceMetadata? sourceMetadata)
+        ResourceMetadata? sourceMetadata,
+        SourceEvent? sourceEvent = null)
     {
         var eventFields = new Dictionary<string, object?>(projectedFields.Count, StringComparer.OrdinalIgnoreCase);
         var metadata = new Dictionary<string, object?>(12, StringComparer.OrdinalIgnoreCase) {
@@ -111,11 +118,41 @@ public sealed record ResourceOutputRecord
             eventFields[field.Key] = field.Value;
         }
 
+        ApplyQueryResultProvenance(metadata, eventFields, sourceEvent);
+
         return new ResourceOutputRecord {
             Metadata = metadata,
             Event = eventFields,
             Enrichment = enrichment
         };
+    }
+
+    private static void ApplyQueryResultProvenance(
+        IDictionary<string, object?> metadata,
+        IReadOnlyDictionary<string, object?> eventFields,
+        SourceEvent? sourceEvent)
+    {
+        if (sourceEvent is null)
+        {
+            // A result without a source row (for example, a future aggregate) is
+            // necessarily a query-derived result rather than a forwarding record.
+            metadata[QueryResultShapeMetadataKey] = DerivedProjectedQueryResult;
+            metadata[DerivedFromSourceMetadataKey] = true;
+            metadata[QueryDerivedFieldsMetadataKey] = eventFields.Keys.ToArray();
+            return;
+        }
+
+        var sourceFields = sourceEvent.ToKqlRow();
+        sourceFields.Remove("_metadata");
+        var derivedFields = eventFields.Keys
+            .Where(key => !sourceFields.ContainsKey(key))
+            .ToArray();
+        var sourceFieldsWereDropped = sourceFields.Keys.Any(key => !eventFields.ContainsKey(key));
+        var derived = derivedFields.Length > 0 || sourceFieldsWereDropped;
+
+        metadata[QueryResultShapeMetadataKey] = derived ? DerivedProjectedQueryResult : SourceShapedQueryResult;
+        metadata[DerivedFromSourceMetadataKey] = derived;
+        metadata[QueryDerivedFieldsMetadataKey] = derivedFields;
     }
 
     private static readonly string[] DeliveryIdentityFields =

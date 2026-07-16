@@ -45,6 +45,71 @@ possible. Projection and display-oriented queries are appropriate for interactiv
 CLI/workbench results, which are not forwarded as source telemetry. The executor
 does not reinterpret Rx.Kql operator support as a separate policy list.
 
+## Query-result provenance
+
+Raw capture and query-result shape are separate output facts. The delivery
+metadata retains the source's `rawPreserved` value; it does not imply that the
+query result still has the source event shape. Every Rx.Kql result also carries:
+
+- `queryResultShape`: `source-shaped` when every source row field is retained,
+  or `derived/projected` when the query adds, renames, drops, or otherwise
+  derives fields;
+- `derivedFromSource`: the boolean form of that distinction; and
+- `queryDerivedFields`: output fields that are not source-row field names.
+
+Thus `where` normally produces source-shaped forwarding output, `extend`
+reports its new fields as query-derived, and `project` is marked
+`derived/projected` when it narrows or renames the source row. The workbench
+shows this result shape and the derived field names alongside its table.
+
+## Profile authoring guidance
+
+This is guidance, not an additional YAML operator policy. Checked-in profiles
+must be structurally valid and executable by the pinned engine; the following
+patterns make the resulting provenance and delivery intent clear.
+
+### Forward native events
+
+Use `where` when the intent is to forward the source-native event after local
+selection. The successful rows remain `source-shaped` and retain the source
+capture claim in `rawPreserved`.
+
+```kql
+Security
+| where EventId == 4688
+```
+
+### Add a local derived value
+
+Use `extend` for a local value that aids resource-specific filtering or a
+clearly labelled derived result. The original fields remain available, while
+the added field is reported in `queryDerivedFields`.
+
+```kql
+Auditd
+| where SYSCALL.SYSCALL == "execve"
+| extend executable = tostring(SYSCALL.exe)
+```
+
+### Build an interactive presentation
+
+Use `project` deliberately for a narrow investigation or workbench view. It is
+reported as `derived/projected`, even when some selected fields retain their
+source names.
+
+```kql
+Security
+| where EventId == 4688
+| project TimeCreated, NewProcessName, ParentProcessName
+```
+
+### Normalize after delivery
+
+Use Platform-side canonical mapping for semantic normalization after delivery,
+rather than renaming source semantics in an Agent profile. For example, forward
+the source-native `NewProcessName`; map it to a platform canonical process-path
+field downstream where the platform has the necessary cross-source context.
+
 ## Interactive CLI and workbench
 
 Ad hoc CLI tail and workbench queries run against the same Rx.Kql executor and

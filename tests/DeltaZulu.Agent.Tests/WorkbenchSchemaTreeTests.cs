@@ -59,10 +59,10 @@ public sealed class WorkbenchSchemaTreeTests
         ]).Children.Single();
 
         Assert.AreEqual("Eventlog (source: sshd)", syslog.Text);
-        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "Message: string");
-        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "ProcessName: string");
-        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "source: string");
-        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "_metadata: dynamic");
+        Assert.Contains("Message: string", syslog.Children.Select(child => child.Text).ToArray());
+        Assert.Contains("ProcessName: string", syslog.Children.Select(child => child.Text).ToArray());
+        Assert.Contains("source: string", syslog.Children.Select(child => child.Text).ToArray());
+        Assert.Contains("_metadata: dynamic", syslog.Children.Select(child => child.Text).ToArray());
     }
 
     [TestMethod]
