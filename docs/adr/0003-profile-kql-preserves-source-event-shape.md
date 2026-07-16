@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted.
+Superseded by [ADR 0004: KQL capability alignment and source event guidance](0004-kql-capability-alignment.md).
+
+> Historical decision: this ADR originally prohibited `project` in checked-in
+> profiles. That restriction is no longer the Agent KQL capability policy.
+> The superseding ADR retains source-event and Platform-normalization guidance
+> without maintaining an Agent-specific per-operator blocklist.
 
 ## Context
 
