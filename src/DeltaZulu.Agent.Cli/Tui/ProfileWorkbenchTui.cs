@@ -60,37 +60,45 @@ internal static class ProfileWorkbenchTui
                 Text = initialSource ?? string.Empty
             };
 
-            var previousButton = new Button {
+            var tableLabel = new Label {
                 X = Pos.Right(profileTree) + 1,
                 Y = Pos.Bottom(sourceText) + 1,
+                Width = Dim.Fill(),
+                Height = 1,
+                Text = "Table: - | Columns: 0"
+            };
+
+            var previousButton = new Button {
+                X = Pos.Right(profileTree) + 1,
+                Y = Pos.Bottom(tableLabel) + 1,
                 Text = "_Previous",
                 AssignHotKeys = true
             };
 
             var nextButton = new Button {
                 X = Pos.Right(previousButton) + 1,
-                Y = Pos.Bottom(sourceText) + 1,
+                Y = Pos.Bottom(tableLabel) + 1,
                 Text = "_Next",
                 AssignHotKeys = true
             };
 
             var runButton = new Button {
                 X = Pos.Right(nextButton) + 1,
-                Y = Pos.Bottom(sourceText) + 1,
+                Y = Pos.Bottom(tableLabel) + 1,
                 Text = "_Follow",
                 AssignHotKeys = true
             };
 
             var clearButton = new Button {
                 X = Pos.Right(runButton) + 1,
-                Y = Pos.Bottom(sourceText) + 1,
+                Y = Pos.Bottom(tableLabel) + 1,
                 Text = "_Clear",
                 AssignHotKeys = true
             };
 
             var saveButton = new Button {
                 X = Pos.Right(clearButton) + 1,
-                Y = Pos.Bottom(sourceText) + 1,
+                Y = Pos.Bottom(tableLabel) + 1,
                 Text = "_Save",
                 AssignHotKeys = true
             };
@@ -181,6 +189,8 @@ internal static class ProfileWorkbenchTui
                 var candidate = sourceRegistry.CandidateFromProfile(current.Profile);
                 sourceText.Text = initialSourceBinding ?? candidate.PathOrResource ?? string.Empty;
                 var binding = candidate.RequiresBinding ? "source required" : $"source {candidate.PathOrResource}";
+                tableLabel.Text = $"Table: {candidate.Schema.Table} | Columns: {candidate.Schema.Fields.Count}";
+                tableLabel.SetNeedsDraw();
                 status.Text = $"Profile {index + 1}/{profiles.Count}: {current.Profile.Id} | {candidate.DisplayName} | {binding} | schema fields {candidate.Schema.Fields.Count}";
                 tableModel.Reset(candidate.Schema.Fields.Count > 0 ? candidate.Schema.Fields.Select(field => field.Name) : ["Result"]);
                 results.SetNeedsDraw();
@@ -332,7 +342,7 @@ internal static class ProfileWorkbenchTui
             WireButton(saveButton, SaveProfile);
             WireButton(clearButton, ClearResults);
 
-            window.Add(status, profileTree, sourceLabel, sourceText, previousButton, nextButton, runButton, clearButton, saveButton, queryEditor, results);
+            window.Add(status, profileTree, sourceLabel, sourceText, tableLabel, previousButton, nextButton, runButton, clearButton, saveButton, queryEditor, results);
             LoadCurrentProfile();
             try
             {

@@ -156,6 +156,16 @@ filter:
     }
 
     [TestMethod]
+    public void LoadFile_AppliesEtwTableAndSchemaDefaultsWhenInputIsOmitted()
+    {
+        var profile = new YamlResourceProfileLoader().LoadFile(Path.Combine("profiles", "windows", "etw", "tcpip.yaml"));
+
+        Assert.AreEqual("Etw", profile.Input.Table);
+        Assert.AreEqual("WindowsEtw.Native", profile.Input.Schema);
+        Assert.IsTrue(profile.Filter.Query.TrimStart().StartsWith(profile.Input.Table, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
     public void LoadFile_SecurityProfileDoesNotProjectFieldsForRawLogPreservation()
     {
         var profile = new YamlResourceProfileLoader().LoadFile(Path.Combine("profiles", "windows", "eventlog", "security.yaml"));

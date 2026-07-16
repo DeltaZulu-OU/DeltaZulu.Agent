@@ -16,15 +16,15 @@ public sealed class WorkbenchSchemaTreeTests
 
         Assert.AreEqual("none", tree.Text);
         CollectionAssert.AreEqual(
-            new[] { "ETW/Windows-Kernel-Process", "Eventlog/Security" },
+            new[] { "ETW (source: Windows-Kernel-Process)", "Eventlog (source: Security)" },
             tree.Children.Select(child => child.Text).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "EventId", "Image" },
+            new[] { "EventId: int", "Image: string", "source: string", "_metadata: dynamic" },
             tree.Children[0].Children.Select(child => child.Text).ToArray());
         Assert.AreEqual("test.etw.Windows-Kernel-Process", tree.Children[0].ProfileId);
         Assert.IsTrue(tree.Children[0].Children.All(child => child.ProfileId == tree.Children[0].ProfileId));
         CollectionAssert.AreEqual(
-            new[] { "EventId", "TargetUserName" },
+            new[] { "EventId: int", "TargetUserName: string", "source: string", "_metadata: dynamic" },
             tree.Children[1].Children.Select(child => child.Text).ToArray());
         Assert.AreEqual("test.eventlog.Security", tree.Children[1].ProfileId);
         Assert.IsTrue(tree.Children[1].Children.All(child => child.ProfileId == tree.Children[1].ProfileId));
@@ -47,7 +47,7 @@ public sealed class WorkbenchSchemaTreeTests
             CreateProfile("eventlog", "Eventlog", "Microsoft-Windows-AppLocker/EXE and DLL/Operational", null, "EventId:int")
         ]).Children.Single();
 
-        Assert.AreEqual("Eventlog/Microsoft-Windows-AppLocker/EXE and DLL", eventlog.Text);
+        Assert.AreEqual("Eventlog (source: Microsoft-Windows-AppLocker/EXE and DLL)", eventlog.Text);
         Assert.AreEqual("Eventlog | Source ~= \"Microsoft-Windows-AppLocker/EXE and DLL\" ", WorkbenchSchemaTree.InsertionText(eventlog));
     }
 
@@ -58,9 +58,23 @@ public sealed class WorkbenchSchemaTreeTests
             CreateProfile("syslog", "EventLog", null, null, "LinuxSyslog.Native", service: "sshd")
         ]).Children.Single();
 
-        Assert.AreEqual("Eventlog/sshd", syslog.Text);
-        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "Message");
-        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "ProcessName");
+        Assert.AreEqual("Eventlog (source: sshd)", syslog.Text);
+        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "Message: string");
+        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "ProcessName: string");
+        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "source: string");
+        CollectionAssert.Contains(syslog.Children.Select(child => child.Text).ToArray(), "_metadata: dynamic");
+    }
+
+    [TestMethod]
+    public void Build_ExposesColumnTypesAndInsertsOnlyTheColumnName()
+    {
+        var field = WorkbenchSchemaTree.Build([
+            CreateProfile("syslog", "Syslog", null, null, "Message:string", service: "sshd")
+        ]).Children.Single().Children.Single(child => child.Field == "Message");
+
+        Assert.AreEqual("Message: string", field.Text);
+        Assert.AreEqual("string", field.KqlType);
+        Assert.AreEqual("Message", WorkbenchSchemaTree.InsertionText(field));
     }
 
     private static ResourceProfile CreateProfile(string family, string table, string? channel, string? provider, string schema, string? service = null) => new()

@@ -9,6 +9,7 @@ public sealed record WorkbenchSchemaTreeNode(
     string? Table = null,
     string? Source = null,
     string? Field = null,
+    string? KqlType = null,
     string? ProfileId = null,
     IReadOnlyList<WorkbenchSchemaTreeNode>? Children = null)
 {
@@ -40,18 +41,24 @@ public static class WorkbenchSchemaTree
                 var fields = group
                     .SelectMany(source => source.Fields)
                     .GroupBy(field => field.Name, StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
-                    .Select(field => new WorkbenchSchemaTreeNode(
-                        field.Key,
-                        WorkbenchSchemaTreeNodeKind.Field,
-                        group.First().Table,
-                        group.First().Source,
-                        field.Key,
-                        group.First().ProfileId))
+                    .OrderBy(field => IsRuntimeEnvelopeField(field) ? 1 : 0)
+                    .ThenBy(field => RuntimeEnvelopeSortOrder(field.Key))
+                    .ThenBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+                    .Select(field => {
+                        var kqlType = ResolveKqlType(field);
+                        return new WorkbenchSchemaTreeNode(
+                            $"{field.Key}: {kqlType}",
+                            WorkbenchSchemaTreeNodeKind.Field,
+                            group.First().Table,
+                            group.First().Source,
+                            field.Key,
+                            kqlType,
+                            group.First().ProfileId);
+                    })
                     .ToArray();
 
                 return new WorkbenchSchemaTreeNode(
-                    $"{group.First().Table}/{group.First().Source}",
+                    $"{group.First().Table} (source: {group.First().Source})",
                     WorkbenchSchemaTreeNodeKind.LogSource,
                     group.First().Table,
                     group.First().Source,
@@ -83,6 +90,25 @@ public static class WorkbenchSchemaTree
 
         var schema = SchemaTextParser.Parse(table, profile.Input.Schema, NormalizeFamily(profile.Resource.Family), executable: false);
         return new SourceSchema(table, source, profile.Id, schema.Fields);
+    }
+
+    private static bool IsRuntimeEnvelopeField(IEnumerable<SchemaFieldDescriptor> fields) =>
+        fields.Any(field => field.Origin.Equals("RuntimeEnvelope", StringComparison.OrdinalIgnoreCase));
+
+    private static int RuntimeEnvelopeSortOrder(string name) => name.ToLowerInvariant() switch
+    {
+        "source" => 0,
+        "_metadata" => 1,
+        _ => 2
+    };
+
+    private static string ResolveKqlType(IEnumerable<SchemaFieldDescriptor> fields)
+    {
+        var types = fields
+            .Select(field => field.KqlType)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return types.Length == 1 ? types[0] : "dynamic";
     }
 
     private static string NormalizeTable(string? family, string? table)

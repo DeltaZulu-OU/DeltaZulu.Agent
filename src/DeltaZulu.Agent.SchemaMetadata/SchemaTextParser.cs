@@ -36,10 +36,10 @@ public static class SchemaTextParser
             }
         }
 
-        return new SchemaDescriptor(table, fields, sourceKind, provenance, confidence, executable);
+        return CreateDescriptor(table, fields, sourceKind, provenance, confidence, executable);
     }
 
-    public static SchemaDescriptor Lines(string table = "Lines") => new(
+    public static SchemaDescriptor Lines(string table = "Lines") => CreateDescriptor(
         table,
         [
             new SchemaFieldDescriptor("lineNumber", "long", "ParserContract", 100, Nullable: false),
@@ -142,8 +142,32 @@ public static class SchemaTextParser
 
         descriptor = fields is null
             ? Empty(table, sourceKind)
-            : new SchemaDescriptor(table, fields, sourceKind, schema, 100, executable);
+            : CreateDescriptor(table, fields, sourceKind, schema, 100, executable);
         return fields is not null;
+    }
+
+    private static SchemaDescriptor CreateDescriptor(
+        string table,
+        IReadOnlyList<SchemaFieldDescriptor> fields,
+        string sourceKind,
+        string provenance,
+        int confidence,
+        bool executable)
+    {
+        var queryableFields = fields.ToList();
+        AddRuntimeField(queryableFields, "source", "string", "RuntimeEnvelope");
+        AddRuntimeField(queryableFields, "_metadata", "dynamic", "RuntimeEnvelope");
+        return new SchemaDescriptor(table, queryableFields, sourceKind, provenance, confidence, executable);
+    }
+
+    private static void AddRuntimeField(List<SchemaFieldDescriptor> fields, string name, string kqlType, string origin)
+    {
+        if (fields.Any(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        fields.Add(new SchemaFieldDescriptor(name, kqlType, origin, 100));
     }
 
     private static IReadOnlyList<SchemaFieldDescriptor> CreateFields(

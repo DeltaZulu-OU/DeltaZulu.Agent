@@ -46,7 +46,10 @@ public sealed class ResourceDescriptor
 
 public sealed class ResourceInputContract
 {
-    public string Table { get; set; } = "Source";
+    /// <summary>
+    /// Logical KQL source name. Empty means the YAML loader must apply the family default.
+    /// </summary>
+    public string Table { get; set; } = string.Empty;
     public string Schema { get; set; } = string.Empty;
 }
 
