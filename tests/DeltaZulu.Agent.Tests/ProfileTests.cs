@@ -1,4 +1,7 @@
 using DeltaZulu.Pipeline.Core.Profiles;
+using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Agent.Filter.Kql;
+using System.Reactive.Linq;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -291,6 +294,33 @@ filter:
         Assert.Contains("windows.eventlog.security", result.Profiles.Select(profile => profile.Id).ToList());
         Assert.Contains("windows.eventlog.system-service-control-manager", result.Profiles.Select(profile => profile.Id).ToList());
         Assert.Contains("windows.eventlog.windowsupdateclient-operational", result.Profiles.Select(profile => profile.Id).ToList());
+    }
+
+    [TestMethod]
+    public void CheckedInProfiles_ParseWithThePinnedRxKqlEngine()
+    {
+        var directory = FindRepositoryPath("profiles");
+        var result = new YamlResourceProfileLoader().LoadDirectory(directory);
+        Assert.IsEmpty(result.Errors, $"Profile loading errors: {string.Join("; ", result.Errors)}");
+
+        var failures = new List<string>();
+        foreach (var profile in result.Profiles)
+        {
+            // A disabled profile is still checked-in authoring content. Enable it
+            // only for this parse/startup contract; no source rows are supplied.
+            profile.Enabled = true;
+            using var executor = new ResourceKqlProfileExecutor();
+            try
+            {
+                executor.Execute(Observable.Empty<SourceEvent>(), profile).ToList().Wait();
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{profile.Id}: {ex.GetBaseException().Message}");
+            }
+        }
+
+        Assert.IsEmpty(failures, $"Checked-in profiles rejected by Microsoft.Rx.Kql 3.5.3: {string.Join("; ", failures)}");
     }
 
     private static string FindRepositoryPath(params string[] segments)

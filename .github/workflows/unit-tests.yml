@@ -7,6 +7,8 @@ on:
       - '.github/workflows/*.yml'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
+      - 'profiles/**'
+      - 'docs/RXKQL_CAPABILITY_MATRIX.md'
       - '*.slnx'              # Triggers on any solution file changes without hardcoding the name
       - 'src/**'
       - 'tests/**'
@@ -17,6 +19,8 @@ on:
       - '.github/workflows/*.yml'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
+      - 'profiles/**'
+      - 'docs/RXKQL_CAPABILITY_MATRIX.md'
       - '*.slnx'
       - 'src/**'
       - 'tests/**'

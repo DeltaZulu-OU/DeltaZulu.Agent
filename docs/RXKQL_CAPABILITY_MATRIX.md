@@ -6,6 +6,10 @@ Each result is exercised by `RxKqlCapabilityTests`; it is not a hand-maintained
 Agent operator policy. Re-run that suite whenever the package, a shim, source
 binding, or workbench execution path changes.
 
+The unit suite also starts every checked-in profile against an empty observable.
+That verifies its query parses with the pinned package without turning YAML
+validation into a second KQL operator policy.
+
 | Feature | Classification | Executable evidence / runtime boundary |
 | --- | --- | --- |
 | Source/table selection | RxKqlSupported | `Source` executes; the Agent rewrites the declared profile table to the one Rx.Kql observable named `Source`. |
@@ -19,6 +23,33 @@ binding, or workbench execution path changes.
 | `notin` | AgentCompatible | The Agent normalizes the Kusto alias to Rx.Kql's `!in`. |
 | `has_any` | AgentCompatible | The Agent expands a value list to a parenthesized sequence of `has` predicates. |
 | Agent scalar helpers | AgentCompatible | `isnotempty`, `strcat_array`, `ntohs`, and `getprocessname` are registered before query execution. |
+
+## Multi-stream runtime availability
+
+The feature classification above answers what the pinned engine can execute;
+it does not itself grant an Agent query access to additional tables. The current
+profile executor supplies exactly one observable (`Source`) and rewrites the
+profile's declared table to that binding. Therefore no named secondary source,
+schema/table resolver, completion coordination, or bounded state contract is
+available for a practical multi-stream query.
+
+For version 3.5.3, `union` and `join` are already **Unsupported by the pinned
+engine**, so no Agent runtime limitation is being used to reject them. If a
+future pinned engine supports either operator, its matrix row must separately
+state **RxKqlSupported, Agent runtime unavailable** until named bindings,
+lifecycle/completion semantics, and bounded-memory behavior are implemented
+and covered by integration tests. This distinction prevents parser recognition
+from being advertised as usable Agent multi-stream execution.
+
+## Release and regression checklist
+
+When updating `Microsoft.Rx.Kql`, update its pinned version in
+`Directory.Packages.props` and this matrix in the same change, then run the
+capability tests and the checked-in profile startup test. The CI workflow is
+also triggered by package, profile, source/executor, workbench, and matrix
+changes. New privacy, compliance, bandwidth, or delivery restrictions require
+their own product requirement and ADR; they must not be represented as an
+undocumented KQL syntax restriction.
 
 ## How to interpret the classifications
 

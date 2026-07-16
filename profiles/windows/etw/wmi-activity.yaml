@@ -12,4 +12,4 @@ filter:
     | where ProviderName =~ "Microsoft-Windows-WMI-Activity"
     // Keep provider/activity/subscription events; reduce routine root\cimv2 service noise while retaining non-service use.
     | where EventId in (5857, 5858, 5859, 5860, 5861)
-    | where Namespace !startswith "root\cimv2" or not(User in~ ("SYSTEM", "LOCAL SERVICE", "NETWORK SERVICE"))
+    | where Namespace !startswith @"root\cimv2" or not(User in~ ("SYSTEM", "LOCAL SERVICE", "NETWORK SERVICE"))
