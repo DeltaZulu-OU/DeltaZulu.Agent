@@ -115,11 +115,11 @@ public sealed class FifoSyslogInput : ISourceInput
 
     private static bool IsFifo(StatBuffer buffer) => (buffer.Mode & StatModeTypeMask) == StatModeFifoMask;
 
-    [DllImport("libc", EntryPoint = "mkfifo", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern int mkfifo(string pathname, uint mode);
+    [DllImport("libc", EntryPoint = "mkfifo", SetLastError = true, CharSet = CharSet.Ansi)]
+    private static extern int mkfifo([MarshalAs(UnmanagedType.LPUTF8Str)] string pathname, uint mode);
 
-    [DllImport("libc", EntryPoint = "stat", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern int stat(string pathname, out StatBuffer buffer);
+    [DllImport("libc", EntryPoint = "stat", SetLastError = true, CharSet = CharSet.Ansi)]
+    private static extern int stat([MarshalAs(UnmanagedType.LPUTF8Str)] string pathname, out StatBuffer buffer);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct StatBuffer

@@ -113,17 +113,31 @@ public sealed class SyslogTests
         try
         {
             FifoSyslogInput.EnsureFifo(fifoPath);
+            Assert.IsTrue(FifoExists(fifoPath), "EnsureFifo should create the FIFO path.");
+
             FifoSyslogInput.EnsureFifo(fifoPath);
+            Assert.IsTrue(FifoExists(fifoPath), "EnsureFifo should leave an existing FIFO in place.");
         }
         finally
         {
-            File.Delete(fifoPath);
+            if (FifoExists(fifoPath))
+            {
+                File.Delete(fifoPath);
+            }
 
             if (Directory.Exists(directory))
             {
                 Directory.Delete(directory);
             }
         }
+    }
+
+    private static bool FifoExists(string path)
+    {
+        var directory = Path.GetDirectoryName(path);
+        return !string.IsNullOrWhiteSpace(directory)
+            && Directory.Exists(directory)
+            && Directory.EnumerateFileSystemEntries(directory).Contains(path);
     }
 
     public TestContext TestContext { get; set; }
