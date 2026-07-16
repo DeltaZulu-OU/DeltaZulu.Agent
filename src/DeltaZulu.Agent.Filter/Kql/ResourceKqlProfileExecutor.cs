@@ -139,7 +139,21 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
         return Observable.Create<ResourceOutputRecord>(observer => {
             const string observableName = "Source";
             var inputTableName = string.IsNullOrWhiteSpace(profile.Input.Table) ? observableName : profile.Input.Table;
-            var queryPath = CreateTemporaryQueryFile(profile, observableName, inputTableName);
+            var originalQuery = string.IsNullOrWhiteSpace(profile.Filter.Query)
+                ? inputTableName
+                : profile.Filter.Query;
+            string normalizedQuery;
+            try
+            {
+                normalizedQuery = NormalizeQueryForRxKql(originalQuery, inputTableName, observableName);
+            }
+            catch (Exception ex)
+            {
+                observer.OnError(CreateQueryException(profile.Id, KqlQueryFailureStage.ShimNormalization, originalQuery, null, ex));
+                return Disposable.Empty;
+            }
+
+            var queryPath = CreateTemporaryQueryFile(profile.Id, normalizedQuery);
             var disposables = new CompositeDisposable();
 
             // Guards every terminal notification sent to `observer` (error, source completion, or
@@ -164,7 +178,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                 {
                     if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
                     {
-                        observer.OnError(failedQuery.FailureReason);
+                        observer.OnError(CreateQueryException(profile.Id, KqlQueryFailureStage.RxKqlParsing, originalQuery, normalizedQuery, failedQuery.FailureReason));
                     }
                 }
 
@@ -176,7 +190,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
                 hub._node.KqlKqlQueryFailed += (_, args) => {
                     if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
                     {
-                        observer.OnError(args.Exception);
+                        observer.OnError(CreateQueryException(profile.Id, KqlQueryFailureStage.RxKqlExecution, originalQuery, normalizedQuery, args.Exception));
                     }
                 };
                 hub._node.EnableFailedKqlQueryEvents = true;
@@ -239,7 +253,7 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
             {
                 if (Interlocked.Exchange(ref terminalSignaled, 1) == 0)
                 {
-                    observer.OnError(ex);
+                    observer.OnError(CreateQueryException(profile.Id, KqlQueryFailureStage.RxKqlParsing, originalQuery, normalizedQuery, ex));
                 }
             }
 
@@ -578,18 +592,22 @@ public sealed class ResourceKqlProfileExecutor : IProfileExecutor
         }
     }
 
-    private string CreateTemporaryQueryFile(ResourceProfile profile, string observableName, string inputTableName)
+    private string CreateTemporaryQueryFile(string profileId, string normalizedQuery)
     {
-        var path = Path.Combine(Path.GetTempPath(), $"agent-{profile.Id}-{Guid.NewGuid():N}.kql");
-        var query = string.IsNullOrWhiteSpace(profile.Filter.Query)
-            ? inputTableName
-            : profile.Filter.Query;
-
-        File.WriteAllText(path, NormalizeQueryForRxKql(query, inputTableName, observableName));
+        var path = Path.Combine(Path.GetTempPath(), $"agent-{profileId}-{Guid.NewGuid():N}.kql");
+        File.WriteAllText(path, normalizedQuery);
         lock (_gate)
         {
             _temporaryQueryFiles.Add(path);
         }
         return path;
     }
+
+    private static KqlQueryExecutionException CreateQueryException(
+        string profileId,
+        KqlQueryFailureStage stage,
+        string originalQuery,
+        string? normalizedQuery,
+        Exception exception) => exception as KqlQueryExecutionException
+            ?? new KqlQueryExecutionException(profileId, stage, originalQuery, normalizedQuery, exception);
 }

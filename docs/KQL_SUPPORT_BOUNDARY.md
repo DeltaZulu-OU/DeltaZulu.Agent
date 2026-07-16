@@ -27,6 +27,10 @@ registers Agent scalar helpers: `strcat_array`, `isnotempty`, `ntohs`, and
 `getprocessname`. These shims are documented and tested Agent compatibility,
 not a claim of full Azure Data Explorer compatibility.
 
+The versioned, executable feature classification is published in
+[Rx.Kql capability matrix](RXKQL_CAPABILITY_MATRIX.md). Unsupported entries in
+that matrix are engine limitations, not an Agent-maintained deny list.
+
 ## Architecture and ADR 0004
 
 Input adapters collect and parse source-native events. Profiles select resources
