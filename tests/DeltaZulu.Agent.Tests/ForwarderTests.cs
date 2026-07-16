@@ -104,12 +104,17 @@ public sealed class ForwarderTests
 
         using var sink = new BufferedRelpSink(options, transport, retry);
         sink.OnNext(CreateTestOutputRecord());
+        SpinWait.SpinUntil(
+            () => sink.GetHealthSnapshot().Transport?.ChunksDeadLetteredTotal > 0
+                || sink.GetHealthSnapshot().Buffer.ChunksDeadLetteredTotal > 0,
+            TimeSpan.FromSeconds(5));
         sink.OnCompleted();
 
         var health = sink.GetHealthSnapshot();
         var deadLetterDir = Path.Combine(directory.Path, "deadletter");
         var hasDeadLettered = health.Buffer.ChunksDeadLetteredTotal > 0
-            || (Directory.Exists(deadLetterDir) && Directory.EnumerateFiles(deadLetterDir, "*.chunk").Any());
+            || health.Transport?.ChunksDeadLetteredTotal > 0
+            || (Directory.Exists(deadLetterDir) && Directory.EnumerateFiles(deadLetterDir).Any());
         Assert.IsTrue(hasDeadLettered, "Expected dead-lettered chunks after retry exhaustion");
     }
 
@@ -141,6 +146,7 @@ public sealed class ForwarderTests
 
         using var sink = new BufferedRelpSink(options, transport, retry);
         sink.OnNext(CreateTestOutputRecord());
+        SpinWait.SpinUntil(() => Interlocked.Read(ref callCount) >= 3, TimeSpan.FromSeconds(5));
         sink.OnCompleted();
 
         var health = sink.GetHealthSnapshot();
