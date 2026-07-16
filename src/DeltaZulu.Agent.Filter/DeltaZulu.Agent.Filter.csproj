@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <PackageReference Include="System.Diagnostics.EventLog" />
     <PackageReference Include="System.Management" />
   </ItemGroup>
 </Project>
