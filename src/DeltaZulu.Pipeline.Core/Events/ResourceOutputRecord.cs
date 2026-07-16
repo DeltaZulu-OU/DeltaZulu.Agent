@@ -5,7 +5,6 @@ namespace DeltaZulu.Pipeline.Core.Events;
 public sealed record ResourceOutputRecord
 {
     public const string QueryResultShapeMetadataKey = "queryResultShape";
-    public const string DerivedFromSourceMetadataKey = "derivedFromSource";
     public const string QueryDerivedFieldsMetadataKey = "queryDerivedFields";
     public const string SourceShapedQueryResult = "source-shaped";
     public const string DerivedProjectedQueryResult = "derived/projected";
@@ -137,7 +136,6 @@ public sealed record ResourceOutputRecord
             // A result without a source row (for example, a future aggregate) is
             // necessarily a query-derived result rather than a forwarding record.
             metadata[QueryResultShapeMetadataKey] = DerivedProjectedQueryResult;
-            metadata[DerivedFromSourceMetadataKey] = true;
             metadata[QueryDerivedFieldsMetadataKey] = eventFields.Keys.ToArray();
             return;
         }
@@ -151,7 +149,6 @@ public sealed record ResourceOutputRecord
         var derived = derivedFields.Length > 0 || sourceFieldsWereDropped;
 
         metadata[QueryResultShapeMetadataKey] = derived ? DerivedProjectedQueryResult : SourceShapedQueryResult;
-        metadata[DerivedFromSourceMetadataKey] = derived;
         metadata[QueryDerivedFieldsMetadataKey] = derivedFields;
     }
 

@@ -54,7 +54,6 @@ query result still has the source event shape. Every Rx.Kql result also carries:
 - `queryResultShape`: `source-shaped` when every source row field is retained,
   or `derived/projected` when the query adds, renames, drops, or otherwise
   derives fields;
-- `derivedFromSource`: the boolean form of that distinction; and
 - `queryDerivedFields`: output fields that are not source-row field names.
 
 Thus `where` normally produces source-shaped forwarding output, `extend`

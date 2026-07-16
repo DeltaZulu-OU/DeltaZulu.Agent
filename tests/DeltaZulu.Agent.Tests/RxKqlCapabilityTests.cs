@@ -56,21 +56,18 @@ public sealed class RxKqlCapabilityTests
         var sourceShaped = sourceShapedRows[0];
         Assert.IsTrue((bool?)sourceShaped.Metadata["rawPreserved"]);
         Assert.AreEqual(ResourceOutputRecord.SourceShapedQueryResult, sourceShaped.Metadata[ResourceOutputRecord.QueryResultShapeMetadataKey]);
-        Assert.IsFalse((bool?)sourceShaped.Metadata[ResourceOutputRecord.DerivedFromSourceMetadataKey]);
         Assert.IsEmpty((string[])sourceShaped.Metadata[ResourceOutputRecord.QueryDerivedFieldsMetadataKey]!);
 
         var extendedRows = Execute("Source | extend Twice = Value * 2");
         Assert.HasCount(1, extendedRows);
         var extended = extendedRows[0];
         Assert.AreEqual(ResourceOutputRecord.DerivedProjectedQueryResult, extended.Metadata[ResourceOutputRecord.QueryResultShapeMetadataKey]);
-        Assert.IsTrue((bool?)extended.Metadata[ResourceOutputRecord.DerivedFromSourceMetadataKey]);
         Assert.Contains("Twice", (string[])extended.Metadata[ResourceOutputRecord.QueryDerivedFieldsMetadataKey]!);
 
         var projectedRows = Execute("Source | project Renamed = Value");
         Assert.HasCount(1, projectedRows);
         var projected = projectedRows[0];
         Assert.AreEqual(ResourceOutputRecord.DerivedProjectedQueryResult, projected.Metadata[ResourceOutputRecord.QueryResultShapeMetadataKey]);
-        Assert.IsTrue((bool?)projected.Metadata[ResourceOutputRecord.DerivedFromSourceMetadataKey]);
         Assert.Contains("Renamed", (string[])projected.Metadata[ResourceOutputRecord.QueryDerivedFieldsMetadataKey]!);
     }
 
