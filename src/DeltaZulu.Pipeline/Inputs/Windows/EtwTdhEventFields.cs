@@ -1,3 +1,5 @@
+using DeltaZulu.Pipeline.Inputs.Etw;
+
 namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 internal static class EtwTdhEventFields
@@ -28,7 +30,7 @@ internal static class EtwTdhEventFields
             materialized[field.Key] = field.Value;
         }
 
-        return materialized;
+        return EtwSourceContractNormalizer.NormalizeTdh(materialized);
     }
 
     private static bool IsUnmaterializableTdhEvent(Exception exception) =>

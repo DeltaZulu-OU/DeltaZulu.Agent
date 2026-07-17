@@ -26,6 +26,7 @@ internal static class TraceEventSourceEventMapper
         fields["EventName"] = data.EventName;
 
         payloadMaterialization = PayloadMaterializer.AddSelected(data, selectedPayloadFields, fields);
+        EtwSourceContractNormalizer.AddTraceEventProvenance(fields);
 
         return fields;
     }

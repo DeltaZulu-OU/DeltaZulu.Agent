@@ -125,6 +125,51 @@ public sealed class NativeEtwEnvelopeTests
         Assert.AreEqual(128, fields["PayloadLength"]);
     }
 
+    [TestMethod]
+    public void EtwSourceContractNormalizer_NormalizesTdhHeaderAliasesAndPreservesPayload()
+    {
+        var providerGuid = Guid.Parse("90cbdc39-4a3e-11d1-84f4-0000f80464e3");
+        var fields = EtwSourceContractNormalizer.NormalizeTdh(new Dictionary<string, object?>
+        {
+            ["ProviderId"] = providerGuid.ToString(),
+            ["Provider"] = "Microsoft-Windows-Kernel-File",
+            ["EventID"] = 19,
+            ["EventVersion"] = 3,
+            ["OpcodeValue"] = 12,
+            ["TimestampUtc"] = "2026-07-01T18:22:31Z",
+            ["ProcessID"] = 4820,
+            ["ThreadID"] = 9124,
+            ["FileKey"] = "native-payload"
+        });
+
+        Assert.AreEqual(providerGuid, fields["ProviderGuid"]);
+        Assert.AreEqual("Microsoft-Windows-Kernel-File", fields["ProviderName"]);
+        Assert.AreEqual(19, fields["EventId"]);
+        Assert.AreEqual(3, fields["Version"]);
+        Assert.AreEqual(12, fields["Opcode"]);
+        Assert.AreEqual(4820, fields["ProcessId"]);
+        Assert.AreEqual(9124, fields["ThreadId"]);
+        Assert.IsInstanceOfType(fields["TimeStamp"], typeof(DateTime));
+        Assert.AreEqual("native-payload", fields["FileKey"]);
+        Assert.AreEqual(EtwSourceContractNormalizer.TxTdhReader, fields[EtwSourceContractNormalizer.ReaderField]);
+    }
+
+    [TestMethod]
+    public void EtwSourceContractNormalizer_DoesNotOverwriteCanonicalHeaderValues()
+    {
+        var providerGuid = Guid.NewGuid();
+        var fields = EtwSourceContractNormalizer.NormalizeTdh(new Dictionary<string, object?>
+        {
+            ["ProviderGuid"] = providerGuid,
+            ["ProviderId"] = Guid.NewGuid(),
+            ["EventId"] = 24,
+            ["EventID"] = 19
+        });
+
+        Assert.AreEqual(providerGuid, fields["ProviderGuid"]);
+        Assert.AreEqual(24, fields["EventId"]);
+    }
+
     private static NativeEtwEnvelope CreateEnvelope(int opcode = 67, int version = 3, long keywords = 0x10, int eventId = 0) => new()
     {
         ProviderGuid = Guid.Parse("90cbdc39-4a3e-11d1-84f4-0000f80464e3"),

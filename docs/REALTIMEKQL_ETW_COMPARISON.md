@@ -10,7 +10,7 @@ in [`docs/adr/0001-windows-eventing-library-boundaries.md`](adr/0001-windows-eve
 | RealTimeKql behavior | DeltaZulu behavior |
 |---|---|
 | `EtwSession` requires Administrator before attaching to real-time ETW. | `EtwSessionInput.Open` checks the current principal before opening the ETW input. |
-| `EtwSession` attaches to an existing ETW session with `Tx.Windows.EtwTdhObservable.FromSession(sessionName)`. | `EtwSessionInput` remains attach-only and uses `Tx.Windows.EtwTdhObservable.FromSession(_sessionName)`. |
+| `EtwSession` attaches to an existing ETW session with `Tx.Windows.EtwTdhObservable.FromSession(sessionName)`. | `EtwSessionInput` remains attach-only but uses `TraceEventSession` in attach mode; this is a deliberate divergence documented in the Windows eventing ADR. |
 | `EtwSession` names the KQL stream as `etw` + session name. | `EtwSessionInput.Name` and source metadata default to `etw{sessionName}`. |
 | `EtlFileReader` reads ETL files with `Tx.Windows.EtwTdhObservable.FromFiles(fileName)`. | `EtlFileInput` reads ETL files with `Tx.Windows.EtwTdhObservable.FromFiles(_path)`. |
 
@@ -33,10 +33,11 @@ workflow:
 3. Stop the trace session externally when finished, for example
    `logman.exe stop tcp -ets`.
 
-DeltaZulu follows the same ownership split for ETW profiles: the agent attaches
-to `resource.session`; session creation, provider enablement, keyword selection,
-buffer sizing, and session shutdown remain operator/controller responsibilities
-outside the ETW input adapter.
+DeltaZulu follows the same ownership split for attach-mode ETW profiles: the agent attaches
+to `resource.session`, while session creation, provider enablement, keyword selection,
+buffer sizing, and session shutdown remain operator/controller responsibilities. The attach
+implementation uses TraceEvent rather than Tx so both live modes share one reader and
+materialization path.
 
 ## Sessions versus providers
 
@@ -77,8 +78,8 @@ that session lifecycle instead of relying on a manually-created `logman` trace.
 Its `resource.session` names the DeltaZulu-owned session. Do not point this
 profile at arbitrary system sessions such as `Circular Kernel Context Logger`
 just because they appear in `logman query -ets`; some sessions are not consumable
-through the Tx.Windows real-time attach path and may fail with WMI provider
-instance-name errors.
+through the TraceEvent attach path and may fail because the session is unavailable
+or its controller does not permit a usable consumer attachment.
 
 ## Missing session error handling
 
@@ -91,8 +92,8 @@ the managed input lifecycle.
 
 DeltaZulu should not define a fixed query schema for ETW input at the edge. ETW
 has a reliable header/envelope, but provider payloads are event/version-specific.
-For profile KQL, keep the input native: query the fields emitted by Tx.Windows for
-the selected session/provider, and preserve provider-specific fields without
+For profile KQL, keep the input native: query the fields emitted by the active
+ETW reader for the selected session/provider, and preserve provider-specific fields without
 mapping them into Windows Event Log aliases. Prefer native numeric identity such
 as `ProviderGuid`, `ProviderName`, `EventId`, `Opcode`, `Version`, `Keywords`,
 `Task`, and `Level` for cheap source-side filtering. Any field that DeltaZulu

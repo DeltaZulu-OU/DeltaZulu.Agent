@@ -60,9 +60,10 @@ The current live ETW collector therefore has two schemas:
    plus whatever payload names `data.PayloadNames` exposes for the specific
    provider event/version.
 2. **DeltaZulu schema emitted:** the same native fields, wrapped in DeltaZulu
-   source metadata. No resolver, enrichment, or normalized identity fields are
-   emitted by the live ETW collector unless a future schema extension documents
-   them here.
+   source metadata, plus `EtwReader = TraceEvent` reader provenance. No resolver,
+   enrichment, or normalized provider payload fields are emitted by the live ETW
+   collector unless a future schema extension documents them here. ETL replay
+   uses `EtwReader = TxTdh` after normalizing known TDH header aliases.
 
 ## Naming rules for derived identity fields
 
@@ -205,6 +206,7 @@ introduced, and stability.
 | Field | Category | Type | Source | Native equivalent | Derivation | Confidence field | Null behavior | Version introduced | Stability |
 |---|---|---|---|---|---|---|---|---|---|
 | `FileObject` | Native ETW payload field | UInt64/string | ETW payload | `FileObject` | Direct parse. | None | Absent if provider event/version does not expose it. | Native | Stable |
+| `EtwReader` | DeltaZulu quality field | String | ETW reader boundary | None | `TraceEvent` for live managed/attach input; `TxTdh` for ETL replay after header normalization. | None | Always present for ETW source events from these paths. | `DeltaZulu.Etw.Reader/1.0` | Stable |
 | `ResolvedFilePath` | DeltaZulu resolver field | String/null | File identity resolver | None | Lookup by `FileObject` or `FileKey`. | `FileResolutionConfidence` | Null means unresolved or resolver unsupported. | Future schema extension | Experimental |
 | `FileResolutionSource` | DeltaZulu resolver field | Enum | File identity resolver | None | Records resolver path using controlled file resolution source values. | `FileResolutionConfidence` | `Unknown` when unresolved. | Future schema extension | Experimental |
 | `TargetFilename` | DeltaZulu normalized field | String/null | Native path or resolver | None | Analyst-facing path from native payload or resolver with `TargetFilenameSource`. | Related source-specific confidence field | Null means no reliable path was available. | Future schema extension | Experimental |

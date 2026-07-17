@@ -18,7 +18,7 @@ This implementation is inspired by RealTimeKql, but it is not a restructuring of
 
 ## Inspired source capability
 
-The Windows input project follows the same ETW/ETL/EVTX/Event Log problem space using `Tx.Windows` and `Tx.Windows.Logs`.
+The Windows input project follows the same ETW/ETL/EVTX/Event Log problem space, but uses TraceEvent for live ETW and Tx.Windows / Tx.Windows.Logs for ETL/EVTX replay and import.
 
 ## Breaking API policy
 
