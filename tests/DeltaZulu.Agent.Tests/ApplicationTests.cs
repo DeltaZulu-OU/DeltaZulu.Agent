@@ -149,6 +149,20 @@ public sealed class ApplicationTests
     }
 
     [TestMethod]
+    public void ChannelOutputMultiplexer_ErrorTerminatesTheWriter()
+    {
+        var inner = new RecordingSink();
+        using var mux = new ChannelOutputMultiplexer(inner);
+
+        mux.OnError(new InvalidOperationException("test error"));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => mux.OnNext(CreateRecord()));
+        mux.Complete();
+
+        Assert.IsFalse(inner.CompletedCalled);
+    }
+
+    [TestMethod]
     public void ResourcePipeline_WiresInputThroughTransformToSink()
     {
         var input = new TestInput([

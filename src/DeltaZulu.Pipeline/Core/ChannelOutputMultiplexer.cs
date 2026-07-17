@@ -4,11 +4,15 @@ using DeltaZulu.Pipeline.Core.Events;
 
 namespace DeltaZulu.Pipeline.Core;
 
+/// <summary>
+/// Serializes concurrent writers into one output sink. Completion and errors are terminal: records
+/// accepted before the terminal signal are drained before the underlying sink is notified.
+/// </summary>
 public sealed class ChannelOutputMultiplexer : IOutputWriter
 {
     private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly Channel<SinkMessage> _channel = Channel.CreateBounded<SinkMessage>(new BoundedChannelOptions(65_536) {
+    private readonly Channel<ResourceOutputRecord> _channel = Channel.CreateBounded<ResourceOutputRecord>(new BoundedChannelOptions(65_536) {
         SingleReader = true,
         SingleWriter = false,
         FullMode = BoundedChannelFullMode.Wait
@@ -17,7 +21,7 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
     private readonly IOutputWriter _inner;
     private readonly Lock _lock = new();
     private readonly Task _reader;
-    private bool _completed;
+    private bool _terminal;
 
     public ChannelOutputMultiplexer(IOutputWriter inner)
     {
@@ -39,22 +43,8 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
 
     public void Complete()
     {
-        lock (_lock)
-        {
-            if (_completed)
-            {
-                return;
-            }
-
-            _completed = true;
-        }
-
-        _channel.Writer.TryComplete();
-        if (_reader.Wait(DrainTimeout))
-        {
-            _inner.OnCompleted();
-        }
-        else
+        CompleteChannel();
+        if (!_reader.Wait(DrainTimeout))
         {
             CaptureError(new TimeoutException($"Channel drain did not complete within {DrainTimeout.TotalSeconds}s."));
         }
@@ -64,25 +54,30 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
 
     public void OnCompleted()
     {
+        CompleteChannel();
     }
 
     public void OnError(Exception error)
     {
-        CaptureError(error);
-        if (!TryWriteMessage(SinkMessage.Error(error)))
+        ArgumentNullException.ThrowIfNull(error);
+
+        lock (_lock)
         {
-            try
+            if (_terminal)
             {
-                _inner.OnError(error);
+                return;
             }
-            catch (Exception ex)
-            {
-                CaptureError(ex);
-            }
+
+            _terminal = true;
+            Error = error;
         }
+
+        // Completing the channel with the error preserves the ordering of records already
+        // accepted by the channel, while making the observer terminal as required by Rx.
+        _channel.Writer.TryComplete(error);
     }
 
-    public void OnNext(ResourceOutputRecord value) => WriteMessage(SinkMessage.Next(value));
+    public void OnNext(ResourceOutputRecord value) => WriteRecord(value);
 
     private void CaptureError(Exception exception)
     {
@@ -94,59 +89,74 @@ public sealed class ChannelOutputMultiplexer : IOutputWriter
 
     private async Task ReadMessages()
     {
-        await foreach (var message in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
+        try
         {
-            try
+            await foreach (var record in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
             {
-                if (message.Exception is not null)
-                {
-                    _inner.OnError(message.Exception);
-                }
-                else if (message.Record is not null)
-                {
-                    _inner.OnNext(message.Record);
-                }
+                _inner.OnNext(record);
             }
-            catch (Exception ex)
+        }
+        catch (Exception ex)
+        {
+            CaptureError(ex);
+            CompleteChannel();
+        }
+
+        NotifyInnerOfTerminalState();
+    }
+
+    private void NotifyInnerOfTerminalState()
+    {
+        try
+        {
+            if (Error is { } error)
             {
-                CaptureError(ex);
+                _inner.OnError(error);
             }
+            else
+            {
+                _inner.OnCompleted();
+            }
+        }
+        catch (Exception ex)
+        {
+            CaptureError(ex);
         }
     }
 
-    private bool TryWriteMessage(SinkMessage message)
+    private void CompleteChannel()
     {
-        if (_channel.Writer.TryWrite(message))
+        lock (_lock)
         {
-            return true;
+            if (_terminal)
+            {
+                return;
+            }
+
+            _terminal = true;
+        }
+
+        _channel.Writer.TryComplete();
+    }
+
+    private void WriteRecord(ResourceOutputRecord record)
+    {
+        if (_channel.Writer.TryWrite(record))
+        {
+            return;
         }
 
         try
         {
-            _channel.Writer.WriteAsync(message).AsTask().GetAwaiter().GetResult();
-            return true;
+            _channel.Writer.WriteAsync(record).AsTask().GetAwaiter().GetResult();
         }
         catch (ChannelClosedException)
         {
-            return false;
+            throw new InvalidOperationException("Cannot write to a completed output multiplexer.");
         }
         catch (InvalidOperationException)
         {
-            return false;
-        }
-    }
-
-    private void WriteMessage(SinkMessage message)
-    {
-        if (!TryWriteMessage(message))
-        {
             throw new InvalidOperationException("Cannot write to a completed output multiplexer.");
         }
-    }
-
-    private sealed record SinkMessage(ResourceOutputRecord? Record, Exception? Exception)
-    {
-        public static SinkMessage Next(ResourceOutputRecord record) => new(record, null);
-        public static SinkMessage Error(Exception exception) => new(null, exception);
     }
 }
