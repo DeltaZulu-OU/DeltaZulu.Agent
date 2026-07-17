@@ -53,7 +53,8 @@ public static class EtwSourceContractNormalizer
         Func<object?, T?> convert)
         where T : class
     {
-        if (TryGetValueIgnoreCase(fields, canonicalName, out var existing) && existing is not null)
+        // Only preserve existing canonical value if it exists with exact case match
+        if (fields.TryGetValue(canonicalName, out var existing) && existing is not null)
         {
             return;
         }
@@ -102,7 +103,8 @@ public static class EtwSourceContractNormalizer
         Func<object?, T?> convert)
         where T : struct
     {
-        if (TryGetValueIgnoreCase(fields, canonicalName, out var existing) && existing is not null)
+        // Only preserve existing canonical value if it exists with exact case match
+        if (fields.TryGetValue(canonicalName, out var existing) && existing is not null)
         {
             return;
         }
