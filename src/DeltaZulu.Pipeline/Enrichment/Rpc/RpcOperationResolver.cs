@@ -12,8 +12,8 @@ public static class RpcOperationResolver
 {
     public const string CurrentResolverVersion = "rpc-map-2026.07.1";
 
-    private static readonly Dictionary<string, string> InterfaceNames = BuildInterfaceNameCache();
     private static readonly Dictionary<(string InterfaceUuid, int ProcNum), RpcOperationDescriptor> Operations = BuildMap();
+    private static readonly Dictionary<string, string> InterfaceNames = BuildInterfaceNameCache();
 
     public static string NormalizeUuid(string interfaceUuid) => interfaceUuid.Trim().Trim('{', '}').ToLowerInvariant();
 
