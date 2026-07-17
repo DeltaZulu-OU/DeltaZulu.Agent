@@ -1,7 +1,12 @@
+using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Core.Profiles;
+using DeltaZulu.Pipeline.Enrichment.Events;
+using DeltaZulu.Pipeline.Inputs.Auditd;
+using DeltaZulu.Pipeline.Outputs.Ndjson;
+using DeltaZulu.Pipeline.Tunnel;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -48,6 +53,12 @@ public sealed class DomainTests
         Assert.AreEqual(domainAssemblyName, typeof(FilterSummaryObservation).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(SourceHealthObservation).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(LocalCoverageStateObservation).Assembly.GetName().Name);
+
+        Assert.AreEqual(domainAssemblyName, typeof(ResourcePipeline).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(AuditdEventAssembler).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ConsoleNdjsonSink).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceOutputEnricher).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(TcpTunnel).Assembly.GetName().Name);
     }
 
     [TestMethod]

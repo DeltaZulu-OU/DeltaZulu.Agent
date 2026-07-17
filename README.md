@@ -134,17 +134,17 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ## Current implementation status
 
-- `DeltaZulu.Agent.Pipeline` contains ETL pipeline contracts, source events, resource outputs, profile models/loaders/validators, delivery envelopes, observation records, RELP frame helpers, NDJSON options, MessagePack payload wrappers, completion tracking, and output multiplexing.
+- `DeltaZulu.Pipeline` is the single reusable pipeline assembly. Its `Core`, `Inputs`, `Outputs`, `Enrichment`, and `Tunnel` folders contain the ETL contracts, adapters, serializers, deterministic enrichment, and tunnel support that previously lived in separate pipeline projects.
 - `DeltaZulu.Agent.Runtime` contains daemon/CLI orchestration primitives such as the shared runtime and profile binding used by both hosts. It also contains a Windows-only, read-only ETW integrity monitor that baselines `ntdll!EtwEventWrite` and `ntdll!NtTraceEvent` inside the agent process and reports agent-health findings when common user-mode ETW bypass patches alter those prologues.
 - `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, and NDJSON output.
 - `dzagentd` is the YAML-configured daemon host. Its production role is forwarding, and its collector-style configuration is reserved for local validation or controlled lab tests.
 - `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
-- `DeltaZulu.Agent.Outputs` owns NDJSON sinks plus RELP buffered forwarding, RELP-neutral transport contracts, DeltaZulu.Relp transport, endpoint failover groundwork, TLS policy options, and health snapshots. Optional MessagePack output support is isolated under `DeltaZulu.Agent.Outputs/MessagePack`.
-- Input families include syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, and ETW. Optional MessagePack input support is isolated under `DeltaZulu.Agent.Inputs/MessagePack`.
+- `DeltaZulu.Pipeline/Outputs` owns NDJSON sinks, MessagePack delivery encoding, RELP buffered forwarding, RELP-neutral transport contracts, DeltaZulu.Relp transport, endpoint failover groundwork, TLS policy options, and health snapshots.
+- `DeltaZulu.Pipeline/Inputs` contains syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, ETW, RELP, and MessagePack input adapters.
 - Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
 - ETW integrity monitoring is intentionally scoped to agent self-protection diagnostics: it checks only the current process's `ntdll` ETW prologues, does not unhook or repair memory, and should emit `AgentIntegrityFinding`-style internal security/health events rather than normal endpoint telemetry.
-- Detection verdicts, DuckDB, SQL window engines, and platform-owned canonical normalization remain out of scope for the agent; deterministic post-filter enrichment lives in DeltaZulu.Pipeline.Enrichment.
+- Detection verdicts, DuckDB, SQL window engines, and platform-owned canonical normalization remain out of scope for the agent; deterministic post-filter enrichment lives in `DeltaZulu.Pipeline/Enrichment`.
 
 ## Project layout
 

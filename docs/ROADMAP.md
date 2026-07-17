@@ -332,15 +332,16 @@ Do not start extraction until daemon forwarding stabilization tasks are passing 
 
 ### Projects to extract
 
-The former `DeltaZulu.Agent.Domain` and `DeltaZulu.Agent.Application` responsibilities have been split into `DeltaZulu.Agent.Pipeline` and `DeltaZulu.Agent.Runtime` projects. `DeltaZulu.Agent.Pipeline` owns ETL pipeline input/output/filter/serialization/parsing models and helpers, while `DeltaZulu.Agent.Runtime` owns daemon/CLI orchestration. If extraction resumes, these projects are the source boundaries for future `DeltaZulu.Pipeline.*` packages.
+The pipeline projects have now been merged into one `DeltaZulu.Pipeline` assembly. Its component folders are the extraction boundaries: `Core` contains shared contracts and serializers, `Inputs` and `Outputs` contain adapters, `Enrichment` contains deterministic post-filter enrichment, and `Tunnel` contains tunnel support. `DeltaZulu.Agent.Runtime` remains the agent-specific orchestration layer. If extraction resumes, preserve these folder boundaries inside the standalone pipeline repository rather than recreating assembly-level project splits.
 
 | Current project/folder | Pipeline project | Content |
 | --- | --- | --- |
-| `DeltaZulu.Agent.Pipeline` | `DeltaZulu.Pipeline.Shared` | SourceEvent, ResourceOutputRecord, DeliveryRecord, ResourceProfile, observations, YAML profile loading, profile validation, completion tracking, output multiplexing, and shared serialization/framing helpers. |
+| `DeltaZulu.Pipeline/Core` | `DeltaZulu.Pipeline` | SourceEvent, ResourceOutputRecord, DeliveryRecord, ResourceProfile, observations, YAML profile loading, profile validation, completion tracking, output multiplexing, and shared serialization/framing helpers. |
 | `DeltaZulu.Agent.Runtime` | `DeltaZulu.Pipeline.Application` | AgentRuntime and ProfileBinding orchestration that bind inputs, profiles, executors, and sinks. |
-| `DeltaZulu.Agent.Inputs` | `DeltaZulu.Pipeline.Inputs` | All input adapters: syslog, CSV, auditd, Windows Event Log, EVTX, ETL, ETW, RELP. |
+| `DeltaZulu.Pipeline/Inputs` | `DeltaZulu.Pipeline` | All input adapters: syslog, CSV, auditd, Windows Event Log, EVTX, ETL, ETW, RELP. |
 | `DeltaZulu.Agent.Filter` | `DeltaZulu.Agent.Filter` | ResourceKqlProfileExecutor and custom scalar functions. |
-| `DeltaZulu.Agent.Outputs` | `DeltaZulu.Pipeline.Outputs` | NDJSON console/file sinks, buffered RELP sink, transport adapter, health reporting. |
+| `DeltaZulu.Pipeline/Outputs` | `DeltaZulu.Pipeline` | NDJSON console/file sinks, buffered RELP sink, transport adapter, health reporting. |
+| `DeltaZulu.Pipeline/Enrichment` and `DeltaZulu.Pipeline/Tunnel` | `DeltaZulu.Pipeline` | Deterministic enrichment and pipeline tunnel support. |
 
 ### Submodule wiring
 

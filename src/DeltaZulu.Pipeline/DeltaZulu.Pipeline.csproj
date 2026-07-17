@@ -5,8 +5,10 @@
     <AssemblyName>DeltaZulu.Pipeline</AssemblyName>
   </PropertyGroup>
 
+  <!-- Live Windows eventing adapters depend on Windows-only APIs and packages. The
+       remaining pipeline components deliberately stay available on every target. -->
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
-    <Compile Remove="Inputs\Windows\**\*.cs" />
+    <Compile Remove="Inputs/Windows/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
