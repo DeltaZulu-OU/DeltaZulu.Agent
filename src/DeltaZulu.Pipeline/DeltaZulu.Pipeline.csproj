@@ -29,8 +29,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Transitional: direct DurableBuffer ownership is removed after the LocalStream
+         migration (ROADMAP.md Phase 6); DurableBuffer may remain an implementation
+         dependency of LocalStream (ADR 0005, ADR 0008). -->
     <ProjectReference Include="..\..\external\DeltaZulu.DurableBuffer\src\DeltaZulu.DurableBuffer\DeltaZulu.DurableBuffer.csproj" />
     <ProjectReference Include="..\..\external\DeltaZulu.Relp\src\DeltaZulu.Relp\DeltaZulu.Relp.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.Normalize\DeltaZulu.Normalize.csproj" />
+    <ProjectReference Include="..\..\src\DeltaZulu.LocalStream\DeltaZulu.LocalStream.csproj" />
   </ItemGroup>
 
   <ItemGroup>

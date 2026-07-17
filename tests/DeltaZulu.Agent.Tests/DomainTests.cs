@@ -19,7 +19,8 @@ public sealed class DomainTests
         var pipelineAssembly = typeof(SourceEvent).Assembly;
         var referencedAssemblies = pipelineAssembly.GetReferencedAssemblies();
         var legacyProjectReferences = referencedAssemblies
-            .Where(a => a.Name!.StartsWith("DeltaZulu.", StringComparison.OrdinalIgnoreCase) && a.Name is not "DeltaZulu.DurableBuffer" and not "DeltaZulu.Relp")
+            .Where(a => a.Name!.StartsWith("DeltaZulu.", StringComparison.OrdinalIgnoreCase)
+                && a.Name is not "DeltaZulu.DurableBuffer" and not "DeltaZulu.Relp" and not "DeltaZulu.Normalize" and not "DeltaZulu.LocalStream")
             .Select(a => a.Name!)
             .ToList();
 

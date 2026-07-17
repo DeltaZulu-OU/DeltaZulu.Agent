@@ -227,6 +227,8 @@ Allowed fields:
 | `windowStart` | Observation window start, carried in observation metadata. |
 | `windowEnd` | Observation window end, carried in observation metadata. |
 
+This local-state model predates [`docs/adr/0009-unrecognized-events-and-blindness-measurement.md`](adr/0009-unrecognized-events-and-blindness-measurement.md), which is the target architecture's authoritative definition of collection coverage measurement and uses a more precise vocabulary than the single `discardedCount` bucket above. ADR 0009 distinguishes admission rejection, parser no-match (preserved as `Unrecognized`, not discarded), filter `NoCandidate` versus `NoMatch`, and operational failures (`FilterError`/`OutputError`, which are not blindness); "complete blindness" is specifically an unrecognized plaintext event with zero filter outputs. When this document's local-state fields are next revised, reconcile `discardedCount` and the opportunity-cost gap table below (`Filter gap`, `Forwarding gap`) against that disposition set rather than treating "kept vs. discarded" as binary — a record ADR 0009 preserves as `Unrecognized` is not the same opportunity-cost signal as one that fails a filter with candidates, or one that fails for an operational reason.
+
 After CMDB implementation, local Windows audit state may also be reported:
 
 | Field | Meaning |

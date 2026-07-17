@@ -14,19 +14,22 @@ DurableBuffer-first, profile-per-source, and permanent-multiplexer plans.
 
 ## Current baseline
 
-The repository already has one multi-targeted `DeltaZulu.Pipeline` assembly and
-currently references `DeltaZulu.DurableBuffer` and `DeltaZulu.Relp` directly.
-The daemon still runs separate `ProfileBinding`/`ResourcePipeline` work and uses
-`ChannelOutputMultiplexer` to serialize concurrent legacy output. Those are
-transitional implementation details, not target architecture. Existing syslog
-and auditd parsing is also transitional until Normalize parity is established.
+The repository has one multi-targeted `DeltaZulu.Pipeline` assembly that
+references `DeltaZulu.DurableBuffer` and `DeltaZulu.Relp` directly, plus the
+`DeltaZulu.Normalize` and `DeltaZulu.LocalStream` scaffold assemblies added in
+Phase 1 (marker types only; the PDAG compiler and stream runtime are Phase 7-8
+and Phase 6/10 work). The daemon still runs separate
+`ProfileBinding`/`ResourcePipeline` work and uses `ChannelOutputMultiplexer` to
+serialize concurrent legacy output. Those are transitional implementation
+details, not target architecture. Existing syslog and auditd parsing is also
+transitional until Normalize parity is established.
 
 ## Ordered migration
 
 | Phase | Status | Objective | Completion evidence |
 | --- | --- | --- | --- |
 | 0 | Complete | Align ADRs and authoritative documentation. | Architecture, roadmap, README, and ADRs state one Pipeline, LocalStream boundaries, PDAG, RELP ownership, and no production multiplexer. |
-| 1 | Planned | Add Normalize/LocalStream and architecture guards. | Pipeline references Normalize, LocalStream, and RELP; dependency tests reject Agent references and report direct DurableBuffer use. |
+| 1 | Complete | Add Normalize/LocalStream and architecture guards. | Pipeline references Normalize, LocalStream, and RELP (`DeltaZulu.Pipeline.csproj`); `PipelineAssembly_ReferencesOnlyExternalPipelineDependencies`/`PipelineAssembly_ReferencesNormalizeAndLocalStream` reject Agent-layer references and `PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked` reports the direct DurableBuffer use in `tests/DeltaZulu.Agent.Tests/ApplicationTests.cs` (and the equivalent in `DomainTests.cs`). Both new assemblies are scaffolds: they exist as real, referenced, tested project boundaries but implement no PDAG or stream runtime yet, which remain later phases. |
 | 2 | Planned | Introduce text/structured input contracts and adapters. | New inputs emit `TextInputRecord` or `StructuredInputRecord`; compatibility paths preserve metadata. |
 | 3 | Planned | Generalize acquisition, framing, and decoding. | TCP, UDP, file, and FIFO emit text records with bounded rejection metrics and no application parser dependency. |
 | 4 | Planned | Add the TCP/UDP syslog admission preset. | Same-port TCP/UDP, RFC 6587/newline framing, PRI admission, and unknown valid syslog reaches Normalize. |
@@ -89,3 +92,34 @@ The legacy direct DurableBuffer forwarding path, profile-per-source daemon
 execution, hardcoded syslog/auditd plaintext parsers, and
 `ChannelOutputMultiplexer` are retained only as transitional descriptions of the
 current baseline. They are not design options for new daemon work.
+
+## Phase 11 and 13 implementation notes
+
+Concrete anchors for the two phases that retire the current profile-per-source
+runtime, so migration work has file-level targets in addition to the
+architecture-level objective above.
+
+**Phase 11 — execution plans replace `ProfileBinding`/`ResourcePipeline`:** the
+current legacy code is `src/DeltaZulu.Agent.Runtime/AgentRuntime.cs`
+(`RunSingle`/`RunMultiple`/`RunBinding`), `ProfileBinding.cs`, and
+`src/DeltaZulu.Pipeline/Core/ResourcePipeline.cs`. `AgentRuntime.RunMultiple`
+(`AgentRuntime.cs:109`) is the exact place that currently starts one
+`ResourcePipeline` per `ProfileBinding`; this phase replaces that with
+acquisition/parser/filter plan binding.
+
+**Phase 13 — remove `ChannelOutputMultiplexer`:** the deletion condition is
+`AgentRuntime` no longer starting one `ResourcePipeline` per `ProfileBinding`
+(i.e., Phase 11 complete). Until then, `ChannelOutputMultiplexer`
+(`src/DeltaZulu.Pipeline/Core/ChannelOutputMultiplexer.cs`) remains required and
+should carry a deletion-condition comment referencing this row.
+`CompletionTrackingWriter` (`src/DeltaZulu.Pipeline/Core/CompletionTrackingWriter.cs`)
+is a separate, smaller concern and may remain for finite CLI/test workflows
+after this phase; it is not part of the daemon's target lifecycle (see
+[`ARCHITECTURE.md`](ARCHITECTURE.md), "Lifecycle and reload"). If `dzagentctl`
+or `DeltaZulu.Agent.ProfileWorkbench` still need to serialize concurrent writes
+to one console/file writer afterward, introduce a narrowly scoped
+`SerializedOutputWriter` (serialize-only; no routing, buffering, or profile
+semantics) rather than retaining the multiplexer for that purpose.
+Multiplexer/completion-writer unit tests currently live in
+`tests/DeltaZulu.Agent.Tests/ApplicationTests.cs` (`ChannelOutputMultiplexer_*`,
+`CompletionTrackingWriter_*`); this phase removes only the former test group.

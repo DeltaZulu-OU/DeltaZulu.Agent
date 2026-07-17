@@ -14,7 +14,7 @@ suppression decisions, tenant policy decisions, or severity.
 
 ## Agent-owned contract
 
-Agent-owned RPC work is limited to endpoint-local evidence. The agent follows Logstash-style ordering (`input` → `filter` → deterministic enrichment → `output`): RPC enrichment is applied after profile filtering and before the output writer so filters continue to evaluate source-native fields while outputs carry deterministic sidecar facts:
+Agent-owned RPC work is limited to endpoint-local evidence. The current, transitional profile-centric runtime follows Logstash-style ordering (`input` → `filter` → deterministic enrichment → `output`): `ResourcePipeline` applies RPC enrichment after profile filtering and before the output writer (`ResourceOutputEnricher.EnrichAfterFilter` in `AgentRuntime`) so filters continue to evaluate source-native fields while outputs carry deterministic sidecar facts:
 
 - preserve raw ETW/EventLog fields and raw payloads for replay;
 - emit delivery and parser metadata (`profileId`, `profileVersion`, `eventUid`,
@@ -28,6 +28,20 @@ Agent-owned RPC work is limited to endpoint-local evidence. The agent follows Lo
 The first P0 resolver version is `rpc-map-2026.07.1`. It covers MS-SCMR / svcctl
 and MS-DRSR / DRSUAPI only. Unknown UUID/opnum pairs are preserved as raw event
 fields and must remain unresolved rather than receiving guessed names.
+
+### Open question: enrichment ordering in the target architecture
+
+[`ARCHITECTURE.md`](ARCHITECTURE.md) lists `Enrichment/` (ETW, RPC, and Windows
+enrichment) as one of `DeltaZulu.Pipeline`'s assembly boundaries, but its
+runtime topology diagram and "Dispatch, commits, and observability" section do
+not state where deterministic enrichment runs relative to the coordinated
+filter dispatcher and the `agent.output` commit. The current
+filter-then-enrich-then-output ordering described above is a property of the
+transitional `ResourcePipeline`, not a target-architecture decision recorded in
+an ADR. Reconcile this — most likely as a clarification to ADR 0008 or a new
+ADR — before or during [`ROADMAP.md`](ROADMAP.md) Phase 12 (coordinated filter
+dispatch), since the dispatcher's per-event output list is exactly where an
+enrichment step would need to run if it stays positioned after filtering.
 
 ## Wire shape
 
@@ -106,3 +120,6 @@ materialization, CMDB joins, identity allowlists, or severity policy.
 - Process key, process snapshot, network tuple, service evidence, and
   fixture-driven cross-project compatibility tests remain required follow-up
   work before production rollout.
+- Enrichment ordering relative to the coordinated filter dispatcher is not yet
+  decided in the target architecture; see "Open question: enrichment ordering
+  in the target architecture" above.

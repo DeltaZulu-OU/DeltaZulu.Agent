@@ -8,19 +8,60 @@ namespace DeltaZulu.Agent.Tests;
 [TestClass]
 public sealed class ApplicationTests
 {
+    // Allowlist, not a blocklist: any accidental Agent-layer reference (Runtime, Daemon,
+    // Cli, ProfileWorkbench, Filter) fails this test because it is not in this set, which
+    // is how ROADMAP.md Phase 1's "dependency tests reject Agent references" requirement
+    // is satisfied without enumerating every Agent-layer assembly name separately.
+    private static readonly string[] AllowedPipelineDeltaZuluDependencies =
+    [
+        "DeltaZulu.DurableBuffer",
+        "DeltaZulu.Relp",
+        "DeltaZulu.Normalize",
+        "DeltaZulu.LocalStream",
+    ];
+
     [TestMethod]
     public void PipelineAssembly_ReferencesOnlyExternalPipelineDependencies()
     {
         var applicationAssembly = typeof(ResourcePipeline).Assembly;
         var referencedAssemblies = applicationAssembly.GetReferencedAssemblies();
 
-        var legacyProjectReferences = referencedAssemblies
-            .Where(name => name.Name!.StartsWith("DeltaZulu", StringComparison.Ordinal) && name.Name is not "DeltaZulu.DurableBuffer" and not "DeltaZulu.Relp")
+        var disallowedProjectReferences = referencedAssemblies
+            .Where(name => name.Name!.StartsWith("DeltaZulu", StringComparison.Ordinal) && !AllowedPipelineDeltaZuluDependencies.Contains(name.Name))
             .Select(name => name.Name!)
             .ToList();
 
-        Assert.IsEmpty(legacyProjectReferences,
-            $"Pipeline must not reference legacy DeltaZulu projects: {string.Join(", ", legacyProjectReferences)}");
+        Assert.IsEmpty(disallowedProjectReferences,
+            $"Pipeline must not reference legacy or Agent-layer DeltaZulu projects: {string.Join(", ", disallowedProjectReferences)}");
+    }
+
+    [TestMethod]
+    public void PipelineAssembly_ReferencesNormalizeAndLocalStream()
+    {
+        var referencedNames = typeof(ResourcePipeline).Assembly.GetReferencedAssemblies()
+            .Select(name => name.Name!)
+            .ToList();
+
+        // ROADMAP.md Phase 1 acceptance criterion: "Pipeline references Normalize,
+        // LocalStream, and RELP." RELP is covered by PipelineAssembly_ReferencesOnlyExternalPipelineDependencies
+        // already permitting DeltaZulu.Relp; this test covers the two new assemblies.
+        Assert.Contains("DeltaZulu.Normalize", referencedNames);
+        Assert.Contains("DeltaZulu.LocalStream", referencedNames);
+    }
+
+    [TestMethod]
+    public void PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked()
+    {
+        var referencedNames = typeof(ResourcePipeline).Assembly.GetReferencedAssemblies()
+            .Select(name => name.Name!)
+            .ToList();
+
+        // ADR 0005/0008 and ROADMAP.md Phase 1/6: a direct DeltaZulu.DurableBuffer reference
+        // is allowed only as a transitional detail until the LocalStream migration lands.
+        // This assertion exists so its removal is a deliberate, documented step: once Phase 6
+        // lands, this should fail, and the fix is to delete this test and the transitional
+        // ProjectReference comment in DeltaZulu.Pipeline.csproj, not to re-add the reference.
+        Assert.Contains("DeltaZulu.DurableBuffer", referencedNames);
     }
 
     [TestMethod]

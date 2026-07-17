@@ -11,6 +11,8 @@
   <Project Path="src/DeltaZulu.Agent.ProfileWorkbench/DeltaZulu.Agent.ProfileWorkbench.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
   <Project Path="src/DeltaZulu.Pipeline/DeltaZulu.Pipeline.csproj" />
+  <Project Path="src/DeltaZulu.Normalize/DeltaZulu.Normalize.csproj" />
+  <Project Path="src/DeltaZulu.LocalStream/DeltaZulu.LocalStream.csproj" />
   <Project Path="src/DeltaZulu.Agent.Filter/DeltaZulu.Agent.Filter.csproj" />
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
 </Solution>
