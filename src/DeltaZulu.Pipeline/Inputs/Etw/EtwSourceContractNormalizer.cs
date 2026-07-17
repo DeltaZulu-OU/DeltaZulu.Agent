@@ -13,7 +13,7 @@ public static class EtwSourceContractNormalizer
     public static IReadOnlyDictionary<string, object?> NormalizeTdh(
         IEnumerable<KeyValuePair<string, object?>> fields)
     {
-        var normalized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        var normalized = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (var field in fields)
         {
             normalized[field.Key] = field.Value;
@@ -53,14 +53,14 @@ public static class EtwSourceContractNormalizer
         Func<object?, T?> convert)
         where T : class
     {
-        if (fields.TryGetValue(canonicalName, out var existing) && existing is not null)
+        if (TryGetValueIgnoreCase(fields, canonicalName, out var existing) && existing is not null)
         {
             return;
         }
 
         foreach (var alias in aliases)
         {
-            if (!fields.TryGetValue(alias, out var value))
+            if (!TryGetValueIgnoreCase(fields, alias, out var value))
             {
                 continue;
             }
@@ -102,14 +102,14 @@ public static class EtwSourceContractNormalizer
         Func<object?, T?> convert)
         where T : struct
     {
-        if (fields.TryGetValue(canonicalName, out var existing) && existing is not null)
+        if (TryGetValueIgnoreCase(fields, canonicalName, out var existing) && existing is not null)
         {
             return;
         }
 
         foreach (var alias in aliases)
         {
-            if (!fields.TryGetValue(alias, out var value))
+            if (!TryGetValueIgnoreCase(fields, alias, out var value))
             {
                 continue;
             }
@@ -121,6 +121,18 @@ public static class EtwSourceContractNormalizer
                 return;
             }
         }
+    }
+
+    private static bool TryGetValueIgnoreCase(IDictionary<string, object?> fields, string key, out object? value)
+    {
+        if (fields.TryGetValue(key, out value))
+            return true;
+
+        var matchingKey = fields.Keys.FirstOrDefault(k => k.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (matchingKey != null)
+            return fields.TryGetValue(matchingKey, out value);
+
+        return false;
     }
 
     private static Guid? ToGuid(object? value)
