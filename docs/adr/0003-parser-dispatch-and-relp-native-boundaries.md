@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed.
+Superseded by [ADR 0006: Input materialization boundaries and RELP ownership](0006-input-materialization-and-relp-ownership.md) and [ADR 0007: Profile parse/filter split and unified PDAG](0007-parse-filter-split-and-unified-pdag.md).
+
+> Historical decision retained for context. Its managed-RELP conclusion is preserved, but its input-layer typed-parser and parser-dispatch design is replaced by Normalize-owned PDAG parsing.
 
 ## Context
 

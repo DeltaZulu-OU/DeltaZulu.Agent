@@ -1,6 +1,6 @@
   # DeltaZulu Agent
 
-DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters and selects source-native event fields with KQL-style YAML profiles, writes NDJSON for exploration, and forwards durable delivery records as MessagePack `DeliveryBatch` payloads through `DeltaZulu.DurableBuffer` and a RELP.Net-backed transport adapter.
+DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters source-native event fields with YAML profiles, writes NDJSON for exploration, and forwards MessagePack `DeliveryBatch` payloads over `DeltaZulu.Relp`. The target daemon uses LocalStream as its durability boundary; the direct DurableBuffer forwarding path is transitional.
 
 This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes `dzagentctl` as the local agent controller, a separate `dzagentd` daemon host for service deployment, and a `dzagentd` collector configuration for local RELP validation.
 
@@ -134,42 +134,34 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ## Current implementation status
 
-- `DeltaZulu.Pipeline` is the single reusable pipeline assembly. Its `Core`, `Inputs`, `Outputs`, `Enrichment`, and `Tunnel` folders contain the ETL contracts, adapters, serializers, deterministic enrichment, and tunnel support that previously lived in separate pipeline projects.
-- `DeltaZulu.Agent.Runtime` contains daemon/CLI orchestration primitives such as the shared runtime and profile binding used by both hosts. It also contains a Windows-only, read-only ETW integrity monitor that baselines `ntdll!EtwEventWrite` and `ntdll!NtTraceEvent` inside the agent process and reports agent-health findings when common user-mode ETW bypass patches alter those prologues.
-- `dzagentctl` remains an exploration CLI for schemas, inline KQL, profile testing, and NDJSON output.
-- `dzagentd` is the YAML-configured daemon host. Its production role is forwarding, and its collector-style configuration is reserved for local validation or controlled lab tests.
-- `DeltaZulu.DurableBuffer` is the durable queue and backpressure layer before RELP dispatch.
-- `DeltaZulu.Pipeline/Outputs` owns NDJSON sinks, MessagePack delivery encoding, RELP buffered forwarding, RELP-neutral transport contracts, DeltaZulu.Relp transport, endpoint failover groundwork, TLS policy options, and health snapshots.
-- `DeltaZulu.Pipeline/Inputs` contains syslog files, TCP syslog, Linux FIFO paths, CSV, auditd, Windows Event Log, EVTX, ETL, ETW, RELP, and MessagePack input adapters.
-- Windows Event Log named `EventData` values are available both as nested payload fields and top-level convenience fields for profiles.
-- Agent output preserves source-native field names; server-side DeltaZulu components perform semantic normalization.
-- ETW integrity monitoring is intentionally scoped to agent self-protection diagnostics: it checks only the current process's `ntdll` ETW prologues, does not unhook or repair memory, and should emit `AgentIntegrityFinding`-style internal security/health events rather than normal endpoint telemetry.
-- Detection verdicts, DuckDB, SQL window engines, and platform-owned canonical normalization remain out of scope for the agent; deterministic post-filter enrichment lives in `DeltaZulu.Pipeline/Enrichment`.
+- `DeltaZulu.Pipeline` is the single reusable, multi-targeted pipeline assembly. Its internal `Core`, `Inputs`, `Parsing`, `Assembly`, `Streaming`, `Dispatch`, `Enrichment`, `Outputs`, and `Tunnel` boundaries are folders and namespaces, not separate projects.
+- The target has distinct text and structured input contracts. Inputs acquire, frame, decode, or map; `DeltaZulu.Normalize` will be the only plaintext structural parser, while deterministic/native structured inputs bypass it.
+- The current daemon remains transitional: it still executes profile-centric pipelines, uses direct `DeltaZulu.DurableBuffer` forwarding, and serializes legacy concurrent output with `ChannelOutputMultiplexer`.
+- The target daemon uses one LocalStream host with `agent.parsed` (materialization-to-filter) and `agent.output` (filter-to-forwarder). Logical topics are parsed-envelope values; they are not physical streams.
+- `DeltaZulu.Relp` owns RELP protocol mechanics. Pipeline RELP adapters own configuration, payload mapping, and metrics; output commits occur only after acknowledgement.
+- `parse.query` will be an optional restricted Normalize-rule contract; `filter.query` remains Rx.Kql-owned. Profiles do not configure streams, offsets, partitions, parser generations, or multiplexer behavior.
+- Unrecognized plaintext is preserved and coverage distinguishes admission rejection, parser no-match, filter no-candidate, filter no-match, and operational errors.
+- Agent output preserves source-native field names; server-side DeltaZulu components perform canonical semantic normalization.
 
 ## Project layout
 
 ```text
 src/
   DeltaZulu.Pipeline/
-    Core/
-    Enrichment/
-    Inputs/
-    Outputs/
-    Tunnel/
+    Core/  Inputs/  Parsing/  Assembly/  Streaming/  Dispatch/
+    Enrichment/  Outputs/  Tunnel/
   DeltaZulu.Agent.Runtime/
-    Security/EtwIntegrity/
   DeltaZulu.Agent.Filter/
   DeltaZulu.Agent.Daemon/
+  DeltaZulu.Agent.Cli/
+  DeltaZulu.Agent.ProfileWorkbench/
 tests/
   DeltaZulu.Agent.Tests/
-  DeltaZulu.DurableBuffer.Tests/
-profiles/
-  linux/
-  windows/
 docs/
+  adr/
 external/
-  DeltaZulu.DurableBuffer/  (git submodule)
-  DeltaZulu.Relp/  (git submodule)
+  DeltaZulu.DurableBuffer/  (transitional direct submodule)
+  DeltaZulu.Relp/           (RELP protocol submodule)
 ```
 
 ## Git submodules
@@ -199,8 +191,9 @@ git submodule update --remote external/DeltaZulu.Relp external/DeltaZulu.Durable
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) describes the current host split, project boundaries, data flow, delivery envelopes, and normalization boundary.
-- [Roadmap](docs/ROADMAP.md) tracks implementation status, production hardening work, validation commands, and forwarder smoke testing.
+- [Architecture](docs/ARCHITECTURE.md) is the authoritative target topology and dependency boundary.
+- [Roadmap](docs/ROADMAP.md) tracks the staged migration and current transitional baseline.
+- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, and coverage decisions.
 - [RELP receiver setup](docs/RELP_RECEIVER_SETUP.md) captures local and production receiver notes.
 
 ## License

@@ -1,201 +1,156 @@
-# Architecture
+# Target architecture
 
-DeltaZulu.Agent is a resource-native collection and forwarding agent. The core invariant is:
+This is the authoritative target architecture for DeltaZulu.Agent. It replaces the
+legacy profile-per-input pipeline and direct DurableBuffer forwarding diagrams.
+Implementation sequencing and current migration status are in
+[`ROADMAP.md`](ROADMAP.md).
 
-```text
-Inputs collect.
-Parsers expose resource-native fields.
-Profiles filter and select with KQL.
-The runtime preserves delivery identity.
-Outputs write NDJSON or enqueue durable delivery records that are forwarded as MessagePack `DeliveryBatch` payloads over RELP.
-The server performs semantic normalization.
-```
+## Invariants
 
-The agent does **not** canonicalize fields at the edge. Windows `TargetUserSid`, Sysmon `ProcessGuid`, auditd `EXECVE.ARGV`, syslog `RawMessage`, and similar source-native fields remain source-native. Canonical ECS/SIEM-style mapping belongs on the DeltaZulu server side.
+- `DeltaZulu.Pipeline` remains **one** multi-targeted assembly. Folders and
+  namespace/dependency tests provide its internal boundaries; no component
+  Pipeline projects are introduced.
+- Inputs acquire, frame, decode, and map records. They do not parse
+  application-specific plaintext.
+- `DeltaZulu.Normalize` is the sole structural parser for unstructured and
+  semi-structured plaintext. Compatible rules compile into one PDAG per parser
+  domain, and each plaintext record traverses that PDAG once.
+- Native or deterministic structured sources bypass Normalize.
+- `DeltaZulu.Relp` owns RELP framing, sessions, transaction identifiers, and
+  acknowledgements. Pipeline supplies only payload adapters.
+- `DeltaZulu.LocalStream` is the Pipeline-visible durability and replay
+  boundary. `DeltaZulu.DurableBuffer` may remain behind LocalStream, but is not
+  an Agent-visible pipeline dependency after migration.
+- Canonical semantic normalization belongs to DeltaZulu.Platform, not the edge
+  agent.
 
-## Hosts
-
-DeltaZulu.Agent currently has three executable hosts:
-
-| Host | Project | Purpose |
-| --- | --- | --- |
-| `dzagentctl` | `src/DeltaZulu.Agent.Cli` | Thin exploration CLI for schemas, inline KQL, profile testing, and NDJSON console/file export. |
-| `dzagentd` | `src/DeltaZulu.Agent.Daemon` | YAML-configured daemon host. Production role is RELP forwarding; collector-style mode is for local validation and controlled lab tests. |
-| `dzagentd` collector config | `config/dzcollector.yaml` | Local validation pipeline mode with MessagePack RELP input, pass-through filtering, and console/file NDJSON output. |
-
-`dzagentctl` is intentionally convenient for development. `dzagentd` is intentionally smaller: it has no inline query mode, schema listing, table renderer, or ad-hoc export command. Daemon source selection belongs in YAML and resource profiles.
-
-## Project boundaries
-
-```text
-src/
-  DeltaZulu.Pipeline/            Single pipeline assembly, organized by the component folders below.
-    Core/                        Shared pipeline models, abstractions, profiles, observations, serializers, and helpers.
-    Outputs/                     Output adapters grouped by type.
-      Ndjson/                    NDJSON console/file sinks, serializer options, and error records.
-      Relp/                      Buffered RELP sink, RELP-neutral transport port, DeltaZulu.Relp adapter, and health reporting.
-    Inputs/                      Resource-specific input adapters, including RELP server input.
-    Enrichment/                  Deterministic post-filter enrichment, including RPC resolver sidecars.
-    Tunnel/                      Pipeline tunnel support.
-  DeltaZulu.Agent.Runtime/       Runtime orchestration that binds inputs, profiles, executors, and sinks; includes agent self-protection services such as ETW prologue integrity monitoring.
-  DeltaZulu.Agent.Filter/        Logstash-like filter stage: KQL profile execution and resource prefiltering.
-  DeltaZulu.Agent.Daemon/        YAML-driven forwarder daemon composition root.
-  DeltaZulu.Agent.Cli/           Development/exploration CLI composition root.
-  DeltaZulu.DurableBuffer/       Durable disk buffer, retry, backpressure, dead-lettering, recovery.
-```
-
-Dependency direction is inward: inputs produce domain `SourceEvent` values; KQL and output projects implement application/domain ports; `DeltaZulu.DurableBuffer` owns durable storage mechanics; DeltaZulu.Relp remains hidden behind the forwarder transport adapter.
-
-## Data flow
-
-### Exploration flow
+## Runtime topology
 
 ```mermaid
-flowchart LR
-    A[Input adapter] --> B[SourceEvent]
-    B --> C[Filter/profile KQL]
-    C --> D[Post-filter deterministic enrichment]
-    D --> E[ResourceOutputRecord]
-    E --> F[NDJSON console/file sink]
+flowchart TD
+    R[Configured physical resources] --> P[Execution-plan compiler]
+    P --> A[Acquisition workers]
+    A -->|plaintext: frame, decode, admission| T[TextInputRecord]
+    A -->|structured: codec or native mapper| S[StructuredInputRecord]
+    T --> N[Unified Normalize PDAG]
+    N --> M[Materialization]
+    S --> M
+    M --> AS[Optional post-materialization assembly]
+    AS --> PE[ParsedEventEnvelope]
+    PE --> PS[(LocalStream: agent.parsed)]
+    PS --> FD[Coordinated filter dispatcher]
+    FD -->|accepted rows| OS[(LocalStream: agent.output)]
+    FD -->|no rows| D[Record coverage disposition and commit]
+    OS --> RF[RELP forwarder subscription]
+    RF --> B[DeliveryBatch]
+    B --> RELP[DeltaZulu.Relp]
+    RELP --> ACK[Remote acknowledgement]
+    ACK --> C[Commit agent.output position]
 ```
 
-### Daemon forwarding flow
+There is one LocalStream host and two internal physical topics: `agent.parsed`
+and `agent.output`. Logical classes such as `sshd`, `sudo`, `sssd`, `pam`, and
+`auditd` are envelope topics, not LocalStream topics. The daemon has no
+general-purpose output multiplexer; any serialization required by a
+non-thread-safe LocalStream producer is private to the publisher adapter.
 
-```mermaid
-flowchart LR
-    A[YAML source config] --> B[Input adapter]
-    B --> C[SourceEvent with source column]
-    C --> D[Filter/profile KQL]
-    D --> E[Post-filter deterministic enrichment]
-    E --> F[ResourceOutputRecord]
-    F --> G[DeliveryRecord with stable DeliveryId]
-    G --> H[DeltaZulu.DurableBuffer durable chunk]
-    H --> I[ForwarderChunkSender]
-    I --> J[DeltaZulu.Relp transport adapter]
-    J --> K[Receiver ACK / retry / dead-letter]
+## Assembly boundaries
+
+```text
+src/DeltaZulu.Pipeline/
+  Core/             Acquisition, delivery, events, MessagePack, NDJSON,
+                    observability, and profiles
+  Inputs/           Files, network, pipes, syslog, RELP, Windows, framing,
+                    decoding, mapping, and transitional legacy adapters
+  Parsing/          parse.query compiler, parser domains/generations, PDAG
+                    runtime, and topic extraction
+  Assembly/         Post-materialization assemblers, initially auditd
+  Streaming/        envelopes, publishers, stream runtime, and metrics
+  Dispatch/         immutable filter registry and coordinated dispatcher
+  Enrichment/       ETW, RPC, and Windows enrichment
+  Outputs/          NDJSON and thin RELP adapters
+  Tunnel/
 ```
 
-Source events expose a KQL `source` column from the native source name. Daemon profiles use that column to select channels or providers; ETW profiles use `resource.session` for the live session name and `resource.provider` for filtering/identity, for example `EventLog | where source =~ "Security"` or `Etw | where source =~ "Microsoft-Windows-Kernel-Process"`.
+`DeltaZulu.Pipeline` may reference Normalize, LocalStream, RELP, deterministic
+format libraries, and approved native eventing libraries. It must not reference
+Agent Runtime, Daemon, CLI, ProfileWorkbench, or Filter. Runtime owns plan
+construction, lifecycle, deduplication, reload, and failure policy. Filter owns
+`filter.query` compilation/execution through Rx.Kql. Pipeline owns neither
+Rx.Kql nor application orchestration.
 
-The TUI presents this as a source-first schema tree rather than a profile browser. Minimum Windows and Linux source/field expectations are documented in [`docs/ENDPOINT_SCHEMA_EXPECTATIONS.md`](ENDPOINT_SCHEMA_EXPECTATIONS.md).
+## Input and materialization boundaries
 
-The runtime follows a Logstash-like order: input adapters produce `SourceEvent` records, profile KQL performs filtering, deterministic enrichment runs only on kept records, and output writers receive the final `ResourceOutputRecord`.
+Acquisition metadata contains collection facts only: source identity/kind/name,
+platform, receipt time, transport, remote address, resource path, and bounded
+source properties. Text sources emit a raw message plus that metadata;
+structured sources emit native/deterministically decoded fields plus that
+metadata.
 
-ETW payload fields remain native provider facts at the live input boundary. Any resolved, normalized, enriched, or correlated field is DeltaZulu-derived schema and must carry documented provenance; see [`docs/ETW_SCHEMA_BOUNDARIES.md`](ETW_SCHEMA_BOUNDARIES.md).
+Plaintext sources flow through Normalize. Syslog TCP and UDP may bind the same
+numeric port. TCP supports bounded RFC 6587 octet-counted and newline framing.
+Admission checks nonempty, bounded, decodable text and a valid PRI (`<0>` to
+`<191>`) before a candidate reaches Normalize. Admission rejection is measured
+separately and is never parser blindness. A valid but unmatched candidate is
+published as unrecognized with its raw message preserved.
 
-RPC-centric Windows evidence follows the same boundary: the agent may emit deterministic `enrichment.Rpc` facts, but platform-owned Bronze/Silver/Golden modeling and detections interpret them. See [`docs/RPC_AGENT_PLATFORM_ALIGNMENT.md`](RPC_AGENT_PLATFORM_ALIGNMENT.md).
+CSV, Event Log, EVTX, ETL, ETW, and MessagePack `DeliveryBatch` RELP payloads
+are structured paths. RELP payload type—not the RELP protocol—determines whether
+a record is structured or plaintext.
 
-Windows eventing implementation boundaries are captured in [`docs/adr/0001-windows-eventing-library-boundaries.md`](adr/0001-windows-eventing-library-boundaries.md): TraceEvent owns live ETW sessions, Tx remains for ETL/EVTX-style replay/import paths, and P/Invoke is reserved for narrow OS primitives or future native ETW work justified by benchmarks.
+Materialization produces `Structured`, `Recognized`, `Unrecognized`, or `Error`.
+A recognized Normalize match extracts exactly one `topic.<name>` tag from
+`event.tags`, while retaining the complete tag array and raw message. An
+unrecognized event uses topic `unrecognized` and is still published.
 
-## Output and delivery envelopes
+## Profiles, parser generations, and identities
 
-Terminal NDJSON output is one JSON object per line:
+`parse.query` is an optional, backwards-compatible profile property. Its V1
+grammar is only:
 
-```json
-{
-  "_metadata": {
-    "schemaVersion": 1,
-    "collectorId": "host01",
-    "profileId": "windows.eventlog.security",
-    "profileVersion": "1.0.0",
-    "sourceType": "WindowsEventLog",
-    "sourceName": "Security",
-    "platform": "windows",
-    "hostname": "host01",
-    "ingestedAt": "2026-06-23T12:00:00Z",
-    "parserName": "WindowsEventLogInput",
-    "parserVersion": "1.0.0",
-    "rawPreserved": true
-  },
-  "event": {
-    "EventId": 4625,
-    "EventData": {
-      "TargetUserSid": "S-1-5-..."
-    }
-  }
-}
+```kusto
+<table>
+| normalize <field> with (<rule string>, ...)
 ```
 
-Forwarding wraps filtered resource output in RELP-neutral delivery records before buffering; sealed batches are encoded as MessagePack before the RELP transport sends them. `DeliveryId` is generated per delivery envelope and is separate from the event-sourced `RecordId`, giving the server stable at-least-once deduplication material when crashes or network failures cause resend.
+Each rule has exactly one `topic.<name>` routing tag and all rules in one profile
+initially use one topic. Parse profiles are grouped by input table, text field,
+engine, and dialect. Fragments are ordered by profile ID, profile version, and
+rule ordinal; the ordered decoded rulebase produces a stable hash. A replacement
+PDAG compiles and validates before an immutable generation is atomically
+activated. `filter.query` remains Rx.Kql-owned and is never used to execute
+`parse.query`.
 
-The KQL executor preserves source metadata outside user-controlled projections. If a profile omits `_metadata`, the runtime injects fallback delivery identity fields so collector/source/profile context is not accidentally dropped before forwarding.
+Source, parsed-event, and filter-output identities are deterministic from source
+position/identity, materialization generation and assembly ordinal, and filter
+profile/version/output ordinal respectively. This supports at-least-once replay
+without claiming exactly-once delivery.
 
-## Inputs
+## Dispatch, commits, and observability
 
-Implemented input families are:
+The dispatcher resolves all applicable topic/table/resource filters for one
+parsed event, executes them sequentially, deterministically orders outputs,
+appends all rows to `agent.output`, records a final disposition, then commits
+`agent.parsed`. It distinguishes `Forwarded`, `NoCandidate`, `NoMatch`,
+`FilterError`, and `OutputError`. A no-output event is deliberately committed
+only after its coverage disposition is recorded; errors and failed output appends
+are not committed. The forwarder commits `agent.output` only after a successful
+RELP acknowledgement.
 
-- syslog file tail and TCP syslog server input,
-- CSV file input,
-- auditd file/replay input with LAUREL-inspired parsing and assembler behavior,
-- Windows Event Log live subscription,
-- EVTX file replay,
-- ETL file replay,
-- ETW real-time session input.
+Metrics separately record acquisition/admission outcomes, structured/recognized/
+unrecognized/error materialization, PDAG generation and compilation, dispatch
+outcomes, LocalStream append/read/commit/lag/expiry, and RELP delivery. Labels
+are bounded. Parser blindness is an admitted plaintext no-match; filter blindness
+separates no-candidate from no-match; complete blindness is an unrecognized
+plaintext event with no output. Operational failures are not blindness. An
+optional bounded unknown-event diagnostic store retains sampled fingerprints and
+representatives outside metrics labels.
 
-Windows Event Log records expose named XML `EventData` values both under the dynamic `EventData` object and as top-level convenience fields. This supports profile styles such as `EventData.TargetUserSid` and `TargetUserSid`.
+## Lifecycle and reload
 
-## Agent self-protection diagnostics
-
-The runtime includes a minimal, read-only ETW integrity monitor for Windows agents. Its value is early visibility into common in-process ETW bypass attempts against the agent itself: at startup it baselines the live prologues for `ntdll!EtwEventWrite` and `ntdll!NtTraceEvent`, then periodically re-reads those bytes and classifies known patch patterns such as `RET`, NOP sleds, `XOR EAX,EAX; RET`, `MOV EAX,imm; RET`, and generic byte modifications.
-
-This monitor is deliberately not a normal input source and does not produce endpoint telemetry. It belongs in the internal diagnostics/protection path and should emit structured agent-health/security findings, for example `EventType=AgentIntegrityFinding` and `Category=EtwUserModePrologueIntegrity`. The MVP only checks user-mode ETW prologue integrity inside the current agent process; it does not map clean images, inspect IAT/EAT state, repair hooks, scan other processes, or validate ETW sessions.
-
-## Daemon roles and coordination
-
-`dzagentd` is the forwarding service boundary. It discovers enabled resource profiles from `profilesPath`, uses each profile's `resource` block as the input declaration, applies the profile KQL filter, then encodes delivery batches with MessagePack and sends them over RELP when `pipeline.output.mode: forward`. Daemon collector mode is the lab receiver: RELP MessagePack input, pass-through filtering, and configurable console/file NDJSON output via `config/dzcollector.yaml`. The single `DeltaZulu.Pipeline` project keeps RELP forwarding code under `Outputs/Relp` and the `DeltaZulu.Pipeline.Outputs.Relp` namespace, while console/file sinks stay under `Outputs/Ndjson` and `DeltaZulu.Pipeline.Outputs.Ndjson`; shared NDJSON serialization helpers live in `Core/Ndjson` under the `DeltaZulu.Pipeline.Core.Ndjson` namespace.
-
-Coordination remains configuration-file based for the current split. The forwarder output path already owns durable queue state in `DeltaZulu.DurableBuffer`, while daemon configuration owns source/profile/output selection; no synchronous request/response decisions are required on the hot path. Named pipes or another IPC channel should only be introduced later for live reconfiguration, administrative health queries, or explicit control-plane commands that cannot be expressed safely by replacing configuration and restarting the supervised daemon process.
-
-## Buffer and forwarder ownership
-
-`DeltaZulu.DurableBuffer` is the authoritative durability and backpressure layer. It owns chunk files, checksums, atomic state transitions, retry scheduling, backpressure policy, recovery, metrics, and dead-letter state. RELP transport ACKs are transport results; durable commit/delete decisions remain on the buffer/application side.
-
-The forwarder path emits health observations through `ForwarderHealthReporter`, including buffer state, disk usage, record/chunk/batch counters, and last activity timestamps. The daemon config controls diagnostic cadence.
-
-## Configuration model
-
-`dzagentd` uses a single YAML file for agent identity, the profile directory, pipeline output encoding/transport, buffer settings, RELP endpoints/TLS policy, and diagnostics:
-
-```yaml
-id: local-agent-daemon
-profilesPath: profiles
-pipeline:
-  input:
-    mode: profiles
-  filter:
-    mode: profiles
-  output:
-    mode: forward
-    encoding: messagepack
-    transport: relp
-buffer:
-  path: ./buffer/agentd
-relp:
-  useTls: false
-  tls:
-    certificateValidation: SystemTrust
-  endpoints:
-    - host: 127.0.0.1
-      port: 2514
-diagnostics:
-  intervalSeconds: 60
-```
-
-Profiles remain resource-local. They should filter and select fields, not normalize source semantics into server-canonical fields.
-
-## Agent evolution
-The agent is transitioning from a monolithic streaming ETL binary into a modular orchestrator. The streaming ETL engine (inputs, parsers, profiles, KQL, outputs, durable buffering, and RELP delivery) will be extracted into a standalone `DeltaZulu.Pipeline` submodule. The agent becomes a lightweight watchdog service that supervises the pipeline alongside new platform services:
-
-- **Policy download service**: Synchronizes resource profiles, certificates, and configuration from the management server.
-- **Metrics service**: Sends periodic heartbeat and operational telemetry (pipeline health, agent metrics) to the server.
-- **CMDB-lite inventory service**: Runs scheduled local inventory scans (users, software, browser extensions, hardware, ARP table, network interfaces) and sends structured snapshot reports through the delivery path.
-
-Inventory collectors follow a scan-and-report pattern with their own scheduling, separate from the reactive streaming pipeline. They produce discrete state snapshots, not continuous event streams. The server populates inventory tables from these reports, and the data is also exposed locally as KQL-queryable tables for IOC enrichment.
-
-The `dzagentctl` CLI and `dzagentd` collector configuration remain in the agent repository. The CLI references the pipeline submodule for input/profile/KQL exploration. See [`ROADMAP.md`](ROADMAP.md) for the extraction plan, migration sequence, and service roadmaps.
-
-## Enrichment
-
-Local enrichment is not implemented in this agent. Future enrichment must be optional, typed, resource-local, and compatible with server-side semantic normalization. Candidate providers include SID/account resolution, Windows logon session state, Sysmon process GUID state, auditd process relationship state, and Linux session state.
-
-DuckDB, SQL window engines, and edge-side server-canonical normalization are permanently out of scope.
+Startup loads and validates profiles, builds acquisition/parser/filter plans,
+compiles PDAGs and filters, opens LocalStream, starts forwarder and dispatcher,
+then starts acquisition. Shutdown stops admission, flushes materialized records,
+drains parsed work and output forwarding according to policy, closes RELP, then
+closes LocalStream. Parser and filter replacements are independently built and
+atomically swapped; a failed replacement leaves the active generation intact.
