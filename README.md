@@ -134,6 +134,10 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ## Current implementation status
 
+- **Architecture migration status (2026-07-17):** Phases 0-1 are complete and
+  Phase 2 is active. Current work introduces text and structured input
+  contracts with metadata-preserving adapters; it does not yet add Normalize
+  parsing, LocalStream runtime behavior, or the execution-plan daemon.
 - `DeltaZulu.Pipeline` is the single reusable, multi-targeted pipeline assembly. Its internal `Core`, `Inputs`, `Parsing`, `Assembly`, `Streaming`, `Dispatch`, `Enrichment`, `Outputs`, and `Tunnel` boundaries are folders and namespaces, not separate projects.
 - The target has distinct text and structured input contracts. Inputs acquire, frame, decode, or map; `DeltaZulu.Normalize` will be the only plaintext structural parser, while deterministic/native structured inputs bypass it.
 - The current daemon remains transitional: it still executes profile-centric pipelines, uses direct `DeltaZulu.DurableBuffer` forwarding, and serializes legacy concurrent output with `ChannelOutputMultiplexer`.

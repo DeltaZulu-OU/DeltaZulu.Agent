@@ -8,6 +8,8 @@ DurableBuffer-first, profile-per-source, and permanent-multiplexer plans.
 
 - **Complete**: target decision/documentation is recorded; no implementation
   claim is implied.
+- **Active**: the current implementation focus; its completion evidence has not
+  yet been met.
 - **Planned**: accepted work not yet implemented.
 - **Transitional**: current code intentionally differs while a later phase is
   pending.
@@ -24,13 +26,37 @@ serialize concurrent legacy output. Those are transitional implementation
 details, not target architecture. Existing syslog and auditd parsing is also
 transitional until Normalize parity is established.
 
+## Current delivery status (2026-07-17)
+
+**We have completed the architectural foundation (Phases 0 and 1) and are now
+working on Phase 2: input contracts.** The immediately planned implementation
+is to introduce `TextInputRecord` and `StructuredInputRecord`, then adapt
+existing inputs without losing their current source metadata. This establishes
+the stable text boundary required before Phase 7 can add `parse.query` and
+Phase 8 can compile a unified PDAG.
+
+The following capabilities are deliberately **not** claimed as present yet:
+
+- Normalize is not a plaintext parser yet; it is an assembly boundary only.
+- LocalStream has no host, storage, producer, subscription, replay, or commit
+  implementation yet; `agent.parsed` and `agent.output` are canonical names
+  only.
+- The daemon is not yet an execution-plan runtime and still uses per-profile
+  `ResourcePipeline` instances, direct DurableBuffer forwarding, and
+  `ChannelOutputMultiplexer`.
+
+Phase 2 work must preserve the legacy behavior through compatibility adapters;
+it must not prematurely move structured sources through Normalize or replace
+the daemon runtime. Phases 3-5 and 6 remain separate follow-on tracks as
+described below.
+
 ## Ordered migration
 
 | Phase | Status | Objective | Completion evidence |
 | --- | --- | --- | --- |
 | 0 | Complete | Align ADRs and authoritative documentation. | Architecture, roadmap, README, and ADRs state one Pipeline, LocalStream boundaries, PDAG, RELP ownership, and no production multiplexer. |
 | 1 | Complete | Add Normalize/LocalStream and architecture guards. | Pipeline references Normalize, LocalStream, and RELP (`DeltaZulu.Pipeline.csproj`); `PipelineAssembly_ReferencesOnlyExternalPipelineDependencies`/`PipelineAssembly_ReferencesNormalizeAndLocalStream` reject Agent-layer references and `PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked` reports the direct DurableBuffer use in `tests/DeltaZulu.Agent.Tests/ApplicationTests.cs` (and the equivalent in `DomainTests.cs`). Both new assemblies are scaffolds: they exist as real, referenced, tested project boundaries but implement no PDAG or stream runtime yet, which remain later phases. |
-| 2 | Planned | Introduce text/structured input contracts and adapters. | New inputs emit `TextInputRecord` or `StructuredInputRecord`; compatibility paths preserve metadata. |
+| 2 | Active | Introduce text/structured input contracts and adapters. | New inputs emit `TextInputRecord` or `StructuredInputRecord`; compatibility paths preserve metadata. |
 | 3 | Planned | Generalize acquisition, framing, and decoding. | TCP, UDP, file, and FIFO emit text records with bounded rejection metrics and no application parser dependency. |
 | 4 | Planned | Add the TCP/UDP syslog admission preset. | Same-port TCP/UDP, RFC 6587/newline framing, PRI admission, and unknown valid syslog reaches Normalize. |
 | 5 | Planned | Move structured sources and RELP adapters to structured contracts. | CSV/Windows/RELP structured payloads bypass Normalize; Pipeline RELP code is payload mapping only. |
