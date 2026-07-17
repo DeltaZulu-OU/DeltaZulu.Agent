@@ -390,17 +390,15 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             ? StartRelpTunnel(configuration)
             : ((IReadOnlyList<RelpEndpoint>)configuration.Relp.Endpoints, configuration.Relp.UseTls);
 
-        var primaryEndpoint = endpoints[0];
-        return new BufferedRelpSink(configuration.Buffer.ToBufferOptions(), new RelpForwarderTransport(new RelpForwarderOptions {
-            Host = primaryEndpoint.Host,
-            Port = primaryEndpoint.Port,
-            Endpoints = endpoints,
-            UseTls = useTls,
-            ClientCertificates = configuration.Tunnel.Enabled ? null : CreateClientCertificates(configuration.Relp.Tls),
-            CertificateValidation = configuration.Relp.Tls.CertificateValidation,
-            AllowedServerCertificateThumbprints = configuration.Relp.Tls.AllowedServerCertificateThumbprints,
-            CertificateExpiryWarningDays = configuration.Relp.Tls.CertificateExpiryWarningDays
-        }), configuration.Buffer.ToRetryConfiguration());
+        var clientCertificates = configuration.Tunnel.Enabled
+            ? null
+            : CreateClientCertificates(configuration.Relp.Tls);
+        var transportOptions = configuration.Relp.ToForwarderOptions(clientCertificates, endpoints, useTls);
+
+        return new BufferedRelpSink(
+            configuration.Buffer.ToBufferOptions(),
+            new RelpForwarderTransport(transportOptions),
+            configuration.Buffer.ToRetryConfiguration());
     }
 
     private void StartHealthReporter(ForwarderDaemonConfiguration configuration, BufferedRelpSink relpSink)

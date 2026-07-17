@@ -506,6 +506,51 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
+    public void RelpTransportConfiguration_ToForwarderOptions_MapsTlsAndEndpointSettings()
+    {
+        var configuration = new RelpTransportConfiguration {
+            UseTls = true,
+            Endpoints = [
+                new RelpEndpoint { Host = "relp-a.example", Port = 6514 },
+                new RelpEndpoint { Host = "relp-b.example", Port = 6515 }
+            ],
+            Tls = new RelpTlsConfiguration {
+                CertificateValidation = RelpCertificateValidationMode.Thumbprint,
+                AllowedServerCertificateThumbprints = ["AA11"],
+                CertificateExpiryWarningDays = 14
+            }
+        };
+
+        var options = configuration.ToForwarderOptions();
+
+        Assert.AreEqual("relp-a.example", options.Host);
+        Assert.AreEqual(6514, options.Port);
+        Assert.IsTrue(options.UseTls);
+        Assert.AreEqual(RelpCertificateValidationMode.Thumbprint, options.CertificateValidation);
+        Assert.HasCount(1, options.AllowedServerCertificateThumbprints);
+        Assert.AreEqual("AA11", options.AllowedServerCertificateThumbprints[0]);
+        Assert.AreEqual(14, options.CertificateExpiryWarningDays);
+        Assert.HasCount(2, options.GetConfiguredEndpoints());
+    }
+
+    [TestMethod]
+    public void RelpTransportConfiguration_ToForwarderOptions_AppliesTunnelOverrides()
+    {
+        var configuration = new RelpTransportConfiguration {
+            UseTls = true,
+            Endpoints = [new RelpEndpoint { Host = "upstream.example", Port = 6514 }]
+        };
+        IReadOnlyList<RelpEndpoint> tunnelEndpoints = [new RelpEndpoint { Host = "127.0.0.1", Port = 2515 }];
+
+        var options = configuration.ToForwarderOptions(endpoints: tunnelEndpoints, useTls: false);
+
+        Assert.AreEqual("127.0.0.1", options.Host);
+        Assert.AreEqual(2515, options.Port);
+        Assert.AreSame(tunnelEndpoints, options.Endpoints);
+        Assert.IsFalse(options.UseTls);
+    }
+
+    [TestMethod]
     public void RelpForwarderTransport_Constructor_RejectsInvalidFailoverEndpoint() => Assert.ThrowsExactly<ArgumentException>(() => new RelpForwarderTransport(new RelpForwarderOptions {
         Host = "primary.example",
         Port = 6514,

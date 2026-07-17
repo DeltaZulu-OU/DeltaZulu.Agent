@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using DeltaZulu.DurableBuffer.Configuration;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -56,6 +57,34 @@ public sealed record RelpTransportConfiguration
     public bool UseTls { get; init; }
     public RelpTlsConfiguration Tls { get; init; } = new();
     public List<RelpEndpoint> Endpoints { get; init; } = [new RelpEndpoint { Host = "127.0.0.1", Port = 2514 }];
+
+    /// <summary>
+    /// Creates the transport options consumed by the RELP client. Callers can provide an
+    /// alternate endpoint list or TLS mode when a local tunnel fronts the configured target.
+    /// </summary>
+    public RelpForwarderOptions ToForwarderOptions(
+        X509CertificateCollection? clientCertificates = null,
+        IReadOnlyList<RelpEndpoint>? endpoints = null,
+        bool? useTls = null)
+    {
+        var effectiveEndpoints = endpoints ?? Endpoints;
+        if (effectiveEndpoints.Count == 0)
+        {
+            throw new InvalidOperationException("RELP transport requires at least one endpoint.");
+        }
+
+        var primaryEndpoint = effectiveEndpoints[0];
+        return new RelpForwarderOptions {
+            Host = primaryEndpoint.Host,
+            Port = primaryEndpoint.Port,
+            Endpoints = effectiveEndpoints,
+            UseTls = useTls ?? UseTls,
+            ClientCertificates = clientCertificates,
+            CertificateValidation = Tls.CertificateValidation,
+            AllowedServerCertificateThumbprints = Tls.AllowedServerCertificateThumbprints,
+            CertificateExpiryWarningDays = Tls.CertificateExpiryWarningDays
+        };
+    }
 }
 
 public sealed record RelpTlsConfiguration
