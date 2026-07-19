@@ -16,6 +16,10 @@ Implementation sequencing and current migration status are in
   semi-structured plaintext. Compatible rules compile into one PDAG per parser
   domain, and each plaintext record traverses that PDAG once.
 - Native or deterministic structured sources bypass Normalize.
+- A producer-agnostic schema registry is the single authority for parsed field
+  logical types, nullability, units, timestamp precision, and per-backend
+  physical mappings. It generates Avro wire schemas, Arrow server schemas, sink
+  DDL, query-translator type tables, and governed JSON projections.
 - `DeltaZulu.Relp` owns RELP framing, sessions, transaction identifiers, and
   acknowledgements. Pipeline supplies only payload adapters.
 - `DeltaZulu.LocalStream` is the Pipeline-visible durability and replay
@@ -36,7 +40,11 @@ flowchart TD
     N --> M[Materialization]
     S --> M
     M --> AS[Optional post-materialization assembly]
-    AS --> PE[ParsedEventEnvelope]
+    AS --> SC[Schema registry validation
+logical types + nullability + units]
+    SC --> AV[Avro transport envelope]
+    AV --> AR[Server decode to Arrow record batches]
+    AR --> PE[ParsedEventEnvelope]
     PE --> PS[(LocalStream: agent.parsed)]
     PS --> FD[Coordinated filter dispatcher]
     FD -->|accepted rows| OS[(LocalStream: agent.output)]
@@ -58,8 +66,9 @@ non-thread-safe LocalStream producer is private to the publisher adapter.
 
 ```text
 src/DeltaZulu.Pipeline/
-  Core/             Acquisition, delivery, events, MessagePack, NDJSON,
-                    observability, and profiles
+  Core/             Acquisition, delivery, events, MessagePack, Avro/Arrow
+                    schema projections, governed NDJSON edges, observability,
+                    and profiles
   Inputs/           Files, network, pipes, syslog, RELP, Windows, framing,
                     decoding, mapping, and transitional legacy adapters
   Parsing/          parse.query compiler, parser domains/generations, PDAG
@@ -98,6 +107,19 @@ CSV, Event Log, EVTX, ETL, ETW, and MessagePack `DeliveryBatch` RELP payloads
 are structured paths. RELP payload type—not the RELP protocol—determines whether
 a record is structured or plaintext.
 
+After materialization, every record is checked against the producer-agnostic
+schema registry before it is accepted as a typed event. The registry is keyed by
+canonical field contracts, not by a particular producer or liblognorm parser;
+structured XML, CSV, JSON, Windows, and future native sources must therefore meet
+the same logical type checkpoint when they are enabled.
+
+The internal type-bearing transport is Avro generated from that registry. The
+server decodes Avro once into Arrow record batches. DuckDB and Proton mappings,
+including table DDL and translator type tables, are generated from the same
+registry. NDJSON is not an internal type-bearing wire format; it is retained only
+for governed third-party ingress/egress projections, operator debug taps, and
+dead-letter/error envelopes.
+
 Materialization produces `Structured`, `Recognized`, `Unrecognized`, or `Error`.
 A recognized Normalize match extracts exactly one `topic.<name>` tag from
 `event.tags`, while retaining the complete tag array and raw message. An
@@ -120,6 +142,12 @@ rule ordinal; the ordered decoded rulebase produces a stable hash. A replacement
 PDAG compiles and validates before an immutable generation is atomically
 activated. `filter.query` remains Rx.Kql-owned and is never used to execute
 `parse.query`.
+
+Event time is canonicalized as UTC microsecond precision across the pipeline.
+Durations carry explicit units; large integers and decimals use typed carriers
+rather than JSON doubles; UUID, IP, MAC, enum, nested, variant, and geo fields
+require explicit registry annotations and backend mappings. Null, absent, and
+empty-string behavior is a translator contract rather than serializer accident.
 
 Source, parsed-event, and filter-output identities are deterministic from source
 position/identity, materialization generation and assembly ordinal, and filter
@@ -148,9 +176,9 @@ representatives outside metrics labels.
 
 ## Lifecycle and reload
 
-Startup loads and validates profiles, builds acquisition/parser/filter plans,
-compiles PDAGs and filters, opens LocalStream, starts forwarder and dispatcher,
-then starts acquisition. Shutdown stops admission, flushes materialized records,
-drains parsed work and output forwarding according to policy, closes RELP, then
-closes LocalStream. Parser and filter replacements are independently built and
+Startup loads and validates profiles and schema-registry generations, builds
+acquisition/parser/filter plans, compiles PDAGs and filters, opens LocalStream,
+starts forwarder and dispatcher, then starts acquisition. Shutdown stops admission,
+flushes materialized records, drains parsed work and output forwarding according
+to policy, closes RELP, then closes LocalStream. Parser and filter replacements are independently built and
 atomically swapped; a failed replacement leaves the active generation intact.

@@ -29,13 +29,16 @@ transitional until Normalize parity is established.
 ## Current delivery status (2026-07-17)
 
 **We have completed the architectural foundation (Phases 0 and 1) and are now
-working on Phase 2: input contracts.** The immediately planned implementation
-is to introduce `TextInputRecord` and `StructuredInputRecord`, then adapt
-existing inputs without losing their current source metadata. This establishes
+working on Phase 2: input contracts.** `TextInputRecord`,
+`StructuredInputRecord`, and an initial `ExecutionPlanCompiler` now exist as
+Phase 2 scaffolds. The next implementation step is to adapt existing inputs
+without losing their current source metadata. This establishes
 the strict source boundary required before Phase 6 can add `parse.query` and
 Phase 7 can compile a unified PDAG.
 
-The following capabilities are deliberately **not** claimed as present yet:
+The following capabilities are deliberately **not** claimed as present yet; the
+current code/documentation gap inventory is maintained in
+[`IMPLEMENTATION_GAP_ANALYSIS.md`](IMPLEMENTATION_GAP_ANALYSIS.md).
 
 - Normalize is not a plaintext parser yet; it is an assembly boundary only.
 - LocalStream has no host, storage, producer, subscription, replay, or commit
@@ -44,13 +47,18 @@ The following capabilities are deliberately **not** claimed as present yet:
 - The daemon is not yet an execution-plan runtime and still uses per-profile
   `ResourcePipeline` instances, direct DurableBuffer forwarding, and
   `ChannelOutputMultiplexer`.
+- The schema registry, Avro wire schemas, Arrow record batches, generated
+  Proton/DuckDB DDL, and translator type catalog are accepted target design only;
+  no implementation exists in this repository yet.
 
 Phase 2 work must preserve the legacy behavior through compatibility adapters;
 it must not prematurely move structured sources through Normalize or replace
-the daemon runtime. Normalize is the first production migration priority after
-the typed input boundary: it establishes the parsed-event contract that
-LocalStream will persist. LocalStream design and contract work may proceed in
-parallel, but direct DurableBuffer replacement must not make LocalStream
+the daemon runtime. The schema-registry/Avro/Arrow architecture recorded in ADR
+0010 is accepted target design, but it is not implemented in the current
+baseline and must not be implied by Phase 2 input records alone. Normalize is
+the first production migration priority after the typed input boundary: it
+establishes the parsed-event contract that LocalStream will persist. LocalStream
+design and contract work may proceed in parallel, but direct DurableBuffer replacement must not make LocalStream
 authoritative for legacy profile-specific `SourceEvent` records.
 
 ## Ordered migration
@@ -66,7 +74,7 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | 6 | Planned | Add restricted `parse.query` and a Normalize compatibility materializer. | Existing `filter.query` profiles continue receiving compatible `SourceEvent` shapes; profile-scoped diagnostics validate topic-tagged Normalize rules; raw text and parser provenance are retained. |
 | 7 | Planned | Build unified Normalize PDAG generations. | Parser domains group compatible rules deterministically; each plaintext record traverses one PDAG; recognized, unrecognized, and error outcomes remain explicit. |
 | 8 | Planned | Move auditd correlation after Normalize. | The assembler consumes normalized fields, maintains bounded incomplete-group state, and retires the hardcoded audit parser in the acquisition adapter. |
-| 9 | Planned | Define parsed envelopes and implement the LocalStream host. | `ParsedEventEnvelope` has stable identity and materialization state; one LocalStream host provides append/read/commit/replay for `agent.parsed` and `agent.output`, but legacy DurableBuffer remains the active forwarder until dispatch and ACK semantics are proven. |
+| 9 | Planned | Define parsed envelopes, schema-registry contracts, and implement the LocalStream host. | `ParsedEventEnvelope` has stable identity, materialization state, and registry-backed logical type metadata; Avro wire schemas, Arrow server schemas, generated sink DDL, and translator type tables are derived from one registry generation. One LocalStream host provides append/read/commit/replay for `agent.parsed` and `agent.output`, but legacy DurableBuffer remains the active forwarder until dispatch and ACK semantics are proven. |
 | 10 | Planned | Replace profile-centric execution with execution plans. | The planner opens each physical resource once per acquisition key and binds acquisition to parser/materialization/stream plans deterministically; `ProfileBinding` no longer defines a pipeline instance. |
 | 11 | Planned | Add coordinated filter dispatch. | Every candidate runs in deterministic order; output append precedes parsed commit; no-candidate, no-match, filter error, and output error remain distinct. |
 | 12 | Planned | Migrate forwarding to LocalStream `agent.output` and retire direct DurableBuffer ownership. | The RELP forwarder is an ACK-gated LocalStream subscription with replay; no forwarder-created DurableBuffer host remains Agent-visible. |
@@ -75,15 +83,16 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | 15 | Planned | Add blindness and end-to-end observability. | Admission, parser, filter, complete-blindness, streams, forwarding, and bounded unknown diagnostics are observable. |
 | 16 | Planned | Harden reload and operations. | Parser and filter generations replace atomically; checkpoints, poison policy, retention/storage pressure, graceful drain, and failure injection are covered. |
 | 17 | Planned | Archive conflicting operational guidance. | All active examples and commands validate; historical documents are marked superseded. |
-| 18 | Planned | Optimize only with benchmarks. | Before/after evidence preserves parsing, commit, queue, and blindness invariants. |
+| 18 | Planned | Verify sink ingest and replay assumptions. | Proton OSS ingest capabilities are verified against the targeted version; Arrow-to-DuckDB appender performance is benchmarked against NDJSON at realistic event rates; agent Avro spooling/replay ordering and schema-version pinning are specified and tested. |
+| 19 | Planned | Optimize only with benchmarks. | Before/after evidence preserves parsing, commit, queue, and blindness invariants. |
 
 Phases 2–5 establish the strict source boundary. Phases 6–8 are the first
 production migration priority because they remove parser ownership overlap and
 stabilize materialization semantics. LocalStream contract/design work may run
 alongside them, but Phase 12 cannot begin until parsed envelopes, execution
 plans, coordinated dispatch, and commit-order tests exist. Phases 9–13 are one
-coordinated daemon migration and must not be represented as final architecture
-until completed.
+coordinated daemon and type-contract migration and must not be represented as
+final architecture until completed.
 
 ## Acceptance gates
 
@@ -102,6 +111,12 @@ until completed.
 
 - One LocalStream host owns `agent.parsed` and `agent.output`, initially with one
   partition each and bounded retention.
+- The schema registry is the sole type authority for parsed fields and generates
+  Avro schemas, Arrow schemas, Proton/DuckDB DDL, translator type mappings, and
+  governed JSON projections.
+- Internal type-bearing transport is Avro to the server and Arrow in server
+  memory; NDJSON is limited to third-party ingress/egress, debug taps, and
+  dead-letter/error envelopes.
 - Parsed positions commit only after all output appends succeed or a recorded
   successful zero-output disposition; output positions commit only after RELP ACK.
 - Logical topics remain envelope properties. No `parsed.sshd`-style streams and
@@ -116,6 +131,25 @@ until completed.
 - Admission rejection, parser no-match, filter no-candidate, filter no-match,
   and operational errors remain distinct. Unknown records never disappear
   silently.
+- UTC microsecond event time, explicit duration units, large integer/decimal
+  fidelity, UUID/IP/MAC annotations, and null/absent/empty-string semantics are
+  tested through both Proton and DuckDB mappings.
+
+## Type-fidelity migration notes
+
+ADR 0010 adds a type-fidelity track to the migration. The registry is
+producer-agnostic: liblognorm parser output, direct XML/CSV/JSON converters,
+native Windows sources, and future structured inputs all converge on the same
+logical field catalog. This prevents a later retrofit where field types are
+implicitly tied to Normalize rules.
+
+NDJSON remains useful as an edge dialect, but it is no longer the target
+internal type-bearing transport. Agents cache schemas and spool Avro; they fail
+visibly on schema rejection instead of falling back to NDJSON. The server decodes
+Avro once into Arrow record batches, then fans out to Proton and DuckDB from
+registry-generated mappings. Proton JSON/schema-registry ingest support must be
+verified in the target OSS version before it is used as a direct ingest path;
+unverified or Enterprise-gated features require the native-protocol hedge.
 
 ## Validation expectations
 

@@ -12,6 +12,7 @@
 | [0007](0007-parse-filter-split-and-unified-pdag.md) | Accepted | Optional parse query, separate filtering, and unified PDAG. |
 | [0008](0008-localstream-durability-and-no-production-multiplexer.md) | Accepted | LocalStream durability boundaries and no daemon multiplexer. |
 | [0009](0009-unrecognized-events-and-blindness-measurement.md) | Accepted | Unknown-event preservation and blindness measures. |
+| [0010](0010-schema-registry-avro-arrow-and-ndjson-edge-dialect.md) | Accepted | Schema registry, Avro wire, Arrow batches, and governed NDJSON edges. |
 
 The repository contains two historical ADR files numbered 0003. Their filenames
 disambiguate them; new ADRs use unique numbers.
