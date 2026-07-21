@@ -66,7 +66,7 @@ SELECT
     transport_chunks_dead_lettered_total,
     transport_chunks_discarded_total,
     transport_is_running
-FROM relp_forwarder_health
+FROM forwarder_health
 WHERE id = 1;
 """;
 

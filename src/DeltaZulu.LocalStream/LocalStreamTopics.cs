@@ -5,7 +5,7 @@ namespace DeltaZulu.LocalStream;
 /// ADR 0008 and ARCHITECTURE.md. The producer/subscription runtime, stream
 /// positions, and checkpoints are ROADMAP.md Phase 9 work; this
 /// type exists only so ROADMAP.md Phase 1 ("Pipeline references Normalize,
-/// LocalStream, and RELP") has a stable, reflectable assembly boundary before
+/// LocalStream, and FORWARDER") has a stable, reflectable assembly boundary before
 /// that work lands. The two topic names are already decided by
 /// ARCHITECTURE.md and are exposed here so later phases have one canonical
 /// source for them instead of repeating string literals.

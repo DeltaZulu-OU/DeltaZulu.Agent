@@ -1,10 +1,10 @@
-# DeltaZulu daemon collector configuration for local RELP validation.
+# DeltaZulu daemon collector configuration for local FORWARDER validation.
 id: local-collector-daemon
 profilesPath: profiles
 
 pipeline:
   input:
-    mode: relp
+    mode: forwarder
   filter:
     mode: passthrough
   output:
@@ -13,7 +13,7 @@ pipeline:
     transport: console
     prettyPrint: true
 
-relpInput:
+forwarderInput:
   address: 127.0.0.1
   port: 2514
   useTls: false

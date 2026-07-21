@@ -1,6 +1,6 @@
-namespace DeltaZulu.Pipeline.Outputs.Relp;
+namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
-public sealed record RelpTransportSnapshot
+public sealed record ForwarderTransportSnapshot
 {
     public required long SendAttemptsTotal { get; init; }
     public required long SendSuccessesTotal { get; init; }

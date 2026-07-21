@@ -6,12 +6,12 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ForwarderDaemonConfigurationTests
 {
     [TestMethod]
-    public void DefaultConfiguration_UsesWindowsFriendlyLocalRelpPort()
+    public void DefaultConfiguration_UsesWindowsFriendlyLocalForwarderPort()
     {
         var configuration = new ForwarderDaemonConfiguration();
 
-        Assert.AreEqual(2514, configuration.RelpInput.Port);
-        Assert.AreEqual(2514, configuration.Relp.Endpoints[0].Port);
+        Assert.AreEqual(2514, configuration.InputConf.Port);
+        Assert.AreEqual(2514, configuration.Transport.Endpoints[0].Port);
     }
 
     [TestMethod]
@@ -47,7 +47,7 @@ public sealed class ForwarderDaemonConfigurationTests
                 mode: console
             buffer:
               path: ./buffer
-            relp:
+            forwarder:
               endpoints:
                 - host: 127.0.0.1
                   port: 6514
@@ -78,7 +78,7 @@ public sealed class ForwarderDaemonConfigurationTests
                 mode: console
             buffer:
               path: ./buffer
-            relp:
+            forwarder:
               endpoints:
                 - host: 127.0.0.1
                   port: 6514
@@ -108,11 +108,11 @@ public sealed class ForwarderDaemonConfigurationTests
     }
 
     [TestMethod]
-    public void Validate_AllowsRelpCollectorInputWithConsoleOutput()
+    public void Validate_AllowsForwarderCollectorInputWithConsoleOutput()
     {
         var configuration = new ForwarderDaemonConfiguration {
             Pipeline = new ForwarderDaemonPipelineConfiguration {
-                Input = new ForwarderDaemonPipelineInputConfiguration { Mode = "relp" },
+                Input = new ForwarderDaemonPipelineInputConfiguration { Mode = "forwarder" },
                 Filter = new ForwarderDaemonPipelineFilterConfiguration { Mode = "passthrough" },
                 Output = new ForwarderDaemonPipelineOutputConfiguration {
                     Mode = "console",
@@ -121,7 +121,7 @@ public sealed class ForwarderDaemonConfigurationTests
                     PrettyPrint = true
                 }
             },
-            RelpInput = new ForwarderDaemonRelpInputConfiguration {
+            InputConf = new ForwarderDaemonInputConfiguration {
                 Address = "127.0.0.1",
                 Port = 6514
             }
@@ -131,11 +131,11 @@ public sealed class ForwarderDaemonConfigurationTests
     }
 
     [TestMethod]
-    public void Validate_RejectsForwardOutputForRelpCollectorInput()
+    public void Validate_RejectsForwardOutputForForwarderCollectorInput()
     {
         var configuration = new ForwarderDaemonConfiguration {
             Pipeline = new ForwarderDaemonPipelineConfiguration {
-                Input = new ForwarderDaemonPipelineInputConfiguration { Mode = "relp" },
+                Input = new ForwarderDaemonPipelineInputConfiguration { Mode = "forwarder" },
                 Filter = new ForwarderDaemonPipelineFilterConfiguration { Mode = "passthrough" },
                 Output = new ForwarderDaemonPipelineOutputConfiguration { Mode = "forward" }
             }

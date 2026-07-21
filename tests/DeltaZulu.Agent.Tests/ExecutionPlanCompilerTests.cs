@@ -23,7 +23,7 @@ public sealed class ExecutionPlanCompilerTests
         Assert.AreEqual("text", acquisition.PayloadFormat);
         Assert.AreEqual("syslog-pri", acquisition.AdmissionPolicy);
         Assert.AreEqual("syslog-tcp", acquisition.ParserDomain);
-        CollectionAssert.AreEqual(new[] { "a", "b" }, acquisition.ProfileIds.ToArray());
+        Assert.AreSequenceEqual(new[] { "a", "b" }, acquisition.ProfileIds.ToArray());
     }
 
     [TestMethod]
@@ -37,7 +37,7 @@ public sealed class ExecutionPlanCompilerTests
         var exception = Assert.ThrowsExactly<ExecutionPlanCompilationException>(() =>
             new ExecutionPlanCompiler().Compile(profiles));
 
-        StringAssert.Contains(exception.Message, "conflicting acquisition settings");
+        Assert.Contains("conflicting acquisition settings", exception.Message);
     }
 
     [TestMethod]
@@ -51,7 +51,7 @@ public sealed class ExecutionPlanCompilerTests
         var plan = new ExecutionPlanCompiler().Compile(profiles);
 
         Assert.HasCount(1, plan.Acquisitions);
-        CollectionAssert.AreEqual(new[] { "enabled" }, plan.Acquisitions[0].ProfileIds.ToArray());
+        Assert.AreSequenceEqual(new[] { "enabled" }, plan.Acquisitions[0].ProfileIds.ToArray());
     }
 
     private static ResourceProfile CreateProfile(

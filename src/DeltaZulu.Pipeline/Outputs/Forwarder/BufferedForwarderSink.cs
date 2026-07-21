@@ -5,37 +5,37 @@ using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Observability;
 
-namespace DeltaZulu.Pipeline.Outputs.Relp;
+namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
-public sealed class BufferedRelpSink : IOutputWriter
+public sealed class BufferedForwarderSink : IOutputWriter
 {
     private static readonly TimeSpan WorkerDrainTimeout = TimeSpan.FromSeconds(30);
 
     private readonly CancellationToken _cancellationToken;
     private readonly DurableBufferHost<DeliveryRecord> _host;
     private readonly IDeliveryTransport _transport;
-    private readonly RelpOutputWorker _worker;
+    private readonly ForwarderOutputWorker _worker;
     private readonly CancellationTokenSource _workerCts;
     private readonly Task _workerTask;
     private int _disposed;
     private long _lastForwarderActivityTicks;
     private int _stopped;
 
-    public BufferedRelpSink(
+    public BufferedForwarderSink(
         DurableBufferOptions options,
         IDeliveryTransport transport,
-        RelpRetryConfiguration? retryConfiguration = null,
+        ForwarderRetryConfiguration? retryConfiguration = null,
         CancellationToken cancellationToken = default)
     {
         _cancellationToken = cancellationToken;
         _transport = transport;
         _host = new DurableBufferHost<DeliveryRecord>(
             options,
-            new RelpDeliveryRecordSerializer());
-        _worker = new RelpOutputWorker(
+            new ForwarderDeliveryRecordSerializer());
+        _worker = new ForwarderOutputWorker(
             _host.Reader,
             transport,
-            retryConfiguration ?? new RelpRetryConfiguration(),
+            retryConfiguration ?? new ForwarderRetryConfiguration(),
             RecordActivity);
         // The worker must be consuming before StartAsync runs recovery: recovered
         // chunks are pushed into the bounded channel and would deadlock startup
@@ -54,7 +54,7 @@ public sealed class BufferedRelpSink : IOutputWriter
         }
     }
 
-    public string Name => "buffered-relp";
+    public string Name => "buffered-forwarder";
 
     public void Dispose()
     {
@@ -70,12 +70,12 @@ public sealed class BufferedRelpSink : IOutputWriter
     }
 
     public ResourceOutputRecord GetHealthOutputRecord(CollectorObservationMetadata metadata) =>
-        new RelpHealthObservation {
+        new ForwarderHealthObservation {
             Metadata = metadata,
             Health = GetHealthSnapshot()
         }.ToOutputRecord();
 
-    public RelpHealthSnapshot GetHealthSnapshot() => new() {
+    public ForwarderHealthSnapshot GetHealthSnapshot() => new() {
         Buffer = _host.Writer.GetSnapshot(),
         Transport = _worker.GetSnapshot(),
         LastForwarderActivityUtc = ReadLastActivity()

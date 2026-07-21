@@ -2,13 +2,13 @@ using System.Buffers;
 using System.Globalization;
 using System.Text;
 
-namespace DeltaZulu.Pipeline.Core.Relp;
+namespace DeltaZulu.Pipeline.Core.Forwarder;
 
-public readonly record struct RelpFrame(int TransactionId, string Command, ReadOnlyMemory<byte> Payload);
+public readonly record struct ForwarderFrame(int TransactionId, string Command, ReadOnlyMemory<byte> Payload);
 
-public static class RelpFrameCodec
+public static class ForwarderFrameCodec
 {
-    public static async Task<RelpFrame?> ReadFrameAsync(Stream stream, CancellationToken cancellationToken = default)
+    public static async Task<ForwarderFrame?> ReadFrameAsync(Stream stream, CancellationToken cancellationToken = default)
     {
         var transactionIdText = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false);
         if (transactionIdText is null)
@@ -17,9 +17,9 @@ public static class RelpFrameCodec
         }
 
         var command = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("Missing RELP command.");
+            ?? throw new InvalidDataException("Missing FORWARDER command.");
         var lengthText = await ReadTokenAsync(stream, (byte)' ', cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidDataException("Missing RELP payload length.");
+            ?? throw new InvalidDataException("Missing FORWARDER payload length.");
         var length = int.Parse(lengthText, CultureInfo.InvariantCulture);
         var payload = new byte[length];
         if (!await TryReadExactlyAsync(stream, payload, cancellationToken).ConfigureAwait(false))
@@ -34,13 +34,13 @@ public static class RelpFrameCodec
         }
         if (terminator[0] != (byte)'\n')
         {
-            throw new InvalidDataException("Missing RELP frame terminator.");
+            throw new InvalidDataException("Missing FORWARDER frame terminator.");
         }
 
-        return new RelpFrame(int.Parse(transactionIdText, CultureInfo.InvariantCulture), command, payload);
+        return new ForwarderFrame(int.Parse(transactionIdText, CultureInfo.InvariantCulture), command, payload);
     }
 
-    public static RelpFrame ReadFrameOrThrow(RelpFrame? frame) =>
+    public static ForwarderFrame ReadFrameOrThrow(ForwarderFrame? frame) =>
         frame ?? throw new EndOfStreamException();
 
     public static async Task WriteResponseAsync(Stream stream, int transactionId, string payload, CancellationToken cancellationToken = default)

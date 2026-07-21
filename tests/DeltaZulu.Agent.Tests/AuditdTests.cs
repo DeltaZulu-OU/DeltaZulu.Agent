@@ -50,7 +50,7 @@ public sealed class AuditdTests
         Assert.AreEqual("LinuxAuditd", sourceEvent.Metadata.SourceType);
         Assert.AreEqual(id, sourceEvent.Fields["ID"]);
         var execve = Assert.IsInstanceOfType<Dictionary<string, object?>>(sourceEvent.Fields["EXECVE"]);
-        CollectionAssert.AreEqual(new object?[] { "/bin/bash", "-l" }, Assert.IsInstanceOfType<object?[]>(execve["ARGV"]));
+        Assert.AreSequenceEqual(new object?[] { "/bin/bash", "-l" }, Assert.IsInstanceOfType<object?[]>(execve["ARGV"]));
         var paths = Assert.IsInstanceOfType<List<Dictionary<string, object?>>>(sourceEvent.Fields["PATH"]);
         Assert.HasCount(1, paths);
         Assert.AreEqual("/bin/bash", paths[0]["name"]);

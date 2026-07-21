@@ -24,9 +24,8 @@ public sealed class WindowsEventTemplateParserTests
         Assert.AreEqual("TargetUserName", fields[1].Name);
         Assert.AreEqual("LogonType", fields[2].Name);
         // Field order is preserved.
-        CollectionAssert.AreEqual(
-            new[] { "SubjectUserSid", "TargetUserName", "LogonType" },
-            fields.Select(f => f.Name).ToArray());
+        Assert.AreSequenceEqual(
+            new[] { "SubjectUserSid", "TargetUserName", "LogonType" }, fields.Select(f => f.Name).ToArray());
     }
 
     [TestMethod]

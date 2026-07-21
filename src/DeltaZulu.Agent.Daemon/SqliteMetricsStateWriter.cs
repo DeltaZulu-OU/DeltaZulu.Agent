@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS output_summary (
 """);
 
         ExecuteNonQuery(connection, """
-CREATE TABLE IF NOT EXISTS relp_forwarder_health (
+CREATE TABLE IF NOT EXISTS forwarder_health (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     observed_utc TEXT NOT NULL,
     agent_id TEXT NULL,
@@ -197,7 +197,7 @@ ON CONFLICT(id) DO UPDATE SET
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-INSERT INTO relp_forwarder_health (
+INSERT INTO forwarder_health (
     id,
     observed_utc,
     agent_id,

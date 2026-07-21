@@ -1,18 +1,18 @@
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Observability;
 
-namespace DeltaZulu.Pipeline.Outputs.Relp;
+namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
-public sealed class RelpHealthReporter : IDisposable
+public sealed class ForwarderHealthReporter : IDisposable
 {
     private readonly IOutputWriter _diagnosticSink;
-    private readonly BufferedRelpSink _forwarder;
+    private readonly BufferedForwarderSink _forwarder;
     private readonly CollectorObservationMetadata _metadata;
     private readonly Timer _timer;
     private int _disposed;
 
-    public RelpHealthReporter(
-        BufferedRelpSink forwarder,
+    public ForwarderHealthReporter(
+        BufferedForwarderSink forwarder,
         IOutputWriter diagnosticSink,
         CollectorObservationMetadata metadata,
         TimeSpan interval)

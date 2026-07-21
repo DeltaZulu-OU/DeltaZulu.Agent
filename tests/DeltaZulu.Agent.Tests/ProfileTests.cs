@@ -141,14 +141,14 @@ filter:
 
             // Core only knows about the opaque Options bag; ETW-specific interpretation is the
             // job of DeltaZulu.Pipeline.Inputs.Etw.EtwResourceOptionsAdapter (see its own tests).
-            CollectionAssert.AreEqual(new[] { 1, 2 }, profile.Resource.Options.GetIntList("eventIds"));
-            CollectionAssert.AreEqual(new[] { 3 }, profile.Resource.Options.GetIntList("excludedEventIds"));
+            Assert.AreSequenceEqual(new[] { 1, 2 }, profile.Resource.Options.GetIntList("eventIds"));
+            Assert.AreSequenceEqual(new[] { 3 }, profile.Resource.Options.GetIntList("excludedEventIds"));
             Assert.IsTrue(profile.Resource.Options.GetBool("captureStacks"));
-            CollectionAssert.AreEqual(new[] { 4 }, profile.Resource.Options.GetIntList("stackEventIds"));
-            CollectionAssert.AreEqual(new[] { 5 }, profile.Resource.Options.GetIntList("excludedStackEventIds"));
-            CollectionAssert.AreEqual(new[] { 1234 }, profile.Resource.Options.GetIntList("processIds"));
-            CollectionAssert.AreEqual(new[] { "notepad.exe" }, profile.Resource.Options.GetStringList("processNames"));
-            CollectionAssert.AreEqual(new[] { "Image", "CommandLine" }, profile.Resource.Options.GetStringList("payloadFields"));
+            Assert.AreSequenceEqual(new[] { 4 }, profile.Resource.Options.GetIntList("stackEventIds"));
+            Assert.AreSequenceEqual(new[] { 5 }, profile.Resource.Options.GetIntList("excludedStackEventIds"));
+            Assert.AreSequenceEqual(new[] { 1234 }, profile.Resource.Options.GetIntList("processIds"));
+            Assert.AreSequenceEqual(new[] { "notepad.exe" }, profile.Resource.Options.GetStringList("processNames"));
+            Assert.AreSequenceEqual(new[] { "Image", "CommandLine" }, profile.Resource.Options.GetStringList("payloadFields"));
             Assert.IsTrue(profile.Resource.Options.GetBool("enableInContainers"));
             Assert.IsTrue(profile.Resource.Options.GetBool("enableSourceContainerTracking"));
         }

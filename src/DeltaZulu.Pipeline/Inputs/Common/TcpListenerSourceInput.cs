@@ -6,7 +6,7 @@ using DeltaZulu.Pipeline.Core.Events;
 namespace DeltaZulu.Pipeline.Inputs.Common;
 
 /// <summary>
-/// Shared accept-loop plumbing for TCP-listener-based inputs (syslog, RELP): starts a listener,
+/// Shared accept-loop plumbing for TCP-listener-based inputs (syslog, FORWARDER): starts a listener,
 /// spawns one handler per accepted client, and tears both down on unsubscribe.
 /// </summary>
 internal static class TcpListenerSourceInput

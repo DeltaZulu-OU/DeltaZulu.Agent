@@ -199,7 +199,7 @@ public sealed class KqlTests
         var execve = AssertDictionary(row["EXECVE"]);
         var argv = execve["ARGV"] as string[];
         Assert.IsNotNull(argv);
-        CollectionAssert.AreEqual(new[] { "/usr/bin/curl", "-s", "https://example.com" }, argv);
+        Assert.AreSequenceEqual(new[] { "/usr/bin/curl", "-s", "https://example.com" }, argv);
     }
 
     [TestMethod]

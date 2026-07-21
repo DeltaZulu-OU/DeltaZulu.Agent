@@ -3,16 +3,16 @@ using DeltaZulu.DurableBuffer.Configuration;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace DeltaZulu.Pipeline.Outputs.Relp;
+namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
-public sealed record RelpOutputConfiguration
+public sealed record ForwarderOutputConfiguration
 {
     public string Id { get; init; } = "default-forwarder";
-    public RelpBufferConfiguration Buffer { get; init; } = new();
-    public RelpTransportConfiguration Relp { get; init; } = new();
+    public ForwarderBufferConfiguration Buffer { get; init; } = new();
+    public ForwarderTransportConfiguration Transport { get; init; } = new();
 }
 
-public sealed record RelpBufferConfiguration
+public sealed record ForwarderBufferConfiguration
 {
     public string Path { get; init; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "deltazulu-agent-forwarder");
 
@@ -26,7 +26,7 @@ public sealed record RelpBufferConfiguration
     public double MaxChunkAgeSeconds { get; init; } = 1;
 
     public BufferFullPolicy FullPolicy { get; init; } = BufferFullPolicy.Block;
-    public RelpRetryExhaustedPolicy RetryExhaustedPolicy { get; init; } = RelpRetryExhaustedPolicy.DeadLetter;
+    public ForwarderRetryExhaustedPolicy RetryExhaustedPolicy { get; init; } = ForwarderRetryExhaustedPolicy.DeadLetter;
 
     public int MaxRetryAttempts { get; init; } = 10;
     public double RetryBaseDelaySeconds { get; init; } = 1;
@@ -44,7 +44,7 @@ public sealed record RelpBufferConfiguration
         FullPolicy = FullPolicy
     };
 
-    public RelpRetryConfiguration ToRetryConfiguration() => new() {
+    public ForwarderRetryConfiguration ToRetryConfiguration() => new() {
         MaxAttempts = MaxRetryAttempts,
         BaseDelay = TimeSpan.FromSeconds(RetryBaseDelaySeconds),
         MaxDelay = TimeSpan.FromSeconds(RetryMaxDelaySeconds),
@@ -52,29 +52,29 @@ public sealed record RelpBufferConfiguration
     };
 }
 
-public sealed record RelpTransportConfiguration
+public sealed record ForwarderTransportConfiguration
 {
     public bool UseTls { get; init; }
-    public RelpTlsConfiguration Tls { get; init; } = new();
-    public List<RelpEndpoint> Endpoints { get; init; } = [new RelpEndpoint { Host = "127.0.0.1", Port = 2514 }];
+    public ForwarderTlsConfiguration Tls { get; init; } = new();
+    public List<ForwarderEndpoint> Endpoints { get; init; } = [new ForwarderEndpoint { Host = "127.0.0.1", Port = 2514 }];
 
     /// <summary>
-    /// Creates the transport options consumed by the RELP client. Callers can provide an
+    /// Creates the transport options consumed by the FORWARDER client. Callers can provide an
     /// alternate endpoint list or TLS mode when a local tunnel fronts the configured target.
     /// </summary>
-    public RelpForwarderOptions ToForwarderOptions(
+    public ForwarderOptions ToForwarderOptions(
         X509CertificateCollection? clientCertificates = null,
-        IReadOnlyList<RelpEndpoint>? endpoints = null,
+        IReadOnlyList<ForwarderEndpoint>? endpoints = null,
         bool? useTls = null)
     {
         var effectiveEndpoints = endpoints ?? Endpoints;
         if (effectiveEndpoints.Count == 0)
         {
-            throw new InvalidOperationException("RELP transport requires at least one endpoint.");
+            throw new InvalidOperationException("FORWARDER transport requires at least one endpoint.");
         }
 
         var primaryEndpoint = effectiveEndpoints[0];
-        return new RelpForwarderOptions {
+        return new ForwarderOptions {
             Host = primaryEndpoint.Host,
             Port = primaryEndpoint.Port,
             Endpoints = effectiveEndpoints,
@@ -87,9 +87,9 @@ public sealed record RelpTransportConfiguration
     }
 }
 
-public sealed record RelpTlsConfiguration
+public sealed record ForwarderTlsConfiguration
 {
-    public RelpCertificateValidationMode CertificateValidation { get; init; } = RelpCertificateValidationMode.SystemTrust;
+    public CertificateValidationMode CertificateValidation { get; init; } = CertificateValidationMode.SystemTrust;
     public List<string> AllowedServerCertificateThumbprints { get; init; } = [];
     public int CertificateExpiryWarningDays { get; init; } = 30;
     public bool ClientCertificateEnabled { get; init; } = true;
@@ -97,11 +97,11 @@ public sealed record RelpTlsConfiguration
     public string? ClientCertificatePassword { get; init; }
 }
 
-public sealed class YamlRelpOutputConfigurationLoader
+public sealed class YamlForwarderOutputConfigurationLoader
 {
     private readonly IDeserializer _deserializer;
 
-    public YamlRelpOutputConfigurationLoader()
+    public YamlForwarderOutputConfigurationLoader()
     {
         _deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -109,7 +109,7 @@ public sealed class YamlRelpOutputConfigurationLoader
             .Build();
     }
 
-    public static void Validate(RelpOutputConfiguration configuration, string? path = null)
+    public static void Validate(ForwarderOutputConfiguration configuration, string? path = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var prefix = string.IsNullOrWhiteSpace(path) ? "Forwarder configuration" : $"Forwarder configuration '{path}'";
@@ -169,50 +169,50 @@ public sealed class YamlRelpOutputConfigurationLoader
             throw new InvalidDataException($"{prefix} must set buffer.retryMaxDelaySeconds greater than 0.");
         }
 
-        if (!configuration.Relp.UseTls && configuration.Relp.Tls.CertificateValidation != RelpCertificateValidationMode.SystemTrust)
+        if (!configuration.Transport.UseTls && configuration.Transport.Tls.CertificateValidation != CertificateValidationMode.SystemTrust)
         {
-            throw new InvalidDataException($"{prefix} must enable relp.useTls before setting relp.tls.certificateValidation.");
+            throw new InvalidDataException($"{prefix} must enable forwarder.useTls before setting forwarder.tls.certificateValidation.");
         }
 
-        if (configuration.Relp.Tls.CertificateValidation == RelpCertificateValidationMode.Thumbprint
-            && configuration.Relp.Tls.AllowedServerCertificateThumbprints.Count == 0)
+        if (configuration.Transport.Tls.CertificateValidation == CertificateValidationMode.Thumbprint
+            && configuration.Transport.Tls.AllowedServerCertificateThumbprints.Count == 0)
         {
-            throw new InvalidDataException($"{prefix} must set relp.tls.allowedServerCertificateThumbprints when relp.tls.certificateValidation is Thumbprint.");
+            throw new InvalidDataException($"{prefix} must set forwarder.tls.allowedServerCertificateThumbprints when forwarder.tls.certificateValidation is Thumbprint.");
         }
 
-        if (configuration.Relp.Tls.CertificateExpiryWarningDays < 0)
+        if (configuration.Transport.Tls.CertificateExpiryWarningDays < 0)
         {
-            throw new InvalidDataException($"{prefix} must set relp.tls.certificateExpiryWarningDays to zero or greater.");
+            throw new InvalidDataException($"{prefix} must set forwarder.tls.certificateExpiryWarningDays to zero or greater.");
         }
 
-        if (configuration.Relp.Tls.ClientCertificateEnabled
-            && !string.IsNullOrWhiteSpace(configuration.Relp.Tls.ClientCertificatePath)
-            && !File.Exists(configuration.Relp.Tls.ClientCertificatePath))
+        if (configuration.Transport.Tls.ClientCertificateEnabled
+            && !string.IsNullOrWhiteSpace(configuration.Transport.Tls.ClientCertificatePath)
+            && !File.Exists(configuration.Transport.Tls.ClientCertificatePath))
         {
-            throw new InvalidDataException($"{prefix} relp.tls.clientCertificatePath does not exist: {configuration.Relp.Tls.ClientCertificatePath}");
+            throw new InvalidDataException($"{prefix} forwarder.tls.clientCertificatePath does not exist: {configuration.Transport.Tls.ClientCertificatePath}");
         }
 
-        if (configuration.Relp.Endpoints.Count == 0)
+        if (configuration.Transport.Endpoints.Count == 0)
         {
-            throw new InvalidDataException($"{prefix} must define at least one relp.endpoints entry.");
+            throw new InvalidDataException($"{prefix} must define at least one forwarder.endpoints entry.");
         }
 
-        for (var index = 0; index < configuration.Relp.Endpoints.Count; index++)
+        for (var index = 0; index < configuration.Transport.Endpoints.Count; index++)
         {
-            var endpoint = configuration.Relp.Endpoints[index];
+            var endpoint = configuration.Transport.Endpoints[index];
             if (string.IsNullOrWhiteSpace(endpoint.Host))
             {
-                throw new InvalidDataException($"{prefix} relp.endpoints[{index}].host is required.");
+                throw new InvalidDataException($"{prefix} forwarder.endpoints[{index}].host is required.");
             }
 
             if (endpoint.Port is < 1 or > 65535)
             {
-                throw new InvalidDataException($"{prefix} relp.endpoints[{index}].port must be between 1 and 65535.");
+                throw new InvalidDataException($"{prefix} forwarder.endpoints[{index}].port must be between 1 and 65535.");
             }
         }
     }
 
-    public RelpOutputConfiguration LoadFile(string path)
+    public ForwarderOutputConfiguration LoadFile(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -220,7 +220,7 @@ public sealed class YamlRelpOutputConfigurationLoader
         }
 
         using var reader = File.OpenText(path);
-        var configuration = _deserializer.Deserialize<RelpOutputConfiguration>(reader)
+        var configuration = _deserializer.Deserialize<ForwarderOutputConfiguration>(reader)
             ?? throw new InvalidDataException($"Forwarder configuration file '{path}' did not contain a configuration.");
         Validate(configuration, path);
         return configuration;

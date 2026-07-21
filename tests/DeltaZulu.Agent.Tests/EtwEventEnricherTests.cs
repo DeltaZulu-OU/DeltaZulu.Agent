@@ -49,7 +49,7 @@ public sealed class EtwEventEnricherTests
         var metadata = new Dictionary<string, object?>(preEnrichmentRecord.Metadata, StringComparer.OrdinalIgnoreCase)
         {
             ["ingestedAt"] = "2026-07-05T15:08:04.9250042+00:00",
-            ["relp"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            ["forwarder"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
             {
                 ["createdAt"] = "2026-07-05T15:02:25.674311+00:00"
             }
@@ -80,8 +80,8 @@ public sealed class EtwEventEnricherTests
         var timing = RequireMap(enriched.Enrichment, "Timing");
         Assert.AreEqual("2026-07-05T15:02:03.8505925Z", timing["EventTimeUtc"]);
         Assert.AreEqual(361074L, timing["IngestDelayMs"]);
-        Assert.AreEqual(21823L, timing["RelpCreateDelayMs"]);
-        Assert.AreEqual(339250L, timing["RelpToIngestDelayMs"]);
+        Assert.AreEqual(21823L, timing["ForwarderCreateDelayMs"]);
+        Assert.AreEqual(339250L, timing["ForwarderToIngestDelayMs"]);
         Assert.AreEqual("Delayed", timing["TimestampSkewStatus"]);
 
         var quality = RequireMap(enriched.Enrichment, "Quality");
@@ -102,7 +102,7 @@ public sealed class EtwEventEnricherTests
                 RawPreserved = true,
                 Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["relp"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    ["forwarder"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
                     {
                         ["createdAt"] = "2026-07-04T08:43:29.9899003+00:00"
                     }

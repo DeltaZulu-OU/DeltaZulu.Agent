@@ -261,20 +261,20 @@ public static class EtwEventEnricher
         };
 
         var ingestedAt = FirstDateTimeOffset(metadata, "ingestedAt");
-        var relpCreatedAt = TryGetNestedDateTimeOffset(metadata, ["relp", "createdAt"]);
+        var forwarderCreatedAt = TryGetNestedDateTimeOffset(metadata, ["forwarder", "createdAt"]);
         if (ingestedAt is not null)
         {
             timing["IngestDelayMs"] = (long)(ingestedAt.Value - eventTime.Value).TotalMilliseconds;
         }
 
-        if (relpCreatedAt is not null)
+        if (forwarderCreatedAt is not null)
         {
-            timing["RelpCreateDelayMs"] = (long)(relpCreatedAt.Value - eventTime.Value).TotalMilliseconds;
+            timing["ForwarderCreateDelayMs"] = (long)(forwarderCreatedAt.Value - eventTime.Value).TotalMilliseconds;
         }
 
-        if (relpCreatedAt is not null && ingestedAt is not null)
+        if (forwarderCreatedAt is not null && ingestedAt is not null)
         {
-            timing["RelpToIngestDelayMs"] = (long)(ingestedAt.Value - relpCreatedAt.Value).TotalMilliseconds;
+            timing["ForwarderToIngestDelayMs"] = (long)(ingestedAt.Value - forwarderCreatedAt.Value).TotalMilliseconds;
         }
 
         if (timing.TryGetValue("IngestDelayMs", out var delay) && delay is long delayMs)

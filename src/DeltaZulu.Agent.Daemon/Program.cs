@@ -4,16 +4,16 @@ using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Core.Profiles;
 using DeltaZulu.Pipeline.Inputs.Auditd;
-using DeltaZulu.Pipeline.Inputs.Relp;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 using DeltaZulu.Agent.Filter.Kql;
 using DeltaZulu.Pipeline.Outputs.Ndjson;
-using DeltaZulu.Pipeline.Outputs.Relp;
 using DeltaZulu.Pipeline.Tunnel;
 using DeltaZulu.Agent.Filter.Prefilter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using DeltaZulu.Pipeline.Outputs.Forwarder;
+using DeltaZulu.Pipeline.Inputs.Forwarder;
 
 #if NET10_0_WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
@@ -112,7 +112,7 @@ Usage:
   dzagentd --config <config.yaml>
   dzagentd <config.yaml>
 
-This executable is service-shaped from the start: it hosts configured DeltaZulu daemon pipelines and has no query, table, JSON export, or schema commands. Run it with config/dzagent.yaml for agent forwarding or config/dzcollector.yaml for local RELP receiver validation.
+This executable is service-shaped from the start: it hosts configured DeltaZulu daemon pipelines and has no query, table, JSON export, or schema commands. Run it with config/dzagent.yaml for agent forwarding or config/dzcollector.yaml for local FORWARDER receiver validation.
 """);
         Console.Out.Flush();
     }
@@ -126,11 +126,11 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             new EventId(1, nameof(StartingAgentDaemon)),
             "Starting DeltaZulu agent daemon {AgentId} from {ConfigPath}.");
 
-    private static readonly Action<ILogger, string, string, int, Exception?> ConfiguredRelpCollectorInput =
+    private static readonly Action<ILogger, string, string, int, Exception?> ConfiguredForwarderCollectorInput =
         LoggerMessage.Define<string, string, int>(
             LogLevel.Information,
-            new EventId(2, nameof(ConfiguredRelpCollectorInput)),
-            "Configured RELP collector input for daemon {AgentId} on {Address}:{Port}.");
+            new EventId(2, nameof(ConfiguredForwarderCollectorInput)),
+            "Configured Forwarder collector input for daemon {AgentId} on {Address}:{Port}.");
 
     private static readonly Action<ILogger, string, string, string, Exception?> ConfiguredProfile =
         LoggerMessage.Define<string, string, string>(
@@ -155,9 +155,9 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
         var outputSink = CreateOutputSink(configuration);
         _disposables.Add(outputSink);
-        if (outputSink is BufferedRelpSink relpSink)
+        if (outputSink is BufferedForwarderSink sink)
         {
-            StartHealthReporter(configuration, relpSink);
+            StartHealthReporter(configuration, sink);
         }
 
         var bindings = CreateBindings(configuration);
@@ -168,31 +168,31 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
     }
 
 
-    private IReadOnlyList<ProfileBinding> CreateRelpCollectorBindings(ForwarderDaemonConfiguration configuration)
+    private IReadOnlyList<ProfileBinding> CreateForwarderCollectorBindings(ForwarderDaemonConfiguration configuration)
     {
         var executor = new PassthroughProfileExecutor();
         _disposables.Add(executor);
-        ConfiguredRelpCollectorInput(logger, configuration.Id, configuration.RelpInput.Address, configuration.RelpInput.Port, null);
+        ConfiguredForwarderCollectorInput(logger, configuration.Id, configuration.InputConf.Address, configuration.InputConf.Port, null);
 
         return [new ProfileBinding(
-            new RelpInput(new RelpInputConfiguration {
-                Address = configuration.RelpInput.Address,
-                Port = configuration.RelpInput.Port,
-                UseTls = configuration.RelpInput.UseTls,
-                ServerCertificatePath = configuration.RelpInput.ServerCertificatePath,
-                ServerCertificatePassword = configuration.RelpInput.ServerCertificatePassword
-            }, $"{configuration.Id}-relp-collector"),
+            new ForwarderInput(new ForwarderInputConfiguration {
+                Address = configuration.InputConf.Address,
+                Port = configuration.InputConf.Port,
+                UseTls = configuration.InputConf.UseTls,
+                ServerCertificatePath = configuration.InputConf.ServerCertificatePath,
+                ServerCertificatePassword = configuration.InputConf.ServerCertificatePassword
+            }, $"{configuration.Id}-forwarder-collector"),
             CreateCollectorProfile(),
             executor)];
     }
 
     private static ResourceProfile CreateCollectorProfile() => new() {
-        Id = "daemon-relp-collector.passthrough",
-        Name = "Daemon RELP collector passthrough",
+        Id = "daemon-forwarder-collector.passthrough",
+        Name = "Daemon FORWARDER collector passthrough",
         Version = "1.0.0",
         Resource = new ResourceDescriptor {
             Platform = "portable",
-            Family = "relp"
+            Family = "forwarder"
         },
         Input = new ResourceInputContract {
             Table = "Source"
@@ -235,9 +235,9 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
     private IReadOnlyList<ProfileBinding> CreateBindings(ForwarderDaemonConfiguration configuration)
     {
-        if (configuration.Pipeline.Input.Mode.Equals("relp", StringComparison.OrdinalIgnoreCase))
+        if (configuration.Pipeline.Input.Mode.Equals("forwarder", StringComparison.OrdinalIgnoreCase))
         {
-            return CreateRelpCollectorBindings(configuration);
+            return CreateForwarderCollectorBindings(configuration);
         }
 
         var loadResult = new YamlResourceProfileLoader().LoadDirectory(configuration.ProfilesPath);
@@ -381,27 +381,27 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         configuration.Pipeline.Output.Mode.ToLowerInvariant() switch {
             "console" => new ConsoleNdjsonSink(prettyPrint: configuration.Pipeline.Output.PrettyPrint),
             "file" => new NdjsonFileSink(configuration.Pipeline.Output.File!, prettyPrint: configuration.Pipeline.Output.PrettyPrint),
-            _ => CreateRelpSink(configuration)
+            _ => CreateForwarderSink(configuration)
         };
 
-    private BufferedRelpSink CreateRelpSink(ForwarderDaemonConfiguration configuration)
+    private BufferedForwarderSink CreateForwarderSink(ForwarderDaemonConfiguration configuration)
     {
         var (endpoints, useTls) = configuration.Tunnel.Enabled
-            ? StartRelpTunnel(configuration)
-            : ((IReadOnlyList<RelpEndpoint>)configuration.Relp.Endpoints, configuration.Relp.UseTls);
+            ? StartForwarderTunnel(configuration)
+            : (configuration.Transport.Endpoints, configuration.Transport.UseTls);
 
         var clientCertificates = configuration.Tunnel.Enabled
             ? null
-            : CreateClientCertificates(configuration.Relp.Tls);
-        var transportOptions = configuration.Relp.ToForwarderOptions(clientCertificates, endpoints, useTls);
+            : CreateClientCertificates(configuration.Transport.Tls);
+        var transportOptions = configuration.Transport.ToForwarderOptions(clientCertificates, endpoints, useTls);
 
-        return new BufferedRelpSink(
+        return new BufferedForwarderSink(
             configuration.Buffer.ToBufferOptions(),
-            new RelpForwarderTransport(transportOptions),
+            new ForwarderTransport(transportOptions),
             configuration.Buffer.ToRetryConfiguration());
     }
 
-    private void StartHealthReporter(ForwarderDaemonConfiguration configuration, BufferedRelpSink relpSink)
+    private void StartHealthReporter(ForwarderDaemonConfiguration configuration, BufferedForwarderSink sink)
     {
         if (configuration.Diagnostics.IntervalSeconds is { } intervalSeconds)
         {
@@ -409,8 +409,8 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                 ? new ConsoleNdjsonSink(prettyPrint: configuration.Diagnostics.PrettyPrint)
                 : new NdjsonFileSink(configuration.Diagnostics.File, prettyPrint: configuration.Diagnostics.PrettyPrint);
             _disposables.Add(diagnosticSink);
-            _disposables.Add(new RelpHealthReporter(
-                relpSink,
+            _disposables.Add(new ForwarderHealthReporter(
+                sink,
                 diagnosticSink,
                 new CollectorObservationMetadata { AgentId = configuration.Id, HostId = Environment.MachineName },
                 TimeSpan.FromSeconds(intervalSeconds)));
@@ -421,19 +421,19 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             var sqliteIntervalSeconds = configuration.Diagnostics.SqliteIntervalSeconds ?? 3;
             var sqliteSink = new SqliteMetricsStateWriter(configuration.Diagnostics.SqliteFile);
             _disposables.Add(sqliteSink);
-            _disposables.Add(new RelpHealthReporter(
-                relpSink,
+            _disposables.Add(new ForwarderHealthReporter(
+                sink,
                 sqliteSink,
                 new CollectorObservationMetadata { AgentId = configuration.Id, HostId = Environment.MachineName },
                 TimeSpan.FromSeconds(sqliteIntervalSeconds)));
         }
     }
 
-    private (IReadOnlyList<RelpEndpoint> Endpoints, bool UseTls) StartRelpTunnel(ForwarderDaemonConfiguration configuration)
+    private (IReadOnlyList<ForwarderEndpoint> Endpoints, bool UseTls) StartForwarderTunnel(ForwarderDaemonConfiguration configuration)
     {
-        if (configuration.Relp.Tls.CertificateValidation == RelpCertificateValidationMode.Disabled)
+        if (configuration.Transport.Tls.CertificateValidation == CertificateValidationMode.Disabled)
         {
-            throw new InvalidOperationException("RELP tunnel mode does not support disabled server certificate validation. Use SystemTrust or Thumbprint validation for tunneled TLS.");
+            throw new InvalidOperationException("FORWARDER tunnel mode does not support disabled server certificate validation. Use SystemTrust or Thumbprint validation for tunneled TLS.");
         }
 
         var tunnel = new TcpTunnel(new TcpTunnelOptions {
@@ -441,24 +441,24 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                 Host = configuration.Tunnel.Listen.Host,
                 Port = configuration.Tunnel.Listen.Port
             },
-            Endpoints = configuration.Relp.Endpoints
+            Endpoints = configuration.Transport.Endpoints
                 .ConvertAll(endpoint => new TunnelEndpoint { Host = endpoint.Host, Port = endpoint.Port })
 ,
-            UseTls = configuration.Relp.UseTls,
-            CertificateProvider = CreateTunnelCertificateProvider(configuration.Relp.Tls),
-            ServerCertificateValidationCallback = CreateServerCertificateValidationCallback(configuration.Relp.Tls)
+            UseTls = configuration.Transport.UseTls,
+            CertificateProvider = CreateTunnelCertificateProvider(configuration.Transport.Tls),
+            ServerCertificateValidationCallback = CreateServerCertificateValidationCallback(configuration.Transport.Tls)
         });
         tunnel.Start();
         _disposables.Add(tunnel);
 
-        var localEndpoint = new RelpEndpoint {
+        var localEndpoint = new ForwarderEndpoint {
             Host = configuration.Tunnel.Listen.Host,
             Port = configuration.Tunnel.Listen.Port
         };
         return ([localEndpoint], false);
     }
 
-    private static ITunnelCertificateProvider? CreateTunnelCertificateProvider(RelpTlsConfiguration tls) =>
+    private static ITunnelCertificateProvider? CreateTunnelCertificateProvider(ForwarderTlsConfiguration tls) =>
         !tls.ClientCertificateEnabled || string.IsNullOrWhiteSpace(tls.ClientCertificatePath)
             ? null
             : new FileTunnelCertificateProvider(new TunnelCertificateOptions {
@@ -467,7 +467,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
                 CertificatePassword = tls.ClientCertificatePassword
             });
 
-    private static System.Security.Cryptography.X509Certificates.X509CertificateCollection? CreateClientCertificates(RelpTlsConfiguration tls)
+    private static System.Security.Cryptography.X509Certificates.X509CertificateCollection? CreateClientCertificates(ForwarderTlsConfiguration tls)
     {
         var provider = CreateTunnelCertificateProvider(tls);
         if (provider is null)
@@ -479,9 +479,9 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         return lease is null ? null : [lease.Certificate];
     }
 
-    private static System.Net.Security.RemoteCertificateValidationCallback? CreateServerCertificateValidationCallback(RelpTlsConfiguration tls) =>
+    private static System.Net.Security.RemoteCertificateValidationCallback? CreateServerCertificateValidationCallback(ForwarderTlsConfiguration tls) =>
         tls.CertificateValidation switch {
-            RelpCertificateValidationMode.Thumbprint => (_, certificate, _, _) =>
+            CertificateValidationMode.Thumbprint => (_, certificate, _, _) =>
                 certificate is not null
                 && tls.AllowedServerCertificateThumbprints.Contains(
                     certificate.GetCertHashString(),

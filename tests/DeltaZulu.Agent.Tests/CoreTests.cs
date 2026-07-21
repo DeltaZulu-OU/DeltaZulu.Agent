@@ -1,7 +1,7 @@
 using System.Dynamic;
 using System.Text;
-using DeltaZulu.Pipeline.Core.Relp;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Forwarder;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -50,7 +50,7 @@ public sealed class CoreTests
     {
         await using var stream = new MemoryStream(Encoding.ASCII.GetBytes("1 syslog 5 abc"));
 
-        var result = await RelpFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
+        var result = await ForwarderFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
 
         Assert.IsNull(result);
     }
@@ -60,7 +60,7 @@ public sealed class CoreTests
     {
         await using var stream = new MemoryStream(Encoding.ASCII.GetBytes("1 syslog 3 abc"));
 
-        var result = await RelpFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
+        var result = await ForwarderFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
 
         Assert.IsNull(result);
     }

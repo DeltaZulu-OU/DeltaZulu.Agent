@@ -15,17 +15,14 @@ public sealed class WorkbenchSchemaTreeTests
         ]);
 
         Assert.AreEqual("none", tree.Text);
-        CollectionAssert.AreEqual(
-            new[] { "ETW (source: Windows-Kernel-Process)", "Eventlog (source: Security)" },
-            tree.Children.Select(child => child.Text).ToArray());
-        CollectionAssert.AreEqual(
-            new[] { "EventId: int", "Image: string", "source: string", "_metadata: dynamic" },
-            tree.Children[0].Children.Select(child => child.Text).ToArray());
+        Assert.AreSequenceEqual(
+            new[] { "ETW (source: Windows-Kernel-Process)", "Eventlog (source: Security)" }, tree.Children.Select(child => child.Text).ToArray());
+        Assert.AreSequenceEqual(
+            new[] { "EventId: int", "Image: string", "source: string", "_metadata: dynamic" }, tree.Children[0].Children.Select(child => child.Text).ToArray());
         Assert.AreEqual("test.etw.Windows-Kernel-Process", tree.Children[0].ProfileId);
         Assert.IsTrue(tree.Children[0].Children.All(child => child.ProfileId == tree.Children[0].ProfileId));
-        CollectionAssert.AreEqual(
-            new[] { "EventId: int", "TargetUserName: string", "source: string", "_metadata: dynamic" },
-            tree.Children[1].Children.Select(child => child.Text).ToArray());
+        Assert.AreSequenceEqual(
+            new[] { "EventId: int", "TargetUserName: string", "source: string", "_metadata: dynamic" }, tree.Children[1].Children.Select(child => child.Text).ToArray());
         Assert.AreEqual("test.eventlog.Security", tree.Children[1].ProfileId);
         Assert.IsTrue(tree.Children[1].Children.All(child => child.ProfileId == tree.Children[1].ProfileId));
     }

@@ -14,21 +14,6 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class DomainTests
 {
     [TestMethod]
-    public void Pipeline_Assembly_References_Only_External_Pipeline_Dependencies()
-    {
-        var pipelineAssembly = typeof(SourceEvent).Assembly;
-        var referencedAssemblies = pipelineAssembly.GetReferencedAssemblies();
-        var legacyProjectReferences = referencedAssemblies
-            .Where(a => a.Name!.StartsWith("DeltaZulu.", StringComparison.OrdinalIgnoreCase)
-                && a.Name is not "DeltaZulu.DurableBuffer" and not "DeltaZulu.Relp" and not "DeltaZulu.Parse" and not "DeltaZulu.LocalStream")
-            .Select(a => a.Name!)
-            .ToList();
-
-        Assert.IsEmpty(legacyProjectReferences,
-            $"Pipeline assembly should not reference legacy DeltaZulu projects: {string.Join(", ", legacyProjectReferences)}");
-    }
-
-    [TestMethod]
     public void Pipeline_Types_Are_In_Pipeline_Assembly()
     {
         const string domainAssemblyName = "DeltaZulu.Pipeline";

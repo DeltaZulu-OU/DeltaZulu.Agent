@@ -7,12 +7,12 @@ using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Core.Ndjson;
-using DeltaZulu.Pipeline.Outputs.Relp;
+using DeltaZulu.Pipeline.Outputs.Forwarder;
 
 namespace DeltaZulu.Agent.Tests;
 
 [TestClass]
-public sealed class RelpOutputWorkerTests
+public sealed class ForwarderOutputWorkerTests
 {
     [TestMethod]
     public async Task RunAsync_SendsChunkAndCompletes()
@@ -21,7 +21,7 @@ public sealed class RelpOutputWorkerTests
         var reader = new StubBufferReader();
         var transport = new CallbackTransport(batch =>
             new DeliveryAck { BatchId = batch.BatchId, Accepted = true });
-        var worker = new RelpOutputWorker(reader, transport, new RelpRetryConfiguration());
+        var worker = new ForwarderOutputWorker(reader, transport, new ForwarderRetryConfiguration());
 
         var chunk = await CreateChunkOnDiskAsync(directory.Path);
         await reader.EnqueueAsync(chunk);
@@ -53,7 +53,7 @@ public sealed class RelpOutputWorkerTests
                 Reason = attempt >= 3 ? null : "transient"
             };
         });
-        var worker = new RelpOutputWorker(reader, transport, new RelpRetryConfiguration {
+        var worker = new ForwarderOutputWorker(reader, transport, new ForwarderRetryConfiguration {
             MaxAttempts = 5,
             BaseDelay = TimeSpan.FromMilliseconds(1),
             MaxDelay = TimeSpan.FromMilliseconds(10)
@@ -80,7 +80,7 @@ public sealed class RelpOutputWorkerTests
             Interlocked.Increment(ref attempts);
             return new DeliveryAck { BatchId = batch.BatchId, Accepted = false, Reason = "server down" };
         });
-        var worker = new RelpOutputWorker(reader, transport, new RelpRetryConfiguration {
+        var worker = new ForwarderOutputWorker(reader, transport, new ForwarderRetryConfiguration {
             MaxAttempts = 3,
             BaseDelay = TimeSpan.FromMilliseconds(1),
             MaxDelay = TimeSpan.FromMilliseconds(10)
@@ -109,11 +109,11 @@ public sealed class RelpOutputWorkerTests
         var reader = new StubBufferReader();
         var transport = new CallbackTransport(batch =>
             new DeliveryAck { BatchId = batch.BatchId, Accepted = false, Reason = "server down" });
-        var worker = new RelpOutputWorker(reader, transport, new RelpRetryConfiguration {
+        var worker = new ForwarderOutputWorker(reader, transport, new ForwarderRetryConfiguration {
             MaxAttempts = 2,
             BaseDelay = TimeSpan.FromMilliseconds(1),
             MaxDelay = TimeSpan.FromMilliseconds(10),
-            ExhaustedPolicy = RelpRetryExhaustedPolicy.Discard
+            ExhaustedPolicy = ForwarderRetryExhaustedPolicy.Discard
         });
 
         var chunk = await CreateChunkOnDiskAsync(directory.Path);
@@ -137,7 +137,7 @@ public sealed class RelpOutputWorkerTests
             Interlocked.Increment(ref attempts);
             return new DeliveryAck { BatchId = batch.BatchId, Accepted = true };
         });
-        var worker = new RelpOutputWorker(reader, transport, new RelpRetryConfiguration());
+        var worker = new ForwarderOutputWorker(reader, transport, new ForwarderRetryConfiguration());
 
         var chunk = await CreateChunkOnDiskAsync(directory.Path, declaredRecordCount: 99);
         await reader.EnqueueAsync(chunk);
@@ -158,7 +158,7 @@ public sealed class RelpOutputWorkerTests
         var reader = new StubBufferReader();
         var transport = new CallbackTransport(batch =>
             new DeliveryAck { BatchId = batch.BatchId, Accepted = true });
-        var worker = new RelpOutputWorker(reader, transport, new RelpRetryConfiguration());
+        var worker = new ForwarderOutputWorker(reader, transport, new ForwarderRetryConfiguration());
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var runTask = worker.RunAsync(cts.Token);

@@ -133,7 +133,7 @@ public sealed class ExecutionPlanCompiler
     private static string InferFraming(string kind, string mode) => kind switch {
         "syslog-tcp" => "rfc6587-or-newline",
         "syslog-udp" => "datagram",
-        "syslog-relp" => "relp-frame",
+        "syslog-forwarder" => "forwarder-frame",
         "fifo" => "line",
         "file" => Comparer.Equals(mode, "tail") ? "line-tail" : "line",
         _ => "native"
@@ -149,7 +149,7 @@ public sealed class ExecutionPlanCompiler
         return kind switch {
             "csv" => "csv",
             "eventlog" or "evtx" or "etl" or "etw" => "structured",
-            "messagepack" or "relp-messagepack" => "messagepack-deliverybatch",
+            "messagepack" or "forwarder-messagepack" => "messagepack-deliverybatch",
             _ => "text"
         };
     }

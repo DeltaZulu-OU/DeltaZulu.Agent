@@ -8,14 +8,14 @@ using System.Text.Json;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Forwarder;
 using DeltaZulu.Pipeline.Core.MessagePack;
-using DeltaZulu.Pipeline.Core.Relp;
 using DeltaZulu.Pipeline.Inputs.Common;
 using MessagePack;
 
-namespace DeltaZulu.Pipeline.Inputs.Relp;
+namespace DeltaZulu.Pipeline.Inputs.Forwarder;
 
-public sealed record RelpInputConfiguration
+public sealed record ForwarderInputConfiguration
 {
     public bool Enabled { get; init; } = true;
     public string Address { get; init; } = "0.0.0.0";
@@ -25,13 +25,13 @@ public sealed record RelpInputConfiguration
     public string? ServerCertificatePassword { get; init; }
 }
 
-public sealed class RelpInput : ISourceInput
+public sealed class ForwarderInput : ISourceInput
 {
-    private readonly RelpInputConfiguration _configuration;
+    private readonly ForwarderInputConfiguration _configuration;
     private readonly MessagePackPayloadSerializer _serializer = new();
     private readonly X509Certificate2? _serverCertificate;
 
-    public RelpInput(RelpInputConfiguration configuration, string name = "relp-input")
+    public ForwarderInput(ForwarderInputConfiguration configuration, string name = "forwarder-input")
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         Name = name;
@@ -73,7 +73,7 @@ public sealed class RelpInput : ISourceInput
                 _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
             };
 
-    private static X509Certificate2? LoadServerCertificate(RelpInputConfiguration configuration) => !configuration.UseTls
+    private static X509Certificate2? LoadServerCertificate(ForwarderInputConfiguration configuration) => !configuration.UseTls
             ? null
             : string.IsNullOrEmpty(configuration.ServerCertificatePassword)
             ? X509CertificateLoader.LoadCertificateFromFile(configuration.ServerCertificatePath!)
@@ -81,7 +81,7 @@ public sealed class RelpInput : ISourceInput
 
     private static string SanitizeErrorMessage(string message) => message.Replace('\r', ' ').Replace('\n', ' ');
 
-    private static void Validate(RelpInputConfiguration configuration)
+    private static void Validate(ForwarderInputConfiguration configuration)
     {
         if (configuration.Port is < 1 or > 65535)
         {
@@ -90,7 +90,7 @@ public sealed class RelpInput : ISourceInput
 
         if (configuration.UseTls && string.IsNullOrWhiteSpace(configuration.ServerCertificatePath))
         {
-            throw new InvalidDataException("RELP/TLS input requires serverCertificatePath.");
+            throw new InvalidDataException("Forwarder/TLS input requires serverCertificatePath.");
         }
     }
 
@@ -98,10 +98,10 @@ public sealed class RelpInput : ISourceInput
     {
         var endpoint = $"{_configuration.Address}:{_configuration.Port}";
         var message = ex.SocketErrorCode == SocketError.AccessDenied
-            ? $"RELP input could not bind to {endpoint} because the operating system denied access to the socket. "
-                + "Choose another relpInput.port/address or remove the OS port reservation/firewall policy that blocks this endpoint. "
+            ? $"FORWARDER input could not bind to {endpoint} because the operating system denied access to the socket. "
+                + "Choose another forwarderInput.port/address or remove the OS port reservation/firewall policy that blocks this endpoint. "
                 + "On Windows, check excluded TCP port ranges with: netsh interface ipv4 show excludedportrange protocol=tcp."
-            : $"RELP input could not bind to {endpoint}: {ex.Message}";
+            : $"FORWARDER input could not bind to {endpoint}: {ex.Message}";
 
         return new InvalidOperationException(message, ex);
     }
@@ -114,7 +114,7 @@ public sealed class RelpInput : ISourceInput
             await using var stream = await OpenStreamAsync(client, cancellationToken).ConfigureAwait(false);
             while (!cancellationToken.IsCancellationRequested)
             {
-                var maybeFrame = await RelpFrameCodec.ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
+                var maybeFrame = await ForwarderFrameCodec.ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
                 if (maybeFrame is not { } frame)
                 {
                     return;
@@ -122,24 +122,24 @@ public sealed class RelpInput : ISourceInput
 
                 if (frame.Command.Equals("open", StringComparison.OrdinalIgnoreCase))
                 {
-                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
+                    await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
                 if (frame.Command.Equals("close", StringComparison.OrdinalIgnoreCase))
                 {
-                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
+                    await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
                     return;
                 }
 
                 if (!frame.Command.Equals("syslog", StringComparison.OrdinalIgnoreCase))
                 {
-                    await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "500 unsupported command", cancellationToken).ConfigureAwait(false);
+                    await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "500 unsupported command", cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
                 var accepted = PublishPayload(frame.Payload, observer, out var errorMessage);
-                await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : $"500 {errorMessage}", cancellationToken).ConfigureAwait(false);
+                await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : $"500 {errorMessage}", cancellationToken).ConfigureAwait(false);
             }
         }
         catch (EndOfStreamException)
@@ -185,7 +185,7 @@ public sealed class RelpInput : ISourceInput
             if (batch is null)
             {
                 errorMessage = "invalid MessagePack DeliveryBatch: payload decoded to null";
-                Console.Error.WriteLine($"RELP input rejected {payload.Length} byte payload: {errorMessage}.");
+                Console.Error.WriteLine($"FORWARDER input rejected {payload.Length} byte payload: {errorMessage}.");
                 Console.Error.Flush();
                 return false;
             }
@@ -201,7 +201,7 @@ public sealed class RelpInput : ISourceInput
         catch (MessagePackSerializationException ex)
         {
             errorMessage = $"invalid MessagePack DeliveryBatch: {SanitizeErrorMessage(ex.Message)}";
-            Console.Error.WriteLine($"RELP input rejected {payload.Length} byte payload: {errorMessage}");
+            Console.Error.WriteLine($"FORWARDER input rejected {payload.Length} byte payload: {errorMessage}");
             Console.Error.Flush();
             return false;
         }
@@ -214,15 +214,15 @@ public sealed class RelpInput : ISourceInput
             CollectorId = GetString(record.Metadata, "collectorId") ?? deliveryRecord.AgentId,
             ProfileId = GetString(record.Metadata, "profileId") ?? deliveryRecord.ProfileId,
             ProfileVersion = GetString(record.Metadata, "profileVersion"),
-            SourceType = GetString(record.Metadata, "sourceType") ?? "Relp",
+            SourceType = GetString(record.Metadata, "sourceType") ?? "Transport",
             SourceName = GetString(record.Metadata, "sourceName") ?? deliveryRecord.SourceId,
             Platform = GetString(record.Metadata, "platform") ?? "portable",
             Hostname = GetString(record.Metadata, "hostname") ?? deliveryRecord.AgentId,
             IngestedAt = DateTimeOffset.UtcNow,
-            ParserName = nameof(RelpInput),
+            ParserName = nameof(ForwarderInput),
             RawPreserved = true,
             Properties = new Dictionary<string, object?> {
-                ["relp"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
+                ["forwarder"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
                     ["deliveryID"] = deliveryRecord.DeliveryId,
                     ["recordId"] = deliveryRecord.RecordId,
                     ["createdAt"] = deliveryRecord.CreatedAt

@@ -7,13 +7,13 @@ using DeltaZulu.Pipeline.Core.Delivery;
 using Polly;
 using Polly.Retry;
 
-namespace DeltaZulu.Pipeline.Outputs.Relp;
+namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
-internal sealed class RelpOutputWorker
+internal sealed class ForwarderOutputWorker
 {
     private readonly Action<DateTimeOffset>? _onActivity;
     private readonly IDurableBufferReader _reader;
-    private readonly RelpRetryConfiguration _retryConfiguration;
+    private readonly ForwarderRetryConfiguration _retryConfiguration;
     private readonly ResiliencePipeline<DeliveryAck> _sendPipeline;
     private readonly IDeliveryTransport _transport;
     private long _chunksDeadLettered;
@@ -24,10 +24,10 @@ internal sealed class RelpOutputWorker
     private long _sendSuccesses;
     private long _transientFailures;
 
-    public RelpOutputWorker(
+    public ForwarderOutputWorker(
         IDurableBufferReader reader,
         IDeliveryTransport transport,
-        RelpRetryConfiguration retryConfiguration,
+        ForwarderRetryConfiguration retryConfiguration,
         Action<DateTimeOffset>? onActivity = null)
     {
         _reader = reader;
@@ -54,7 +54,7 @@ internal sealed class RelpOutputWorker
             .Build();
     }
 
-    public RelpTransportSnapshot GetSnapshot() => new() {
+    public ForwarderTransportSnapshot GetSnapshot() => new() {
         SendAttemptsTotal = Interlocked.Read(ref _sendAttempts),
         SendSuccessesTotal = Interlocked.Read(ref _sendSuccesses),
         TransientFailuresTotal = Interlocked.Read(ref _transientFailures),
@@ -99,7 +99,7 @@ internal sealed class RelpOutputWorker
             var records = new List<DeliveryRecord>();
             foreach (var recordBytes in ChunkFormat.ReadRecords(chunkBytes.AsMemory(0, fileLength)))
             {
-                var record = JsonSerializer.Deserialize<DeliveryRecord>(recordBytes.Span, RelpOutputJson.Options);
+                var record = JsonSerializer.Deserialize<DeliveryRecord>(recordBytes.Span, ForwarderOutputJson.Options);
                 if (record is not null)
                 {
                     records.Add(record);
@@ -184,7 +184,7 @@ internal sealed class RelpOutputWorker
         Interlocked.Increment(ref _transientFailures);
         RecordActivity();
 
-        if (_retryConfiguration.ExhaustedPolicy == RelpRetryExhaustedPolicy.DeadLetter)
+        if (_retryConfiguration.ExhaustedPolicy == ForwarderRetryExhaustedPolicy.DeadLetter)
         {
             Interlocked.Increment(ref _chunksDeadLettered);
             await _reader.DeadLetterAsync(chunk, $"Retry exhausted: {failureReason}", cancellationToken);

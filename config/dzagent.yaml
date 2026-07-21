@@ -14,28 +14,28 @@ pipeline:
     mode: profiles
   output:
     # Forwarding encodes DeliveryBatch payloads with MessagePack and sends them
-    # over RELP. Use console or file for local profile/output validation.
+    # over Forwarder protocol. Use console or file for local profile/output validation.
     mode: forward
     encoding: messagepack
-    transport: relp
+    transport: forwarder
     # file: ./collector.ndjson
 
 buffer:
-  # Durable local queue used when the RELP endpoint is unavailable.
+  # Durable local queue used when the Forwarder endpoint is unavailable.
   path: ./buffer/agentd
   maxChunkRecords: 100
   maxChunkAgeSeconds: 1
 
 # Optional stunnel-style TCP tunnel. When enabled, the pipeline sends plain
-# RELP to this local listener; DeltaZulu.Pipeline.Tunnel forwards bytes to
-# relp.endpoints using the relp.useTls and relp.tls settings managed here.
+# FORWARDER to this local listener; DeltaZulu.Pipeline.Tunnel forwards bytes to
+# forwarder.endpoints using the forwarder.useTls and forwarder.tls settings managed here.
 tunnel:
   enabled: false
   listen:
     host: 127.0.0.1
     port: 2514
 
-relp:
+forwarder:
   useTls: false
   tls:
     # Use SystemTrust for production TLS validation. Lab-only alternatives are

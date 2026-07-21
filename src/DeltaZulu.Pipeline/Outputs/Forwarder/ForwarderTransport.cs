@@ -3,23 +3,23 @@ using System.Security.Cryptography.X509Certificates;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.MessagePack;
-using DeltaZulu.Relp;
+using DeltaZulu.Forward;
 
-namespace DeltaZulu.Pipeline.Outputs.Relp;
+namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
-public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposable, IDisposable
+public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, IDisposable
 {
     private static readonly TimeSpan SessionCloseTimeout = TimeSpan.FromSeconds(5);
 
-    private readonly RelpForwarderOptions _options;
+    private readonly ForwarderOptions _options;
     private readonly MessagePackPayloadSerializer _serializer = new();
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
-    private RelpConnection? _connection;
+    private ForwardConnection? _connection;
     private int _disposeStarted;
     private int _endpointIndex;
-    private RelpSession? _session;
+    private ForwardSession? _session;
 
-    public RelpForwarderTransport(RelpForwarderOptions options)
+    public ForwarderTransport(ForwarderOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -28,7 +28,7 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
         _options = options;
     }
 
-    private RelpEndpoint CurrentEndpoint {
+    private ForwarderEndpoint CurrentEndpoint {
         get {
             var endpoints = _options.GetConfiguredEndpoints();
             return endpoints[Math.Abs(_endpointIndex % endpoints.Count)];
@@ -85,7 +85,7 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
             {
                 var session = await GetOrOpenSessionAsync(cancellationToken).ConfigureAwait(false);
                 var payload = _serializer.Serialize(batch);
-                await session.SendMessageAsync(payload, cancellationToken).ConfigureAwait(false);
+                await session.SendTypedBatchAsync(payload, cancellationToken).ConfigureAwait(false);
 
                 return new DeliveryAck {
                     BatchId = batch.BatchId,
@@ -99,7 +99,7 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
                 return new DeliveryAck {
                     BatchId = batch.BatchId,
                     Accepted = false,
-                    Reason = $"RELP send failed: {ex.Message}"
+                    Reason = $"Forwarder send failed: {ex.Message}"
                 };
             }
         }
@@ -115,11 +115,11 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
             or InvalidOperationException
             or TimeoutException;
 
-    private static void ValidateEndpoints(IReadOnlyList<RelpEndpoint> endpoints)
+    private static void ValidateEndpoints(IReadOnlyList<ForwarderEndpoint> endpoints)
     {
         if (endpoints.Count == 0)
         {
-            throw new ArgumentException("At least one RELP endpoint is required.");
+            throw new ArgumentException("At least one Forwarder endpoint is required.");
         }
 
         for (var index = 0; index < endpoints.Count; index++)
@@ -127,12 +127,12 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
             var endpoint = endpoints[index];
             if (string.IsNullOrWhiteSpace(endpoint.Host))
             {
-                throw new ArgumentException($"RELP endpoint {index + 1} host is required.");
+                throw new ArgumentException($"Forwarder endpoint {index + 1} host is required.");
             }
 
             if (endpoint.Port is < 1 or > 65535)
             {
-                throw new ArgumentOutOfRangeException(nameof(endpoints), endpoint.Port, $"RELP endpoint {index + 1} port must be between 1 and 65535.");
+                throw new ArgumentOutOfRangeException(nameof(endpoints), endpoint.Port, $"Forwarder endpoint {index + 1} port must be between 1 and 65535.");
             }
         }
     }
@@ -179,7 +179,7 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
         return ValueTask.FromResult(_options.UseTls ? _options.ClientCertificates : null);
     }
 
-    private async ValueTask<RelpSession> GetOrOpenSessionAsync(CancellationToken cancellationToken)
+    private async ValueTask<ForwardSession> GetOrOpenSessionAsync(CancellationToken cancellationToken)
     {
         if (_session is { IsActive: true })
         {
@@ -189,14 +189,14 @@ public sealed class RelpForwarderTransport : IDeliveryTransport, IAsyncDisposabl
         await DisposeSessionAsync(cancellationToken).ConfigureAwait(false);
 
         var endpoint = CurrentEndpoint;
-        _connection = new RelpConnection(
+        _connection = new ForwardConnection(
             endpoint.Host,
             endpoint.Port,
             _options.UseTls,
             await GetClientCertificatesAsync(cancellationToken).ConfigureAwait(false));
         await _connection.ConnectAsync(cancellationToken).ConfigureAwait(false);
 
-        _session = new RelpSession(_connection);
+        _session = new ForwardSession(_connection);
         await _session.OpenAsync(cancellationToken).ConfigureAwait(false);
         return _session;
     }

@@ -77,7 +77,7 @@ public sealed class TunnelTests
         var response = new byte[4];
         await localStream.ReadExactlyAsync(response, TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual("ping"u8.ToArray(), response);
+        Assert.AreSequenceEqual("ping"u8.ToArray(), response);
         await remoteTask;
         remoteListener.Stop();
     }

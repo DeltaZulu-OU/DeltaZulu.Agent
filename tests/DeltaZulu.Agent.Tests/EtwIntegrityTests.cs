@@ -65,9 +65,8 @@ public sealed class EtwIntegrityTests
         await WaitForFindingsAsync(reporter, 3);
         await monitor.StopAsync();
 
-        CollectionAssert.AreEqual(
-            new[] { EtwIntegrityPattern.Ret, EtwIntegrityPattern.NopSled, EtwIntegrityPattern.NopSled },
-            reporter.Findings.Select(f => f.Pattern).ToArray());
+        Assert.AreSequenceEqual(
+            new[] { EtwIntegrityPattern.Ret, EtwIntegrityPattern.NopSled, EtwIntegrityPattern.NopSled }, reporter.Findings.Select(f => f.Pattern).ToArray());
     }
 
     [TestMethod]

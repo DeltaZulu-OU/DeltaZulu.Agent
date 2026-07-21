@@ -15,9 +15,10 @@ public sealed class ApplicationTests
     private static readonly string[] AllowedPipelineDeltaZuluDependencies =
     [
         "DeltaZulu.DurableBuffer",
-        "DeltaZulu.Relp",
+        "DeltaZulu.Transport",
         "DeltaZulu.Parse",
         "DeltaZulu.LocalStream",
+        "DeltaZulu.Forward"
     ];
 
     [TestMethod]
@@ -43,8 +44,8 @@ public sealed class ApplicationTests
             .ToList();
 
         // ROADMAP.md Phase 1 acceptance criterion: "Pipeline references Parse,
-        // LocalStream, and RELP." RELP is covered by PipelineAssembly_ReferencesOnlyExternalPipelineDependencies
-        // already permitting DeltaZulu.Relp; this test covers the two new assemblies.
+        // LocalStream, and FORWARDER." FORWARDER is covered by PipelineAssembly_ReferencesOnlyExternalPipelineDependencies
+        // already permitting DeltaZulu.Transport; this test covers the two new assemblies.
         Assert.Contains("DeltaZulu.Parse", referencedNames);
         Assert.Contains("DeltaZulu.LocalStream", referencedNames);
     }

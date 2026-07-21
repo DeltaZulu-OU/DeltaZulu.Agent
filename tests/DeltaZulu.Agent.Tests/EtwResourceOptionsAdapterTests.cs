@@ -51,16 +51,16 @@ public sealed class EtwResourceOptionsAdapterTests
 
         var options = new EtwResourceOptionsAdapter().Adapt(resource);
 
-        CollectionAssert.AreEqual(new[] { 1, 2 }, options.EventIds);
-        CollectionAssert.AreEqual(new[] { 3 }, options.ExcludedEventIds);
-        CollectionAssert.AreEqual(new[] { 10 }, options.Opcodes);
-        CollectionAssert.AreEqual(new[] { 1 }, options.Versions);
+        Assert.AreSequenceEqual(new[] { 1, 2 }, options.EventIds);
+        Assert.AreSequenceEqual(new[] { 3 }, options.ExcludedEventIds);
+        Assert.AreSequenceEqual(new[] { 10 }, options.Opcodes);
+        Assert.AreSequenceEqual(new[] { 1 }, options.Versions);
         Assert.IsTrue(options.CaptureStacks);
-        CollectionAssert.AreEqual(new[] { 4 }, options.StackEventIds);
-        CollectionAssert.AreEqual(new[] { 5 }, options.ExcludedStackEventIds);
-        CollectionAssert.AreEqual(new[] { 1234 }, options.ProcessIds);
-        CollectionAssert.AreEqual(new[] { "notepad.exe" }, options.ProcessNames);
-        CollectionAssert.AreEqual(new[] { "Image", "CommandLine" }, options.PayloadFields);
+        Assert.AreSequenceEqual(new[] { 4 }, options.StackEventIds);
+        Assert.AreSequenceEqual(new[] { 5 }, options.ExcludedStackEventIds);
+        Assert.AreSequenceEqual(new[] { 1234 }, options.ProcessIds);
+        Assert.AreSequenceEqual(new[] { "notepad.exe" }, options.ProcessNames);
+        Assert.AreSequenceEqual(new[] { "Image", "CommandLine" }, options.PayloadFields);
         Assert.IsTrue(options.EnableInContainers);
         Assert.IsTrue(options.EnableSourceContainerTracking);
     }
@@ -80,9 +80,9 @@ public sealed class EtwResourceOptionsAdapterTests
 
         var options = new EtwResourceOptionsAdapter().Adapt(resource);
 
-        CollectionAssert.AreEqual(new[] { 42 }, options.EventIds);
-        CollectionAssert.AreEqual(new[] { "notepad.exe" }, options.ProcessNames);
-        CollectionAssert.AreEqual(new[] { "Image" }, options.PayloadFields);
+        Assert.AreSequenceEqual(new[] { 42 }, options.EventIds);
+        Assert.AreSequenceEqual(new[] { "notepad.exe" }, options.ProcessNames);
+        Assert.AreSequenceEqual(new[] { "Image" }, options.PayloadFields);
     }
 
     [TestMethod]
@@ -122,7 +122,7 @@ public sealed class EtwResourceOptionsAdapterTests
 
         var materializedNames = EtwPayloadProjection.SelectPayloadNames(payloadNames, selected).ToArray();
 
-        CollectionAssert.AreEqual(new[] { "Image", "CommandLine" }, materializedNames);
+        Assert.AreSequenceEqual(new[] { "Image", "CommandLine" }, materializedNames);
         Assert.IsFalse(materializedNames.Contains("ParentImage"));
     }
 
@@ -133,7 +133,7 @@ public sealed class EtwResourceOptionsAdapterTests
 
         var materializedNames = EtwPayloadProjection.SelectPayloadNames(payloadNames, selectedPayloadFields: null).ToArray();
 
-        CollectionAssert.AreEqual(payloadNames, materializedNames);
+        Assert.AreSequenceEqual(payloadNames, materializedNames);
     }
 
     [TestMethod]
@@ -146,7 +146,7 @@ public sealed class EtwResourceOptionsAdapterTests
 
         var missing = EtwPayloadProjection.SelectMissingPayloadFields(selected, materialization).ToArray();
 
-        CollectionAssert.AreEqual(new[] { "ProviderName", "CommandLine" }, missing);
+        Assert.AreSequenceEqual(new[] { "ProviderName", "CommandLine" }, missing);
         Assert.IsFalse(missing.Contains("Image"));
         Assert.IsFalse(missing.Contains("Broken"));
     }

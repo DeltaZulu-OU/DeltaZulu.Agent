@@ -1,4 +1,4 @@
-using DeltaZulu.Pipeline.Outputs.Relp;
+using DeltaZulu.Pipeline.Outputs.Forwarder;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -9,9 +9,9 @@ public sealed record ForwarderDaemonConfiguration
     public string Id { get; init; } = "default-agent-daemon";
     public string ProfilesPath { get; init; } = "profiles";
     public ForwarderDaemonPipelineConfiguration Pipeline { get; init; } = new();
-    public RelpBufferConfiguration Buffer { get; init; } = new();
-    public RelpTransportConfiguration Relp { get; init; } = new();
-    public ForwarderDaemonRelpInputConfiguration RelpInput { get; init; } = new();
+    public ForwarderBufferConfiguration Buffer { get; init; } = new();
+    public ForwarderTransportConfiguration Transport { get; init; } = new();
+    public ForwarderDaemonInputConfiguration InputConf { get; init; } = new();
     public ForwarderDaemonTunnelConfiguration Tunnel { get; init; } = new();
     public ForwarderDaemonDiagnosticsConfiguration Diagnostics { get; init; } = new();
     public ForwarderDaemonResourceQuotaConfiguration ResourceQuotas { get; init; } = new();
@@ -29,7 +29,7 @@ public sealed record ForwarderDaemonPipelineInputConfiguration
     public string Mode { get; init; } = "profiles";
 }
 
-public sealed record ForwarderDaemonRelpInputConfiguration
+public sealed record ForwarderDaemonInputConfiguration
 {
     public string Address { get; init; } = "127.0.0.1";
     public int Port { get; init; } = 2514;
@@ -47,7 +47,7 @@ public sealed record ForwarderDaemonPipelineOutputConfiguration
 {
     public string Mode { get; init; } = "forward";
     public string Encoding { get; init; } = "messagepack";
-    public string Transport { get; init; } = "relp";
+    public string Transport { get; init; } = "forwarder";
     public string? File { get; init; }
     public bool PrettyPrint { get; init; }
 }
@@ -92,10 +92,10 @@ public sealed class YamlForwarderDaemonConfigurationLoader
         var inputMode = configuration.Pipeline.Input.Mode.ToLowerInvariant();
         if (inputMode == "profiles")
         {
-            YamlRelpOutputConfigurationLoader.Validate(new RelpOutputConfiguration {
+            YamlForwarderOutputConfigurationLoader.Validate(new ForwarderOutputConfiguration {
                 Id = configuration.Id,
                 Buffer = configuration.Buffer,
-                Relp = configuration.Relp
+                Transport = configuration.Transport
             }, path);
         }
 
@@ -104,9 +104,9 @@ public sealed class YamlForwarderDaemonConfigurationLoader
             throw new InvalidDataException($"{prefix} profilesPath is required.");
         }
 
-        if (inputMode is not ("profiles" or "relp"))
+        if (inputMode is not ("profiles" or "forwarder"))
         {
-            throw new InvalidDataException($"{prefix} pipeline.input.mode must be one of: profiles, relp.");
+            throw new InvalidDataException($"{prefix} pipeline.input.mode must be one of: profiles, forwarder.");
         }
 
         var filterMode = configuration.Pipeline.Filter.Mode.ToLowerInvariant();
@@ -120,9 +120,9 @@ public sealed class YamlForwarderDaemonConfigurationLoader
             throw new InvalidDataException($"{prefix} pipeline.filter.mode must be 'profiles' when pipeline.input.mode is profiles.");
         }
 
-        if (inputMode == "relp" && filterMode != "passthrough")
+        if (inputMode == "forwarder" && filterMode != "passthrough")
         {
-            throw new InvalidDataException($"{prefix} pipeline.filter.mode must be 'passthrough' when pipeline.input.mode is relp.");
+            throw new InvalidDataException($"{prefix} pipeline.filter.mode must be 'passthrough' when pipeline.input.mode is forwarder.");
         }
 
         var outputMode = configuration.Pipeline.Output.Mode.ToLowerInvariant();
@@ -131,26 +131,26 @@ public sealed class YamlForwarderDaemonConfigurationLoader
             throw new InvalidDataException($"{prefix} pipeline.output.mode must be one of: forward, console, file.");
         }
 
-        if (inputMode == "relp" && outputMode == "forward")
+        if (inputMode == "forwarder" && outputMode == "forward")
         {
-            throw new InvalidDataException($"{prefix} pipeline.output.mode cannot be forward when pipeline.input.mode is relp.");
+            throw new InvalidDataException($"{prefix} pipeline.output.mode cannot be forward when pipeline.input.mode is forwarder.");
         }
 
-        if (inputMode == "relp")
+        if (inputMode == "forwarder")
         {
-            if (configuration.RelpInput.Port is < 1 or > 65535)
+            if (configuration.InputConf.Port is < 1 or > 65535)
             {
-                throw new InvalidDataException($"{prefix} relpInput.port must be between 1 and 65535.");
+                throw new InvalidDataException($"{prefix} forwarderInput.port must be between 1 and 65535.");
             }
 
-            if (string.IsNullOrWhiteSpace(configuration.RelpInput.Address))
+            if (string.IsNullOrWhiteSpace(configuration.InputConf.Address))
             {
-                throw new InvalidDataException($"{prefix} relpInput.address is required.");
+                throw new InvalidDataException($"{prefix} forwarderInput.address is required.");
             }
 
-            if (configuration.RelpInput.UseTls && string.IsNullOrWhiteSpace(configuration.RelpInput.ServerCertificatePath))
+            if (configuration.InputConf.UseTls && string.IsNullOrWhiteSpace(configuration.InputConf.ServerCertificatePath))
             {
-                throw new InvalidDataException($"{prefix} relpInput.serverCertificatePath is required when relpInput.useTls is true.");
+                throw new InvalidDataException($"{prefix} forwarderInput.serverCertificatePath is required when forwarderInput.useTls is true.");
             }
         }
 
@@ -161,9 +161,9 @@ public sealed class YamlForwarderDaemonConfigurationLoader
                 throw new InvalidDataException($"{prefix} pipeline.output.encoding must be 'messagepack' when pipeline.output.mode is forward.");
             }
 
-            if (!configuration.Pipeline.Output.Transport.Equals("relp", StringComparison.OrdinalIgnoreCase))
+            if (!configuration.Pipeline.Output.Transport.Equals("forwarder", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException($"{prefix} pipeline.output.transport must be 'relp' when pipeline.output.mode is forward.");
+                throw new InvalidDataException($"{prefix} pipeline.output.transport must be 'forwarder' when pipeline.output.mode is forward.");
             }
         }
 
@@ -213,7 +213,7 @@ public sealed class YamlForwarderDaemonConfigurationLoader
             throw new ArgumentException("Agent daemon configuration path is required.", nameof(path));
         }
 
-        using var reader = System.IO.File.OpenText(path);
+        using var reader = File.OpenText(path);
         var configuration = _deserializer.Deserialize<ForwarderDaemonConfiguration>(reader)
             ?? throw new InvalidDataException($"Agent daemon configuration file '{path}' did not contain a configuration.");
         Validate(configuration, path);

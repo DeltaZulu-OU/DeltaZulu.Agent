@@ -6,12 +6,12 @@ using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
+using DeltaZulu.Pipeline.Core.Forwarder;
 using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Core.Observability;
-using DeltaZulu.Pipeline.Core.Relp;
-using DeltaZulu.Pipeline.Inputs.Relp;
-using DeltaZulu.Pipeline.Outputs.Relp;
+using DeltaZulu.Pipeline.Inputs.Forwarder;
+using DeltaZulu.Pipeline.Outputs.Forwarder;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -19,7 +19,7 @@ namespace DeltaZulu.Agent.Tests;
 public sealed class ForwarderTests
 {
     [TestMethod]
-    public void BufferedRelpSink_HealthSnapshot_ReportsBufferAndForwarderCounters()
+    public void BufferedForwarderSink_HealthSnapshot_ReportsBufferAndForwarderCounters()
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
@@ -30,7 +30,7 @@ public sealed class ForwarderTests
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
 
-        using var sink = new BufferedRelpSink(options, transport);
+        using var sink = new BufferedForwarderSink(options, transport);
         sink.OnNext(new ResourceOutputRecord {
             Metadata = new Dictionary<string, object?> {
                 ["collectorId"] = "agent-01",
@@ -60,7 +60,7 @@ public sealed class ForwarderTests
             HostId = "host-01"
         });
 
-        Assert.AreEqual(RelpHealthObservation.RecordKind, observation.Metadata["recordKind"]);
+        Assert.AreEqual(ForwarderHealthObservation.RecordKind, observation.Metadata["recordKind"]);
         Assert.AreEqual(1L, observation.Event["recordsAcceptedTotal"]);
         Assert.AreEqual(0L, observation.Event["chunksDeadLetteredTotal"]);
         Assert.IsTrue(observation.Event.ContainsKey("chunksCompletedTotal"));
@@ -68,7 +68,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void BufferedRelpSink_OnNextAfterDispose_IsNoop()
+    public void BufferedForwarderSink_OnNextAfterDispose_IsNoop()
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
@@ -79,14 +79,14 @@ public sealed class ForwarderTests
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
 
-        var sink = new BufferedRelpSink(options, transport);
+        var sink = new BufferedForwarderSink(options, transport);
         sink.Dispose();
 
         sink.OnNext(CreateTestOutputRecord());
     }
 
     [TestMethod]
-    public void BufferedRelpSink_PermanentFailure_DeadLettersChunk()
+    public void BufferedForwarderSink_PermanentFailure_DeadLettersChunk()
     {
         using var directory = new TemporaryDirectory();
         var transport = new RejectingTransport(accepted: false, reason: "permanent error");
@@ -96,13 +96,13 @@ public sealed class ForwarderTests
             MaxChunkBytes = 4096,
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
-        var retry = new RelpRetryConfiguration {
+        var retry = new ForwarderRetryConfiguration {
             MaxAttempts = 2,
             BaseDelay = TimeSpan.FromMilliseconds(10),
             MaxDelay = TimeSpan.FromMilliseconds(50)
         };
 
-        using var sink = new BufferedRelpSink(options, transport, retry);
+        using var sink = new BufferedForwarderSink(options, transport, retry);
         sink.OnNext(CreateTestOutputRecord());
         SpinWait.SpinUntil(
             () => sink.GetHealthSnapshot().Transport?.ChunksDeadLetteredTotal > 0
@@ -119,7 +119,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void BufferedRelpSink_TransientFailure_SchedulesRetry()
+    public void BufferedForwarderSink_TransientFailure_SchedulesRetry()
     {
         using var directory = new TemporaryDirectory();
         long callCount = 0;
@@ -138,13 +138,13 @@ public sealed class ForwarderTests
             MaxChunkBytes = 4096,
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
-        var retry = new RelpRetryConfiguration {
+        var retry = new ForwarderRetryConfiguration {
             MaxAttempts = 5,
             BaseDelay = TimeSpan.FromMilliseconds(50),
             MaxDelay = TimeSpan.FromMilliseconds(200)
         };
 
-        using var sink = new BufferedRelpSink(options, transport, retry);
+        using var sink = new BufferedForwarderSink(options, transport, retry);
         sink.OnNext(CreateTestOutputRecord());
         SpinWait.SpinUntil(() => Interlocked.Read(ref callCount) >= 3, TimeSpan.FromSeconds(5));
         sink.OnCompleted();
@@ -177,7 +177,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpDeliveryRecordSerializer_RoundtripsDeliveryId()
+    public void ForwarderDeliveryRecordSerializer_RoundtripsDeliveryId()
     {
         var record = new DeliveryRecord {
             DeliveryId = "test-delivery-id-abc123",
@@ -190,7 +190,7 @@ public sealed class ForwarderTests
                 Event = new Dictionary<string, object?> { ["Message"] = "hello" }
             }
         };
-        var serializer = new RelpDeliveryRecordSerializer();
+        var serializer = new ForwarderDeliveryRecordSerializer();
 
         var bytes = serializer.Serialize(record);
         var deserialized = JsonSerializer.Deserialize<DeliveryRecord>(bytes.Span, TestJson.Options);
@@ -200,7 +200,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpInput_ToSourceEvent_AddsNestedRelpMetadata()
+    public void ForwarderInput_ToSourceEvent_AddsNestedForwarderMetadata()
     {
         var createdAt = DateTimeOffset.Parse("2026-07-02T07:21:49.4311395+00:00");
         var deliveryRecord = new DeliveryRecord {
@@ -215,25 +215,25 @@ public sealed class ForwarderTests
                 Event = new Dictionary<string, object?> { ["Message"] = "hello" }
             }
         };
-        var relpInput = new RelpInput(new RelpInputConfiguration());
+        var forwarderInput = new ForwarderInput(new ForwarderInputConfiguration());
 
-        var method = typeof(RelpInput).GetMethod("ToSourceEvent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var method = typeof(ForwarderInput).GetMethod("ToSourceEvent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         Assert.IsNotNull(method);
-        var sourceEvent = Assert.IsInstanceOfType<SourceEvent>(method.Invoke(relpInput, [deliveryRecord]));
+        var sourceEvent = Assert.IsInstanceOfType<SourceEvent>(method.Invoke(forwarderInput, [deliveryRecord]));
         var metadata = sourceEvent.Metadata.ToDictionary();
 
-        Assert.IsFalse(metadata.ContainsKey("relp.deliveryId"));
-        Assert.IsFalse(metadata.ContainsKey("relp.recordId"));
-        Assert.IsFalse(metadata.ContainsKey("relp.createdAt"));
+        Assert.IsFalse(metadata.ContainsKey("forwarder.deliveryId"));
+        Assert.IsFalse(metadata.ContainsKey("forwarder.recordId"));
+        Assert.IsFalse(metadata.ContainsKey("forwarder.createdAt"));
 
-        var relp = Assert.IsInstanceOfType<Dictionary<string, object?>>(metadata["relp"]);
-        Assert.AreEqual("351ddc6968b94697b9369fe81bc9c14f", relp["deliveryID"]);
-        Assert.AreEqual("05f821f93196441ab90bcd64395a836e", relp["recordId"]);
-        Assert.AreEqual(createdAt, relp["createdAt"]);
+        var forwarder = Assert.IsInstanceOfType<Dictionary<string, object?>>(metadata["forwarder"]);
+        Assert.AreEqual("351ddc6968b94697b9369fe81bc9c14f", forwarder["deliveryID"]);
+        Assert.AreEqual("05f821f93196441ab90bcd64395a836e", forwarder["recordId"]);
+        Assert.AreEqual(createdAt, forwarder["createdAt"]);
     }
 
     [TestMethod]
-    public void RelpHealthReporter_EmitHealthSnapshot_WritesToDiagnosticSink()
+    public void ForwarderHealthReporter_EmitHealthSnapshot_WritesToDiagnosticSink()
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
@@ -244,12 +244,12 @@ public sealed class ForwarderTests
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
 
-        using var relpSink = new BufferedRelpSink(options, transport);
+        using var sink = new BufferedForwarderSink(options, transport);
         var capturingSink = new CapturingResourceSink();
         var metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" };
 
-        using var reporter = new RelpHealthReporter(
-            relpSink,
+        using var reporter = new ForwarderHealthReporter(
+            sink,
             capturingSink,
             metadata,
             interval: TimeSpan.FromHours(1));
@@ -258,14 +258,14 @@ public sealed class ForwarderTests
 
         Assert.HasCount(1, capturingSink.Records);
         var record = capturingSink.Records[0];
-        Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
+        Assert.AreEqual(ForwarderHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("agent-01", record.Metadata["agentId"]);
         Assert.IsTrue(record.Event.ContainsKey("bufferState"));
         Assert.IsTrue(record.Event.ContainsKey("chunksCompletedTotal"));
     }
 
     [TestMethod]
-    public void RelpHealthReporter_AfterDispose_EmitIsNoop()
+    public void ForwarderHealthReporter_AfterDispose_EmitIsNoop()
     {
         using var directory = new TemporaryDirectory();
         var transport = new CapturingTransport();
@@ -276,12 +276,12 @@ public sealed class ForwarderTests
             MaxChunkAge = TimeSpan.FromMinutes(5)
         };
 
-        using var relpSink = new BufferedRelpSink(options, transport);
+        using var sink = new BufferedForwarderSink(options, transport);
         var capturingSink = new CapturingResourceSink();
         var metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" };
 
-        var reporter = new RelpHealthReporter(
-            relpSink,
+        var reporter = new ForwarderHealthReporter(
+            sink,
             capturingSink,
             metadata,
             interval: TimeSpan.FromHours(1));
@@ -360,10 +360,10 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpDeliveryRecordSerializer_RoundtripsViaJson()
+    public void ForwarderDeliveryRecordSerializer_RoundtripsViaJson()
     {
         var original = CreateTestDeliveryRecord();
-        var serializer = new RelpDeliveryRecordSerializer();
+        var serializer = new ForwarderDeliveryRecordSerializer();
 
         var bytes = serializer.Serialize(original);
         var deserialized = JsonSerializer.Deserialize<DeliveryRecord>(bytes.Span, TestJson.Options);
@@ -376,7 +376,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void YamlRelpOutputConfigurationLoader_LoadFile_LoadsBufferAndRelpSettings()
+    public void YamlForwarderOutputConfigurationLoader_LoadFile_LoadsBufferAndForwarderSettings()
     {
         using var directory = new TemporaryDirectory();
         var configPath = Path.Combine(directory.Path, "forwarder.yaml");
@@ -386,7 +386,7 @@ public sealed class ForwarderTests
               path: /tmp/dz-buffer
               maxChunkRecords: 25
               maxChunkAgeSeconds: 3.5
-            relp:
+            forwarder:
               useTls: true
               tls:
                 certificateValidation: Thumbprint
@@ -396,51 +396,51 @@ public sealed class ForwarderTests
                 clientCertificateEnabled: false
                 clientCertificatePath: /tmp/missing-dev-client-cert.pfx
               endpoints:
-                - host: relp-a.example
+                - host: forwarder-a.example
                   port: 6514
-                - host: relp-b.example
+                - host: forwarder-b.example
                   port: 6515
             """);
 
-        var configuration = new YamlRelpOutputConfigurationLoader().LoadFile(configPath);
+        var configuration = new YamlForwarderOutputConfigurationLoader().LoadFile(configPath);
 
         Assert.AreEqual("test-forwarder", configuration.Id);
         Assert.AreEqual("/tmp/dz-buffer", configuration.Buffer.Path);
         Assert.AreEqual(25, configuration.Buffer.MaxChunkRecords);
         Assert.AreEqual(3.5, configuration.Buffer.MaxChunkAgeSeconds);
-        Assert.IsTrue(configuration.Relp.UseTls);
-        Assert.AreEqual(RelpCertificateValidationMode.Thumbprint, configuration.Relp.Tls.CertificateValidation);
-        Assert.HasCount(1, configuration.Relp.Tls.AllowedServerCertificateThumbprints);
-        Assert.AreEqual(14, configuration.Relp.Tls.CertificateExpiryWarningDays);
-        Assert.IsFalse(configuration.Relp.Tls.ClientCertificateEnabled);
-        Assert.AreEqual("/tmp/missing-dev-client-cert.pfx", configuration.Relp.Tls.ClientCertificatePath);
-        Assert.HasCount(2, configuration.Relp.Endpoints);
-        Assert.AreEqual("relp-b.example", configuration.Relp.Endpoints[1].Host);
-        Assert.AreEqual(6515, configuration.Relp.Endpoints[1].Port);
+        Assert.IsTrue(configuration.Transport.UseTls);
+        Assert.AreEqual(CertificateValidationMode.Thumbprint, configuration.Transport.Tls.CertificateValidation);
+        Assert.HasCount(1, configuration.Transport.Tls.AllowedServerCertificateThumbprints);
+        Assert.AreEqual(14, configuration.Transport.Tls.CertificateExpiryWarningDays);
+        Assert.IsFalse(configuration.Transport.Tls.ClientCertificateEnabled);
+        Assert.AreEqual("/tmp/missing-dev-client-cert.pfx", configuration.Transport.Tls.ClientCertificatePath);
+        Assert.HasCount(2, configuration.Transport.Endpoints);
+        Assert.AreEqual("forwarder-b.example", configuration.Transport.Endpoints[1].Host);
+        Assert.AreEqual(6515, configuration.Transport.Endpoints[1].Port);
     }
 
     [TestMethod]
-    public void RelpInput_Constructor_RejectsTlsInputWithoutCertificate() =>
-        Assert.ThrowsExactly<InvalidDataException>(() => new RelpInput(new RelpInputConfiguration {
+    public void ForwarderInput_Constructor_RejectsTlsInputWithoutCertificate() =>
+        Assert.ThrowsExactly<InvalidDataException>(() => new ForwarderInput(new ForwarderInputConfiguration {
             Address = "127.0.0.1",
             Port = 6514,
             UseTls = true
         }));
 
     [TestMethod]
-    public void RelpInput_Open_WhenBindFails_ReportsEndpointContext()
+    public void ForwarderInput_Open_WhenBindFails_ReportsEndpointContext()
     {
         var occupiedListener = new TcpListener(IPAddress.Loopback, 0);
         occupiedListener.Start();
         try
         {
             var port = ((IPEndPoint)occupiedListener.LocalEndpoint).Port;
-            var relpInput = new RelpInput(new RelpInputConfiguration {
+            var input = new ForwarderInput(new ForwarderInputConfiguration {
                 Address = IPAddress.Loopback.ToString(),
                 Port = port
             });
 
-            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => relpInput.Open(TestContext.CancellationToken).Subscribe(_ => { }));
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => input.Open(TestContext.CancellationToken).Subscribe(_ => { }));
 
             Assert.Contains($"{IPAddress.Loopback}:{port}", exception.Message);
             Assert.IsInstanceOfType<SocketException>(exception.InnerException);
@@ -452,70 +452,70 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void YamlRelpOutputConfigurationLoader_LoadFile_RejectsInvalidEndpoint()
+    public void YamlForwarderOutputConfigurationLoader_LoadFile_RejectsInvalidEndpoint()
     {
         using var directory = new TemporaryDirectory();
         var configPath = Path.Combine(directory.Path, "forwarder.yaml");
         File.WriteAllText(configPath, """
             buffer:
               path: /tmp/dz-buffer
-            relp:
+            forwarder:
               endpoints:
                 - host: ""
                   port: 6514
             """);
 
-        Assert.ThrowsExactly<InvalidDataException>(() => new YamlRelpOutputConfigurationLoader().LoadFile(configPath));
+        Assert.ThrowsExactly<InvalidDataException>(() => new YamlForwarderOutputConfigurationLoader().LoadFile(configPath));
     }
 
     [TestMethod]
-    public void YamlRelpOutputConfigurationLoader_LoadFile_RejectsThumbprintValidationWithoutThumbprints()
+    public void YamlForwarderOutputConfigurationLoader_LoadFile_RejectsThumbprintValidationWithoutThumbprints()
     {
         using var directory = new TemporaryDirectory();
         var configPath = Path.Combine(directory.Path, "forwarder.yaml");
         File.WriteAllText(configPath, """
-            relp:
+            forwarder:
               useTls: true
               tls:
                 certificateValidation: Thumbprint
               endpoints:
-                - host: relp.example
+                - host: forwarder.example
                   port: 6514
             """);
 
-        Assert.ThrowsExactly<InvalidDataException>(() => new YamlRelpOutputConfigurationLoader().LoadFile(configPath));
+        Assert.ThrowsExactly<InvalidDataException>(() => new YamlForwarderOutputConfigurationLoader().LoadFile(configPath));
     }
 
     [TestMethod]
-    public void RelpForwarderOptions_GetConfiguredEndpoints_UsesFailoverListWhenProvided()
+    public void ForwarderOptions_GetConfiguredEndpoints_UsesFailoverListWhenProvided()
     {
-        var options = new RelpForwarderOptions {
+        var options = new ForwarderOptions {
             Host = "primary.example",
             Port = 6514,
             Endpoints = [
-                new RelpEndpoint { Host = "relp-a.example", Port = 6514 },
-                new RelpEndpoint { Host = "relp-b.example", Port = 6515 }
+                new ForwarderEndpoint { Host = "forwarder-a.example", Port = 6514 },
+                new ForwarderEndpoint { Host = "forwarder-b.example", Port = 6515 }
             ]
         };
 
         var endpoints = options.GetConfiguredEndpoints();
 
         Assert.HasCount(2, endpoints);
-        Assert.AreEqual("relp-a.example", endpoints[0].Host);
+        Assert.AreEqual("forwarder-a.example", endpoints[0].Host);
         Assert.AreEqual(6515, endpoints[1].Port);
     }
 
     [TestMethod]
-    public void RelpTransportConfiguration_ToForwarderOptions_MapsTlsAndEndpointSettings()
+    public void ForwarderTransportConfiguration_ToForwarderOptions_MapsTlsAndEndpointSettings()
     {
-        var configuration = new RelpTransportConfiguration {
+        var configuration = new ForwarderTransportConfiguration {
             UseTls = true,
             Endpoints = [
-                new RelpEndpoint { Host = "relp-a.example", Port = 6514 },
-                new RelpEndpoint { Host = "relp-b.example", Port = 6515 }
+                new ForwarderEndpoint { Host = "forwarder-a.example", Port = 6514 },
+                new ForwarderEndpoint { Host = "forwarder-b.example", Port = 6515 }
             ],
-            Tls = new RelpTlsConfiguration {
-                CertificateValidation = RelpCertificateValidationMode.Thumbprint,
+            Tls = new ForwarderTlsConfiguration {
+                CertificateValidation = CertificateValidationMode.Thumbprint,
                 AllowedServerCertificateThumbprints = ["AA11"],
                 CertificateExpiryWarningDays = 14
             }
@@ -523,10 +523,10 @@ public sealed class ForwarderTests
 
         var options = configuration.ToForwarderOptions();
 
-        Assert.AreEqual("relp-a.example", options.Host);
+        Assert.AreEqual("forwarder-a.example", options.Host);
         Assert.AreEqual(6514, options.Port);
         Assert.IsTrue(options.UseTls);
-        Assert.AreEqual(RelpCertificateValidationMode.Thumbprint, options.CertificateValidation);
+        Assert.AreEqual(CertificateValidationMode.Thumbprint, options.CertificateValidation);
         Assert.HasCount(1, options.AllowedServerCertificateThumbprints);
         Assert.AreEqual("AA11", options.AllowedServerCertificateThumbprints[0]);
         Assert.AreEqual(14, options.CertificateExpiryWarningDays);
@@ -534,13 +534,13 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpTransportConfiguration_ToForwarderOptions_AppliesTunnelOverrides()
+    public void ForwarderTransportConfiguration_ToForwarderOptions_AppliesTunnelOverrides()
     {
-        var configuration = new RelpTransportConfiguration {
+        var configuration = new ForwarderTransportConfiguration {
             UseTls = true,
-            Endpoints = [new RelpEndpoint { Host = "upstream.example", Port = 6514 }]
+            Endpoints = [new ForwarderEndpoint { Host = "upstream.example", Port = 6514 }]
         };
-        IReadOnlyList<RelpEndpoint> tunnelEndpoints = [new RelpEndpoint { Host = "127.0.0.1", Port = 2515 }];
+        IReadOnlyList<ForwarderEndpoint> tunnelEndpoints = [new ForwarderEndpoint { Host = "127.0.0.1", Port = 2515 }];
 
         var options = configuration.ToForwarderOptions(endpoints: tunnelEndpoints, useTls: false);
 
@@ -551,18 +551,18 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpForwarderTransport_Constructor_RejectsInvalidFailoverEndpoint() => Assert.ThrowsExactly<ArgumentException>(() => new RelpForwarderTransport(new RelpForwarderOptions {
+    public void ForwarderTransport_Constructor_RejectsInvalidFailoverEndpoint() => Assert.ThrowsExactly<ArgumentException>(() => new ForwarderTransport(new ForwarderOptions {
         Host = "primary.example",
         Port = 6514,
-        Endpoints = [new RelpEndpoint { Host = " ", Port = 6514 }]
+        Endpoints = [new ForwarderEndpoint { Host = " ", Port = 6514 }]
     }));
 
     [TestMethod]
-    public async Task RelpForwarderTransport_SendAsync_SendsBatchAndReturnsAcceptedAck()
+    public async Task ForwarderTransport_SendAsync_SendsBatchAndReturnsAcceptedAck()
     {
-        using var timeout = CreateRelpTestTimeout();
-        await using var server = await FakeRelpServer.StartAsync(acceptSyslog: true, timeout.Token);
-        await using var transport = new RelpForwarderTransport(new RelpForwarderOptions {
+        using var timeout = CreateForwarderTestTimeout();
+        await using var server = await FakeForwarderServer.StartAsync(acceptSyslog: true, timeout.Token);
+        await using var transport = new ForwarderTransport(new ForwarderOptions {
             Host = "127.0.0.1",
             Port = server.Port
         });
@@ -585,11 +585,11 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public async Task RelpForwarderTransport_SendAsync_ReturnsRejectedAckWhenRelpServerRejectsBatch()
+    public async Task ForwarderTransport_SendAsync_ReturnsRejectedAckWhenForwarderServerRejectsBatch()
     {
-        using var timeout = CreateRelpTestTimeout();
-        await using var server = await FakeRelpServer.StartAsync(acceptSyslog: false, timeout.Token);
-        await using var transport = new RelpForwarderTransport(new RelpForwarderOptions {
+        using var timeout = CreateForwarderTestTimeout();
+        await using var server = await FakeForwarderServer.StartAsync(acceptSyslog: false, timeout.Token);
+        await using var transport = new ForwarderTransport(new ForwarderOptions {
             Host = "127.0.0.1",
             Port = server.Port
         });
@@ -601,13 +601,13 @@ public sealed class ForwarderTests
 
         Assert.IsFalse(ack.Accepted);
         Assert.AreEqual("batch-02", ack.BatchId);
-        Assert.Contains("RELP send failed", ack.Reason!);
+        Assert.Contains("Forwarder send failed", ack.Reason!);
     }
 
     [TestMethod]
-    public async Task RelpForwarderTransport_Dispose_IsIdempotentAcrossSyncAndAsyncCalls()
+    public async Task ForwarderTransport_Dispose_IsIdempotentAcrossSyncAndAsyncCalls()
     {
-        var transport = new RelpForwarderTransport(new RelpForwarderOptions {
+        var transport = new ForwarderTransport(new ForwarderOptions {
             Host = "127.0.0.1",
             Port = 6514
         });
@@ -618,12 +618,12 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void RelpHealthObservation_ToOutputRecord_ContainsAllExpectedFields()
+    public void ForwarderHealthObservation_ToOutputRecord_ContainsAllExpectedFields()
     {
         var now = DateTimeOffset.UtcNow;
-        var observation = new RelpHealthObservation {
+        var observation = new ForwarderHealthObservation {
             Metadata = new CollectorObservationMetadata { AgentId = "agent-01", HostId = "host-01" },
-            Health = new RelpHealthSnapshot {
+            Health = new ForwarderHealthSnapshot {
                 Buffer = new BufferSnapshot {
                     State = BufferState.Healthy,
                     DiskBytesUsed = 1024,
@@ -653,7 +653,7 @@ public sealed class ForwarderTests
                     QuarantineBytesUsed = 0,
                     ChunksQuarantineEvictedTotal = 0,
                 },
-                Transport = new RelpTransportSnapshot {
+                Transport = new ForwarderTransportSnapshot {
                     SendAttemptsTotal = 12,
                     SendSuccessesTotal = 9,
                     TransientFailuresTotal = 3,
@@ -668,7 +668,7 @@ public sealed class ForwarderTests
 
         var record = observation.ToOutputRecord();
 
-        Assert.AreEqual(RelpHealthObservation.RecordKind, record.Metadata["recordKind"]);
+        Assert.AreEqual(ForwarderHealthObservation.RecordKind, record.Metadata["recordKind"]);
         Assert.AreEqual("Healthy", record.Event["bufferState"]);
         Assert.AreEqual(2, record.Event["availableChunks"]);
         Assert.AreEqual(0, record.Event["inFlightChunks"]);
@@ -760,14 +760,14 @@ public sealed class ForwarderTests
         });
     }
 
-    private CancellationTokenSource CreateRelpTestTimeout()
+    private CancellationTokenSource CreateForwarderTestTimeout()
     {
         var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
         return timeout;
     }
 
-    private sealed class FakeRelpServer : IAsyncDisposable
+    private sealed class FakeForwarderServer : IAsyncDisposable
     {
         private readonly TcpListener _listener;
         private readonly bool _acceptSyslog;
@@ -776,7 +776,7 @@ public sealed class ForwarderTests
         private readonly CancellationTokenSource _cts = new();
         private TcpClient? _client;
 
-        private FakeRelpServer(TcpListener listener, bool acceptSyslog)
+        private FakeForwarderServer(TcpListener listener, bool acceptSyslog)
         {
             _listener = listener;
             _acceptSyslog = acceptSyslog;
@@ -786,12 +786,12 @@ public sealed class ForwarderTests
 
         public int Port { get; }
 
-        public static Task<FakeRelpServer> StartAsync(bool acceptSyslog, CancellationToken cancellationToken)
+        public static Task<FakeForwarderServer> StartAsync(bool acceptSyslog, CancellationToken cancellationToken)
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(new FakeRelpServer(listener, acceptSyslog));
+            return Task.FromResult(new FakeForwarderServer(listener, acceptSyslog));
         }
 
         public async Task<DeliveryBatch?> GetSyslogBatchAsync(CancellationToken cancellationToken)
@@ -827,7 +827,7 @@ public sealed class ForwarderTests
 
                 while (!_cts.IsCancellationRequested)
                 {
-                    var maybeFrame = await RelpFrameCodec.ReadFrameAsync(stream, _cts.Token).ConfigureAwait(false);
+                    var maybeFrame = await ForwarderFrameCodec.ReadFrameAsync(stream, _cts.Token).ConfigureAwait(false);
                     if (maybeFrame is not { } frame)
                     {
                         return;
@@ -836,12 +836,12 @@ public sealed class ForwarderTests
                     switch (frame.Command)
                     {
                         case "open":
-                            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", _cts.Token).ConfigureAwait(false);
+                            await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", _cts.Token).ConfigureAwait(false);
                             break;
 
                         case "syslog":
                             _batchSource.TrySetResult(new MessagePackPayloadSerializer().Deserialize<DeliveryBatch>(frame.Payload));
-                            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, _acceptSyslog ? "200 OK" : "500 rejected", _cts.Token).ConfigureAwait(false);
+                            await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, _acceptSyslog ? "200 OK" : "500 rejected", _cts.Token).ConfigureAwait(false);
                             if (!_acceptSyslog)
                             {
                                 return;
@@ -849,7 +849,7 @@ public sealed class ForwarderTests
                             break;
 
                         case "close":
-                            await RelpFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", _cts.Token).ConfigureAwait(false);
+                            await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", _cts.Token).ConfigureAwait(false);
                             return;
                     }
                 }
