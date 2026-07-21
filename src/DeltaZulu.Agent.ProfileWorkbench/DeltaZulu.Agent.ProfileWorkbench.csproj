@@ -5,6 +5,7 @@
     <AssemblyName>DeltaZulu.Agent.ProfileWorkbench</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="DeltaZulu.DurableBuffer" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="YamlDotNet" />
   </ItemGroup>

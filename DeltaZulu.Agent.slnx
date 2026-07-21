@@ -1,7 +1,4 @@
 <Solution>
-  <Folder Name="/External/">
-    <Project Path="external/DeltaZulu.DurableBuffer/src/DeltaZulu.DurableBuffer/DeltaZulu.DurableBuffer.csproj" />
-  </Folder>
   <Folder Name="/Tests/">
     <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
   </Folder>

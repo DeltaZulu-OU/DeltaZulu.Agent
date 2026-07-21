@@ -1,6 +1,7 @@
 <Project>
   <ItemGroup>
     <PackageVersion Include="CsvHelper" Version="33.1.0" />
+    <PackageVersion Include="DeltaZulu.DurableBuffer" Version="1.0.0" />
     <PackageVersion Include="DeltaZulu.Forward" Version="1.0.0" />
     <PackageVersion Include="MessagePack" Version="3.1.8" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.10" />

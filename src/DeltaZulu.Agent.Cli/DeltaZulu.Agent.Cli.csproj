@@ -8,6 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="DeltaZulu.DurableBuffer" />
     <PackageReference Include="Terminal.Gui" />
     <PackageReference Include="Terminal.Gui.Editor" />
     <PackageReference Include="Microsoft.Data.Sqlite" />

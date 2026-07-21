@@ -9,4 +9,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="DeltaZulu.Agent.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="DeltaZulu.DurableBuffer" />
+  </ItemGroup>
 </Project>
