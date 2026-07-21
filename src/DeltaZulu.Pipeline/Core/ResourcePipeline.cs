@@ -9,12 +9,6 @@ namespace DeltaZulu.Pipeline.Core;
 
 public sealed class ResourcePipeline
 {
-    // ROADMAP.md Phase 1: pipeline references Parse and LocalStream assemblies.
-    // These static references ensure the assemblies are loaded at runtime and appear
-    // in GetReferencedAssemblies() calls.
-    private static readonly Type _parseMarker = typeof(ParseAssemblyMarker);
-    private static readonly Type _localStreamTopics = typeof(LocalStreamTopics);
-
     private readonly Func<ResourceOutputRecord, ResourceOutputRecord> _enrichAfterFilter;
     private readonly Func<IObservable<SourceEvent>, IObservable<ResourceOutputRecord>> _executeProfiles;
     private readonly ISourceInput _input;

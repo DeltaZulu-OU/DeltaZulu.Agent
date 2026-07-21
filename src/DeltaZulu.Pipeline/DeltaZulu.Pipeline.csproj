@@ -16,6 +16,7 @@
         <PackageReference Include="CsvHelper" />
         <PackageReference Include="DeltaZulu.DurableBuffer" />
         <PackageReference Include="DeltaZulu.Forward" />
+        <PackageReference Include="DeltaZulu.Parse" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="Polly.Core" />
         <PackageReference Include="System.Reactive" />
@@ -37,7 +38,6 @@
         <!-- Transitional: direct DurableBuffer ownership is removed after the LocalStream
          migration (ROADMAP.md Phase 12); DurableBuffer may remain an implementation
          dependency of LocalStream (ADR 0005, ADR 0008). -->
-        <ProjectReference Include="..\..\src\DeltaZulu.Parse\DeltaZulu.Parse.csproj" />
         <ProjectReference Include="..\..\src\DeltaZulu.LocalStream\DeltaZulu.LocalStream.csproj" />
     </ItemGroup>
 

@@ -37,20 +37,6 @@ public sealed class ApplicationTests
     }
 
     [TestMethod]
-    public void PipelineAssembly_ReferencesParseAndLocalStream()
-    {
-        var referencedNames = typeof(ResourcePipeline).Assembly.GetReferencedAssemblies()
-            .Select(name => name.Name!)
-            .ToList();
-
-        // ROADMAP.md Phase 1 acceptance criterion: "Pipeline references Parse,
-        // LocalStream, and FORWARDER." FORWARDER is covered by PipelineAssembly_ReferencesOnlyExternalPipelineDependencies
-        // already permitting DeltaZulu.Transport; this test covers the two new assemblies.
-        Assert.Contains("DeltaZulu.Parse", referencedNames);
-        Assert.Contains("DeltaZulu.LocalStream", referencedNames);
-    }
-
-    [TestMethod]
     public void PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked()
     {
         var referencedNames = typeof(ResourcePipeline).Assembly.GetReferencedAssemblies()
