@@ -1,13 +1,11 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Text.Json;
 using System.Threading.Channels;
+using DeltaZulu.DurableBuffer;
+using DeltaZulu.DurableBuffer.Configuration;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Outputs.Forwarder;
 
 namespace DeltaZulu.Agent.Tests;
@@ -174,56 +172,50 @@ public sealed class ForwarderOutputWorkerTests
         string directoryPath,
         int declaredRecordCount = 1)
     {
-        var chunkId = ChunkId.NewChunkId();
-        var record = new DeliveryRecord {
-            AgentId = "agent-01",
-            SourceId = "Syslog:auth.log",
-            RecordId = "42",
-            CreatedAt = DateTimeOffset.UtcNow,
-            Record = new ResourceOutputRecord {
-                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
-                Event = new Dictionary<string, object?> { ["Message"] = "hello" }
-            }
-        };
+        await using var host = new DurableBufferHost<DeliveryRecord>(
+            new DurableBufferOptions {
+                StoragePath = directoryPath,
+                MaxChunkRecords = 1,
+                MaxChunkBytes = 4096,
+                MaxChunkAge = TimeSpan.FromMinutes(5)
+            },
+            new ForwarderDeliveryRecordSerializer());
 
-        var payload = JsonSerializer.SerializeToUtf8Bytes(record, TestJson.Options);
-        var chunkPath = Path.Combine(directoryPath, $"{chunkId}.chunk");
-        var metadataPath = Path.Combine(directoryPath, $"{chunkId}.meta.json");
-        await File.WriteAllBytesAsync(chunkPath, CreateChunkBytes(payload));
-        await File.WriteAllTextAsync(metadataPath, "{}");
+        await host.StartAsync(CancellationToken.None);
+        var result = await host.Writer.WriteAsync(CreateRecord(), CancellationToken.None);
+        Assert.IsTrue(result.IsAccepted, $"Expected durable buffer to accept the test record, but got {result.Status}.");
+
+        var chunk = await host.Reader.SealedChunks.ReadAsync(CancellationToken.None);
+        if (declaredRecordCount == chunk.Metadata.RecordCount)
+        {
+            return chunk;
+        }
 
         return new StoredChunk {
-            Id = chunkId,
-            ChunkFilePath = chunkPath,
-            MetadataFilePath = metadataPath,
+            Id = chunk.Id,
+            ChunkFilePath = chunk.ChunkFilePath,
+            MetadataFilePath = chunk.MetadataFilePath,
             Metadata = new ChunkMetadata {
-                ChunkId = chunkId.Value,
-                CreatedUtc = DateTimeOffset.UtcNow,
-                SealedUtc = DateTimeOffset.UtcNow,
+                ChunkId = chunk.Metadata.ChunkId,
+                CreatedUtc = chunk.Metadata.CreatedUtc,
+                SealedUtc = chunk.Metadata.SealedUtc,
                 RecordCount = declaredRecordCount,
-                PayloadBytes = payload.Length,
-                Checksum = "sha256:test"
+                PayloadBytes = chunk.Metadata.PayloadBytes,
+                Checksum = chunk.Metadata.Checksum
             }
         };
     }
 
-    private static byte[] CreateChunkBytes(byte[] payload)
-    {
-        var data = new byte[ChunkFormat.HeaderSize + ChunkFormat.RecordLengthSize + payload.Length + ChunkFormat.FooterSize];
-        ChunkFormat.Magic.CopyTo(data.AsSpan(ChunkFormat.MagicOffset));
-        data[ChunkFormat.VersionOffset] = ChunkFormat.Version;
-        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(ChunkFormat.HeaderSize, ChunkFormat.RecordLengthSize), payload.Length);
-        payload.CopyTo(data.AsSpan(ChunkFormat.HeaderSize + ChunkFormat.RecordLengthSize));
-        SHA256.HashData(data.AsSpan(0, data.Length - ChunkFormat.FooterSize))
-            .CopyTo(data.AsSpan(data.Length - ChunkFormat.FooterSize));
-        ChunkFormat.FooterMagic.CopyTo(data.AsSpan(data.Length - ChunkFormat.FooterMagic.Length));
-        return data;
-    }
-
-    private static class TestJson
-    {
-        public static JsonSerializerOptions Options { get; } = NdjsonSerializerOptions.CreateDefault();
-    }
+    private static DeliveryRecord CreateRecord() => new() {
+        AgentId = "agent-01",
+        SourceId = "Syslog:auth.log",
+        RecordId = "42",
+        CreatedAt = DateTimeOffset.UtcNow,
+        Record = new ResourceOutputRecord {
+            Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
+            Event = new Dictionary<string, object?> { ["Message"] = "hello" }
+        }
+    };
 
     private sealed class StubBufferReader : IDurableBufferReader
     {
