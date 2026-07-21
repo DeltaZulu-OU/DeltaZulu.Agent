@@ -1,9 +1,11 @@
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
+using DeltaZulu.Pipeline.Core.Forwarder;
 using DeltaZulu.Pipeline.Core.MessagePack;
-using DeltaZulu.Forward;
 
 namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
@@ -14,10 +16,12 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
     private readonly ForwarderOptions _options;
     private readonly MessagePackPayloadSerializer _serializer = new();
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
-    private ForwardConnection? _connection;
     private int _disposeStarted;
     private int _endpointIndex;
-    private ForwardSession? _session;
+    private int _transactionId;
+    private TcpClient? _client;
+    private Stream? _stream;
+    private bool _sessionOpen;
 
     public ForwarderTransport(ForwarderOptions options)
     {
@@ -83,13 +87,14 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
 
             try
             {
-                var session = await GetOrOpenSessionAsync(cancellationToken).ConfigureAwait(false);
+                var stream = await GetOrOpenSessionAsync(cancellationToken).ConfigureAwait(false);
                 var payload = _serializer.Serialize(batch);
-                await session.SendTypedBatchAsync(payload, cancellationToken).ConfigureAwait(false);
+                var response = await WriteFrameAndReadResponseAsync(stream, "syslog", payload, cancellationToken).ConfigureAwait(false);
 
                 return new DeliveryAck {
                     BatchId = batch.BatchId,
-                    Accepted = true
+                    Accepted = IsSuccessResponse(response),
+                    Reason = IsSuccessResponse(response) ? null : $"Forwarder send failed: {response}"
                 };
             }
             catch (Exception ex) when (IsTransientForwarderFailure(ex))
@@ -114,6 +119,8 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
             or SocketException
             or InvalidOperationException
             or TimeoutException;
+
+    private static bool IsSuccessResponse(string response) => response.StartsWith("200 ", StringComparison.Ordinal) || string.Equals(response, "200", StringComparison.Ordinal);
 
     private static void ValidateEndpoints(IReadOnlyList<ForwarderEndpoint> endpoints)
     {
@@ -148,18 +155,20 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
 
     private async ValueTask DisposeSessionAsync(CancellationToken cancellationToken)
     {
-        var session = _session;
-        var connection = _connection;
-        _session = null;
-        _connection = null;
+        var stream = _stream;
+        var client = _client;
+        var shouldClose = _sessionOpen;
+        _stream = null;
+        _client = null;
+        _sessionOpen = false;
 
-        if (session is { IsActive: true })
+        if (stream is not null && shouldClose)
         {
             using var closeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             closeTimeout.CancelAfter(SessionCloseTimeout);
             try
             {
-                await session.CloseAsync(closeTimeout.Token).ConfigureAwait(false);
+                await WriteFrameAndReadResponseAsync(stream, "close", ReadOnlyMemory<byte>.Empty, closeTimeout.Token).ConfigureAwait(false);
             }
             catch
             {
@@ -167,38 +176,70 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
             }
         }
 
-        if (connection is not null)
+        if (stream is not null)
         {
-            await connection.DisposeAsync().ConfigureAwait(false);
+            await stream.DisposeAsync().ConfigureAwait(false);
         }
+
+        client?.Dispose();
     }
 
-    private ValueTask<X509CertificateCollection?> GetClientCertificatesAsync(CancellationToken cancellationToken)
+    private async ValueTask<Stream> GetOrOpenSessionAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(_options.UseTls ? _options.ClientCertificates : null);
-    }
-
-    private async ValueTask<ForwardSession> GetOrOpenSessionAsync(CancellationToken cancellationToken)
-    {
-        if (_session is { IsActive: true })
+        if (_stream is not null && _sessionOpen)
         {
-            return _session;
+            return _stream;
         }
 
         await DisposeSessionAsync(cancellationToken).ConfigureAwait(false);
 
         var endpoint = CurrentEndpoint;
-        _connection = new ForwardConnection(
-            endpoint.Host,
-            endpoint.Port,
-            _options.UseTls,
-            await GetClientCertificatesAsync(cancellationToken).ConfigureAwait(false));
-        await _connection.ConnectAsync(cancellationToken).ConfigureAwait(false);
+        _client = new TcpClient();
+        await _client.ConnectAsync(endpoint.Host, endpoint.Port, cancellationToken).ConfigureAwait(false);
+        _stream = _client.GetStream();
 
-        _session = new ForwardSession(_connection);
-        await _session.OpenAsync(cancellationToken).ConfigureAwait(false);
-        return _session;
+        if (_options.UseTls)
+        {
+            var sslStream = new SslStream(_stream, leaveInnerStreamOpen: false, ValidateServerCertificate);
+            var sslOptions = new SslClientAuthenticationOptions {
+                TargetHost = endpoint.Host,
+                ClientCertificates = _options.ClientCertificates,
+                EnabledSslProtocols = SslProtocols.None,
+                CertificateRevocationCheckMode = X509RevocationMode.Online
+            };
+            await sslStream.AuthenticateAsClientAsync(sslOptions, cancellationToken).ConfigureAwait(false);
+            _stream = sslStream;
+        }
+
+        var response = await WriteFrameAndReadResponseAsync(_stream, "open", ReadOnlyMemory<byte>.Empty, cancellationToken).ConfigureAwait(false);
+        if (!IsSuccessResponse(response))
+        {
+            throw new InvalidOperationException($"Forwarder open failed: {response}");
+        }
+
+        _sessionOpen = true;
+        return _stream;
+    }
+
+    private bool ValidateServerCertificate(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
+        _options.CertificateValidation switch {
+            CertificateValidationMode.Disabled => true,
+            CertificateValidationMode.Thumbprint => certificate is not null
+                && _options.AllowedServerCertificateThumbprints.Contains(certificate.GetCertHashString(), StringComparer.OrdinalIgnoreCase),
+            _ => sslPolicyErrors == SslPolicyErrors.None
+        };
+
+    private async ValueTask<string> WriteFrameAndReadResponseAsync(Stream stream, string command, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
+    {
+        var transactionId = Interlocked.Increment(ref _transactionId);
+        await ForwarderFrameCodec.WriteFrameAsync(stream, transactionId, command, payload, cancellationToken).ConfigureAwait(false);
+        var response = ForwarderFrameCodec.ReadFrameOrThrow(await ForwarderFrameCodec.ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false));
+        if (response.Command != "rsp" || response.TransactionId != transactionId)
+        {
+            throw new InvalidDataException($"Unexpected FORWARDER response frame '{response.Command}' for transaction {response.TransactionId}.");
+        }
+
+        return System.Text.Encoding.UTF8.GetString(response.Payload.Span);
     }
 
     private async ValueTask ResetSessionAsync(CancellationToken cancellationToken) =>

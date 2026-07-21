@@ -43,6 +43,16 @@ public static class ForwarderFrameCodec
     public static ForwarderFrame ReadFrameOrThrow(ForwarderFrame? frame) =>
         frame ?? throw new EndOfStreamException();
 
+
+    public static async Task WriteFrameAsync(Stream stream, int transactionId, string command, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
+    {
+        var header = Encoding.ASCII.GetBytes($"{transactionId} {command} {payload.Length} ");
+        await stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync("\n"u8.ToArray(), cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public static async Task WriteResponseAsync(Stream stream, int transactionId, string payload, CancellationToken cancellationToken = default)
     {
         var body = Encoding.UTF8.GetBytes(payload);

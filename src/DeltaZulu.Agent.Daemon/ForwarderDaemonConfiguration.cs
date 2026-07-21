@@ -10,6 +10,7 @@ public sealed record ForwarderDaemonConfiguration
     public string ProfilesPath { get; init; } = "profiles";
     public ForwarderDaemonPipelineConfiguration Pipeline { get; init; } = new();
     public ForwarderBufferConfiguration Buffer { get; init; } = new();
+    [YamlMember(Alias = "forwarder")]
     public ForwarderTransportConfiguration Transport { get; init; } = new();
     public ForwarderDaemonInputConfiguration InputConf { get; init; } = new();
     public ForwarderDaemonTunnelConfiguration Tunnel { get; init; } = new();

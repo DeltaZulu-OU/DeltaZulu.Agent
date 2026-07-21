@@ -9,6 +9,7 @@ public sealed record ForwarderOutputConfiguration
 {
     public string Id { get; init; } = "default-forwarder";
     public ForwarderBufferConfiguration Buffer { get; init; } = new();
+    [YamlMember(Alias = "forwarder")]
     public ForwarderTransportConfiguration Transport { get; init; } = new();
 }
 
