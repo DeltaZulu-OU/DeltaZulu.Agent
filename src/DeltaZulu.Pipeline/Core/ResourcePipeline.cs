@@ -1,7 +1,7 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using DeltaZulu.LocalStream;
-using DeltaZulu.Normalize;
+using DeltaZulu.Parse;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Events;
 
@@ -9,10 +9,10 @@ namespace DeltaZulu.Pipeline.Core;
 
 public sealed class ResourcePipeline
 {
-    // ROADMAP.md Phase 1: pipeline references Normalize and LocalStream assemblies.
+    // ROADMAP.md Phase 1: pipeline references Parse and LocalStream assemblies.
     // These static references ensure the assemblies are loaded at runtime and appear
     // in GetReferencedAssemblies() calls.
-    private static readonly Type _normalizeMarker = typeof(NormalizeAssemblyMarker);
+    private static readonly Type _parseMarker = typeof(ParseAssemblyMarker);
     private static readonly Type _localStreamTopics = typeof(LocalStreamTopics);
 
     private readonly Func<ResourceOutputRecord, ResourceOutputRecord> _enrichAfterFilter;

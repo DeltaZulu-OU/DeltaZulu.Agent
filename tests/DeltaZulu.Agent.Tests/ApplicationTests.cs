@@ -16,7 +16,7 @@ public sealed class ApplicationTests
     [
         "DeltaZulu.DurableBuffer",
         "DeltaZulu.Relp",
-        "DeltaZulu.Normalize",
+        "DeltaZulu.Parse",
         "DeltaZulu.LocalStream",
     ];
 
@@ -36,16 +36,16 @@ public sealed class ApplicationTests
     }
 
     [TestMethod]
-    public void PipelineAssembly_ReferencesNormalizeAndLocalStream()
+    public void PipelineAssembly_ReferencesParseAndLocalStream()
     {
         var referencedNames = typeof(ResourcePipeline).Assembly.GetReferencedAssemblies()
             .Select(name => name.Name!)
             .ToList();
 
-        // ROADMAP.md Phase 1 acceptance criterion: "Pipeline references Normalize,
+        // ROADMAP.md Phase 1 acceptance criterion: "Pipeline references Parse,
         // LocalStream, and RELP." RELP is covered by PipelineAssembly_ReferencesOnlyExternalPipelineDependencies
         // already permitting DeltaZulu.Relp; this test covers the two new assemblies.
-        Assert.Contains("DeltaZulu.Normalize", referencedNames);
+        Assert.Contains("DeltaZulu.Parse", referencedNames);
         Assert.Contains("DeltaZulu.LocalStream", referencedNames);
     }
 

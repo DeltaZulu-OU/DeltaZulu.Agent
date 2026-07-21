@@ -92,14 +92,15 @@ Unknown or newly supported parsers must declare:
 ## Type-fidelity expectations
 
 The endpoint schema tree presents fields, but field names alone are not the type
-contract. Each visible field should resolve to a schema-registry logical type
-before it is considered production-stable. The registry entry records nullability,
-canonical timestamp precision, duration units, numeric width/decimal scale, and
-specialized logical annotations such as UUID, IP, MAC, enum, nested object,
-variant, or geospatial carrier.
+contract. Each visible field should resolve to a type-contract catalog
+([ADR 0010](adr/0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md)) logical
+type before it is considered production-stable. The catalog entry records
+nullability, canonical timestamp precision, duration units, numeric
+width/decimal scale, and specialized logical annotations such as UUID, IP,
+MAC, enum, nested object, variant, or geospatial carrier.
 
 The TUI may initially discover fields from parser contracts or endpoint
 inventory, but it should not infer physical sink types independently. Query
 authoring hints, backend DDL, Avro wire schemas, Arrow server schemas, and JSON
-edge projections all derive from the same registry entry so Proton and DuckDB do
+edge projections all derive from the same catalog entry so Proton and DuckDB do
 not drift into incompatible interpretations of the same field.

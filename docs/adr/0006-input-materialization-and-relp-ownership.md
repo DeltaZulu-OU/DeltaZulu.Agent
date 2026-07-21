@@ -10,10 +10,21 @@ Inputs had accumulated source-specific plaintext parsing and the RELP input
 combined protocol mechanics with payload mapping. This obscures acquisition
 responsibilities and duplicates dedicated protocol-library concerns.
 
+`DeltaZulu.Normalize` was renamed to `DeltaZulu.Parse` by ADR 0013; references
+below use the current name.
+
+> **Scope note (ADR 0011):** the long-term agent-to-collector transport is
+> DeltaZulu.Forward, a RELP-derived but non-wire-compatible protocol owned by
+> `DeltaZulu.Pipeline` itself, not `DeltaZulu.Relp`. This ADR's RELP-ownership
+> decision remains accepted for the current transitional local-validation
+> transport (`docs/RELP_RECEIVER_SETUP.md`, `config/dzagent.yaml`
+> `transport: relp`) and for any future rsyslog-world peer input adapter. It no
+> longer describes the target production transport.
+
 ## Decision
 
 Inputs acquire, frame, decode, and map records into distinct text or structured
-contracts. `DeltaZulu.Normalize` exclusively parses unstructured and
+contracts. `DeltaZulu.Parse` exclusively parses unstructured and
 semi-structured plaintext. Structured native/deterministic sources bypass it.
 RELP protocol framing, sessions, transactions, and acknowledgements belong to
 `DeltaZulu.Relp`; Pipeline RELP adapters retain configuration, payload codecs,

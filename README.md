@@ -1,6 +1,6 @@
   # DeltaZulu Agent
 
-DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters source-native event fields with YAML profiles, writes NDJSON for exploration, and forwards MessagePack `DeliveryBatch` payloads over `DeltaZulu.Relp`. The target daemon uses LocalStream as its durability boundary; the direct DurableBuffer forwarding path is transitional.
+DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters source-native event fields with YAML profiles, writes NDJSON for exploration, and forwards MessagePack `DeliveryBatch` payloads over `DeltaZulu.Relp` (current, transitional transport). The target daemon uses LocalStream as its durability boundary and DeltaZulu.Forward, a RELP-derived but non-wire-compatible protocol owned by Pipeline, as its transport (see [ADR 0011](docs/adr/0011-deltazulu-forward-transport.md)); the direct DurableBuffer forwarding path and literal RELP transport are transitional.
 
 This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes `dzagentctl` as the local agent controller, a separate `dzagentd` daemon host for service deployment, and a `dzagentd` collector configuration for local RELP validation.
 
@@ -134,18 +134,19 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 
 ## Current implementation status
 
-- **Architecture migration status (2026-07-17):** Phases 0-1 are complete and
+- **Architecture migration status (2026-07-19):** Phases 0-1 are complete and
   Phase 2 is active. Current work introduces text and structured input
-  contracts with metadata-preserving adapters; it does not yet add Normalize
-  parsing, LocalStream runtime behavior, or the execution-plan daemon.
+  contracts with metadata-preserving adapters; it does not yet add Parse
+  parsing, LocalStream runtime behavior, DeltaZulu.Forward, or the
+  execution-plan daemon.
 - `DeltaZulu.Pipeline` is the single reusable, multi-targeted pipeline assembly. Its internal `Core`, `Inputs`, `Parsing`, `Assembly`, `Streaming`, `Dispatch`, `Enrichment`, `Outputs`, and `Tunnel` boundaries are folders and namespaces, not separate projects.
-- The target has distinct text and structured input contracts. Inputs acquire, frame, decode, or map; `DeltaZulu.Normalize` will be the only plaintext structural parser, while deterministic/native structured inputs bypass it.
+- The target has distinct text and structured input contracts. Inputs acquire, frame, decode, or map; `DeltaZulu.Parse` (renamed from `DeltaZulu.Normalize`, [ADR 0013](docs/adr/0013-parse-naming.md)) will be the only plaintext structural parser, while deterministic/native structured inputs bypass it.
 - The current daemon remains transitional: it still executes profile-centric pipelines, uses direct `DeltaZulu.DurableBuffer` forwarding, and serializes legacy concurrent output with `ChannelOutputMultiplexer`.
 - The target daemon uses one LocalStream host with `agent.parsed` (materialization-to-filter) and `agent.output` (filter-to-forwarder). Logical topics are parsed-envelope values; they are not physical streams.
-- `DeltaZulu.Relp` owns RELP protocol mechanics. Pipeline RELP adapters own configuration, payload mapping, and metrics; output commits occur only after acknowledgement.
-- `parse.query` will be an optional restricted Normalize-rule contract; `filter.query` remains Rx.Kql-owned. Profiles do not configure streams, offsets, partitions, parser generations, or multiplexer behavior.
+- `DeltaZulu.Relp` owns RELP protocol mechanics for the current, transitional transport. The target transport is DeltaZulu.Forward ([ADR 0011](docs/adr/0011-deltazulu-forward-transport.md)), a RELP-derived, non-wire-compatible protocol implemented in `DeltaZulu.Pipeline` itself; `DeltaZulu.Relp` remains available for a future rsyslog-world peer input adapter. Output commits occur only after a forwarding acknowledgement either way.
+- `parse.query` will be an optional restricted Parse-rule contract; `filter.query` remains Rx.Kql-owned. Profiles do not configure streams, offsets, partitions, parser generations, or multiplexer behavior.
 - Unrecognized plaintext is preserved and coverage distinguishes admission rejection, parser no-match, filter no-candidate, filter no-match, and operational errors.
-- Agent output preserves source-native field names; server-side DeltaZulu components perform canonical semantic normalization.
+- Agent output preserves source-native field names; server-side DeltaZulu components perform canonical semantic normalization. The type-contract catalog ([ADR 0010](docs/adr/0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md)) governs representation, not this semantic layer.
 
 ## Project layout
 
@@ -197,8 +198,8 @@ git submodule update --remote external/DeltaZulu.Relp external/DeltaZulu.Durable
 
 - [Architecture](docs/ARCHITECTURE.md) is the authoritative target topology and dependency boundary.
 - [Roadmap](docs/ROADMAP.md) tracks the staged migration and current transitional baseline.
-- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, and coverage decisions.
-- [RELP receiver setup](docs/RELP_RECEIVER_SETUP.md) captures local and production receiver notes.
+- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](docs/adr/0011-deltazulu-forward-transport.md) and [Proton ingestion via an intermediate protocol](docs/adr/0012-proton-ingestion-intermediate-protocol.md).
+- [RELP receiver setup](docs/RELP_RECEIVER_SETUP.md) captures local and production receiver notes for the current transitional transport.
 
 ## License
 

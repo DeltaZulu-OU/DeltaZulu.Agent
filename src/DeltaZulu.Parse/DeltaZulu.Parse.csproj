@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>DeltaZulu.Normalize</RootNamespace>
-    <AssemblyName>DeltaZulu.Normalize</AssemblyName>
+    <RootNamespace>DeltaZulu.Parse</RootNamespace>
+    <AssemblyName>DeltaZulu.Parse</AssemblyName>
   </PropertyGroup>
 </Project>
