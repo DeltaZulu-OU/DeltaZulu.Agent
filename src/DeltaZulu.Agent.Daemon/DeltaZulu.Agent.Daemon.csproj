@@ -1,28 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <RootNamespace>DeltaZulu.Agent.Daemon</RootNamespace>
-    <AssemblyName>dzagentd</AssemblyName>
-    <StartupObject>DeltaZulu.Agent.Daemon.Program</StartupObject>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="DeltaZulu.DurableBuffer" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
-    <PackageReference Include="Microsoft.Data.Sqlite" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="..\..\config\dzagent.yaml" Link="config\dzagent.yaml" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\config\dzcollector.yaml" Link="config\dzcollector.yaml" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\profiles\**\*" Link="profiles\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
-  </ItemGroup>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
+        <RootNamespace>DeltaZulu.Agent.Daemon</RootNamespace>
+        <AssemblyName>dzagentd</AssemblyName>
+        <StartupObject>DeltaZulu.Agent.Daemon.Program</StartupObject>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <!-- Automatically define 'WINDOWS' when targeting a Windows platform -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+        <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DeltaZulu.DurableBuffer" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="..\..\config\dzagent.yaml" Link="config\dzagent.yaml" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="..\..\config\dzcollector.yaml" Link="config\dzcollector.yaml" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="..\..\profiles\**\*" Link="profiles\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
+        <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
+        <ProjectReference Include="..\DeltaZulu.Agent.Runtime\DeltaZulu.Agent.Runtime.csproj" />
+    </ItemGroup>
 </Project>

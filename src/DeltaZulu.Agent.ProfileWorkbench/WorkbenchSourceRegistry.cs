@@ -6,7 +6,7 @@ using DeltaZulu.Pipeline.Inputs.Auditd;
 using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 
-#if NET10_0_WINDOWS
+#if WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
 #endif
 
@@ -86,7 +86,7 @@ public sealed class WorkbenchSourceRegistry
                             : new AuditdFileInput(RequirePath(pathOrResource, "auditd")),
             "csv" => new CsvFileInput(RequirePath(bindingOverride, "csv")),
             "lines" => new LinesSourceInput(RequirePath(bindingOverride, "lines"), mode == WorkbenchRunMode.Follow),
-#if NET10_0_WINDOWS
+#if WINDOWS
             "eventlog" => new WindowsEventLogInput(
                 FirstNonWhiteSpace(bindingOverride, profile.Resource.Channel) ?? throw new ArgumentException($"profile '{profile.Id}' eventlog binding requires resource.channel or an explicit channel."),
                 startPosition: EventLogStartPosition.Lookback,
@@ -101,7 +101,7 @@ public sealed class WorkbenchSourceRegistry
         };
     }
 
-#if NET10_0_WINDOWS
+#if WINDOWS
     private ISourceInput CreateEtwInput(ResourceProfile profile, string? sessionOverride)
     {
         var session = FirstNonWhiteSpace(sessionOverride, profile.Resource.Session) ?? throw new ArgumentException($"profile '{profile.Id}' etw binding requires resource.session or an explicit session name.");

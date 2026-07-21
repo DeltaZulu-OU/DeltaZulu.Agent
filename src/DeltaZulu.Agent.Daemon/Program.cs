@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 using DeltaZulu.Pipeline.Outputs.Forwarder;
 using DeltaZulu.Pipeline.Inputs.Forwarder;
 
-#if NET10_0_WINDOWS
+#if WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
 #endif
 
@@ -214,7 +214,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
             return;
         }
 
-#if NET10_0_WINDOWS
+#if WINDOWS
         var limiter = WindowsJobObjectResourceLimiter.ApplyToCurrentProcess(cpuPercent);
         _disposables.Add(limiter);
         logger.LogInformation("Applied Windows job object CPU quota of {CpuPercent}% to the agent daemon process.", cpuPercent);
@@ -293,7 +293,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         return bindings;
     }
 
-#if NET10_0_WINDOWS
+#if WINDOWS
     private static bool ShouldSkipUnavailableWindowsResource(ResourceProfile profile, out string warning)
     {
         warning = string.Empty;
@@ -350,7 +350,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
         return family switch {
             "syslog" => new SyslogFileTailInput("/var/log/auth.log", profile.Id),
             "auditd" => new AuditdFileInput("/var/log/audit/audit.log", profile.Id),
-#if NET10_0_WINDOWS
+#if WINDOWS
             "eventlog" => new WindowsEventLogInput(profile.Resource.Channel ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.channel for eventlog.")),
             "etl" => new EtlFileInput(profile.Resource.Channel ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.channel for etl."), warn: LogWarning),
             "etw" => CreateEtwInput(profile),
@@ -363,7 +363,7 @@ internal sealed class ForwarderDaemonService(string configPath, ILogger<Forwarde
 
     private void LogWarning(string message) => logger.LogWarning("{Warning}", message);
 
-#if NET10_0_WINDOWS
+#if WINDOWS
     private ISourceInput CreateEtwInput(ResourceProfile profile)
     {
         var session = profile.Resource.Session ?? throw new ArgumentException($"profile '{profile.Id}' requires resource.session for etw.");

@@ -1,44 +1,49 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <RootNamespace>DeltaZulu.Pipeline</RootNamespace>
-    <AssemblyName>DeltaZulu.Pipeline</AssemblyName>
-  </PropertyGroup>
 
-  <!-- Live Windows eventing adapters depend on Windows-only APIs and packages. The
-       remaining pipeline components deliberately stay available on every target. -->
-  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
-    <Compile Remove="Inputs/Windows/**/*.cs" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
+        <RootNamespace>DeltaZulu.Pipeline</RootNamespace>
+        <AssemblyName>DeltaZulu.Pipeline</AssemblyName>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="CsvHelper" />
-    <PackageReference Include="DeltaZulu.DurableBuffer" />
-    <PackageReference Include="DeltaZulu.Forward" />
-    <PackageReference Include="MessagePack" />
-    <PackageReference Include="Polly.Core" />
-    <PackageReference Include="System.Reactive" />
-    <PackageReference Include="YamlDotNet" />
-  </ItemGroup>
+    <!-- Automatically define 'WINDOWS' when targeting a Windows platform -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+        <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+    </PropertyGroup>
 
-  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
-    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
-    <PackageReference Include="Newtonsoft.Json" />
-    <PackageReference Include="System.Diagnostics.EventLog" />
-    <PackageReference Include="System.Management" />
-    <PackageReference Include="Tx.Windows" />
-    <PackageReference Include="Tx.Windows.Logs" />
-  </ItemGroup>
+    <!-- Cross-platform Package References -->
+    <ItemGroup>
+        <PackageReference Include="CsvHelper" />
+        <PackageReference Include="DeltaZulu.DurableBuffer" />
+        <PackageReference Include="DeltaZulu.Forward" />
+        <PackageReference Include="MessagePack" />
+        <PackageReference Include="Polly.Core" />
+        <PackageReference Include="System.Reactive" />
+        <PackageReference Include="YamlDotNet" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <!-- Transitional: direct DurableBuffer ownership is removed after the LocalStream
+    <!-- Windows-specific Package References -->
+    <ItemGroup >
+        <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
+        <PackageReference Include="Newtonsoft.Json" />
+        <PackageReference Include="System.Diagnostics.EventLog" />
+        <PackageReference Include="System.Management" />
+        <PackageReference Include="Tx.Windows" />
+        <PackageReference Include="Tx.Windows.Logs" />
+    </ItemGroup>
+
+    <!-- Project References -->
+    <ItemGroup>
+        <!-- Transitional: direct DurableBuffer ownership is removed after the LocalStream
          migration (ROADMAP.md Phase 12); DurableBuffer may remain an implementation
          dependency of LocalStream (ADR 0005, ADR 0008). -->
-    <ProjectReference Include="..\..\src\DeltaZulu.Parse\DeltaZulu.Parse.csproj" />
-    <ProjectReference Include="..\..\src\DeltaZulu.LocalStream\DeltaZulu.LocalStream.csproj" />
-  </ItemGroup>
+        <ProjectReference Include="..\..\src\DeltaZulu.Parse\DeltaZulu.Parse.csproj" />
+        <ProjectReference Include="..\..\src\DeltaZulu.LocalStream\DeltaZulu.LocalStream.csproj" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="DeltaZulu.Agent.Tests" />
-  </ItemGroup>
+    <!-- Internals Visibility -->
+    <ItemGroup>
+        <InternalsVisibleTo Include="DeltaZulu.Agent.Tests" />
+    </ItemGroup>
+
 </Project>

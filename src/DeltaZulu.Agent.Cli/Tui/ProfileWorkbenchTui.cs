@@ -1,11 +1,10 @@
 using System.Data;
 using DeltaZulu.Agent.ProfileWorkbench;
 using DeltaZulu.Pipeline.Core.Events;
-using Terminal.Gui.ViewBase;
-using Terminal.Gui.Views;
 using Terminal.Gui.Editor;
 using Terminal.Gui.Editor.Document;
-using Terminal.Gui.Input;
+using Terminal.Gui.ViewBase;
+using Terminal.Gui.Views;
 using Application = Terminal.Gui.App.Application;
 
 namespace DeltaZulu.Agent.Cli.Tui;

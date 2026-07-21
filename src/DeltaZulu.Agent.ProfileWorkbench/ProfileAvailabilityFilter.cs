@@ -1,7 +1,7 @@
 using DeltaZulu.Agent.Filter.Prefilter;
 using DeltaZulu.Pipeline.Core.Profiles;
 
-#if NET10_0_WINDOWS
+#if WINDOWS
 using DeltaZulu.Pipeline.Inputs.Windows;
 #endif
 
@@ -90,7 +90,7 @@ public sealed class ProfileAvailabilityFilter
 
     private static bool IsResourceAvailable(ResourceProfile profile)
     {
-#if NET10_0_WINDOWS
+#if WINDOWS
         var validationResult = profile.Resource.Family.ToLowerInvariant() switch
         {
             "eventlog" => WindowsResourceValidator.ValidateEventLog(profile),

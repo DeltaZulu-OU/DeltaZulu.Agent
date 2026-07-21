@@ -1,17 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
-    <RootNamespace>DeltaZulu.Agent.ProfileWorkbench</RootNamespace>
-    <AssemblyName>DeltaZulu.Agent.ProfileWorkbench</AssemblyName>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="DeltaZulu.DurableBuffer" />
-    <PackageReference Include="System.Reactive" />
-    <PackageReference Include="YamlDotNet" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
-    <ProjectReference Include="..\DeltaZulu.Agent.SchemaMetadata\DeltaZulu.Agent.SchemaMetadata.csproj" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
+        <RootNamespace>DeltaZulu.Agent.ProfileWorkbench</RootNamespace>
+        <AssemblyName>DeltaZulu.Agent.ProfileWorkbench</AssemblyName>
+    </PropertyGroup>
+
+    <!-- Automatically define 'WINDOWS' when targeting a Windows platform -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+        <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DeltaZulu.DurableBuffer" />
+        <PackageReference Include="System.Reactive" />
+        <PackageReference Include="YamlDotNet" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
+        <ProjectReference Include="..\DeltaZulu.Agent.Filter\DeltaZulu.Agent.Filter.csproj" />
+        <ProjectReference Include="..\DeltaZulu.Agent.SchemaMetadata\DeltaZulu.Agent.SchemaMetadata.csproj" />
+    </ItemGroup>
 </Project>
