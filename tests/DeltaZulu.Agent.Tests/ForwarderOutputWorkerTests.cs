@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
 using DeltaZulu.DurableBuffer.Abstractions;
@@ -213,7 +214,9 @@ public sealed class ForwarderOutputWorkerTests
         data[ChunkFormat.VersionOffset] = ChunkFormat.Version;
         BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(ChunkFormat.HeaderSize, ChunkFormat.RecordLengthSize), payload.Length);
         payload.CopyTo(data.AsSpan(ChunkFormat.HeaderSize + ChunkFormat.RecordLengthSize));
-        ChunkFormat.FooterMagic.CopyTo(data.AsSpan(data.Length - 4));
+        SHA256.HashData(data.AsSpan(0, data.Length - ChunkFormat.FooterSize))
+            .CopyTo(data.AsSpan(data.Length - ChunkFormat.FooterSize));
+        ChunkFormat.FooterMagic.CopyTo(data.AsSpan(data.Length - ChunkFormat.FooterMagic.Length));
         return data;
     }
 
