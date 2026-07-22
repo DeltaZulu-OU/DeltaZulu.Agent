@@ -1,7 +1,7 @@
 using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Checkpoints;
-using DeltaZulu.Pipeline.Core.Windows;
+using DeltaZulu.Pipeline.Inputs.Checkpoints;
+using DeltaZulu.Pipeline.Inputs.Windows;
 using System.ComponentModel;
 using System.Diagnostics.Eventing.Reader;
 using System.Xml.Linq;

@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Core.Windows;
+namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 /// <summary>Explicit start-position policy for live Windows Event Log collection.</summary>
 public enum EventLogStartPosition

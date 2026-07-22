@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Core.Checkpoints;
+namespace DeltaZulu.Pipeline.Inputs.Checkpoints;
 
 /// <summary>
 /// Cross-input persistence for a source's resume position ("bookmark"). The token is an opaque

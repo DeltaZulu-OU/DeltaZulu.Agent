@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace DeltaZulu.Pipeline.Core.Checkpoints;
+namespace DeltaZulu.Pipeline.Inputs.Checkpoints;
 
 /// <summary>
 /// File-backed <see cref="ISourceCheckpointStore"/> that stores one small file per source key under

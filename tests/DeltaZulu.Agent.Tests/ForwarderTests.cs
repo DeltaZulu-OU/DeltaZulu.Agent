@@ -6,7 +6,7 @@ using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Core.Forwarder;
+using DeltaZulu.Pipeline.Forwarder;
 using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Core.Observability;

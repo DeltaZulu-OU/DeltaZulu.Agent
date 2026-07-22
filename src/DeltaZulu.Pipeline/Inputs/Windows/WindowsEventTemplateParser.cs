@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 
-namespace DeltaZulu.Pipeline.Core.Windows;
+namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 /// <summary>
 /// Parses a Windows provider manifest template (the XML fragment exposed by

@@ -1,4 +1,4 @@
-using DeltaZulu.Pipeline.Core.Checkpoints;
+using DeltaZulu.Pipeline.Inputs.Checkpoints;
 
 namespace DeltaZulu.Agent.Tests;
 

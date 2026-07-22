@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Core.Windows;
+namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 /// <summary>
 /// Pure, host-neutral resolution of an <see cref="EventLogStartPosition"/> policy (plus any

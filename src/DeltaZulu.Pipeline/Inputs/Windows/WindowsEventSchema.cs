@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Core.Windows;
+namespace DeltaZulu.Pipeline.Inputs.Windows;
 
 /// <summary>
 /// Structural schema for one Windows event: the channel/provider it belongs to and the native

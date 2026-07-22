@@ -8,7 +8,7 @@ using System.Text.Json;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Core.Forwarder;
+using DeltaZulu.Pipeline.Forwarder;
 using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Inputs.Common;
 using MessagePack;

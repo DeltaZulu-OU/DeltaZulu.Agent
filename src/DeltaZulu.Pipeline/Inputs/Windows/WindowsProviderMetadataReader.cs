@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics.Eventing.Reader;
-using DeltaZulu.Pipeline.Core.Windows;
+using DeltaZulu.Pipeline.Inputs.Windows;
 
 namespace DeltaZulu.Pipeline.Inputs.Windows;
 

@@ -1,4 +1,4 @@
-namespace DeltaZulu.Pipeline.Core.Checkpoints;
+namespace DeltaZulu.Pipeline.Inputs.Checkpoints;
 
 /// <summary>
 /// A no-op checkpoint store used when bookmarking is disabled: nothing is ever persisted and every

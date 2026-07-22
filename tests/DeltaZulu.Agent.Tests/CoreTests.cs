@@ -1,7 +1,7 @@
 using System.Dynamic;
 using System.Text;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Core.Forwarder;
+using DeltaZulu.Pipeline.Forwarder;
 
 namespace DeltaZulu.Agent.Tests;
 

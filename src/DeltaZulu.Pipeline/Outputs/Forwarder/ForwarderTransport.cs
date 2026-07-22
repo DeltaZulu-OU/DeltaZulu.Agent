@@ -4,7 +4,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
-using DeltaZulu.Pipeline.Core.Forwarder;
+using DeltaZulu.Pipeline.Forwarder;
 using DeltaZulu.Pipeline.Core.MessagePack;
 
 namespace DeltaZulu.Pipeline.Outputs.Forwarder;

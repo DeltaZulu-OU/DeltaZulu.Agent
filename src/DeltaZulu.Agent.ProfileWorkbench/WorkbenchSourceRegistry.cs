@@ -1,14 +1,11 @@
 using DeltaZulu.Agent.SchemaMetadata;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Profiles;
-using DeltaZulu.Pipeline.Core.Windows;
+using DeltaZulu.Pipeline.Inputs.Windows;
 using DeltaZulu.Pipeline.Inputs.Auditd;
 using DeltaZulu.Pipeline.Inputs.Files;
 using DeltaZulu.Pipeline.Inputs.Syslog;
 
-#if WINDOWS
-using DeltaZulu.Pipeline.Inputs.Windows;
-#endif
 
 namespace DeltaZulu.Agent.ProfileWorkbench;
 

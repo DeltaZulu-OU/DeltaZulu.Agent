@@ -1,4 +1,4 @@
-using DeltaZulu.Pipeline.Core.Windows;
+using DeltaZulu.Pipeline.Inputs.Windows;
 
 namespace DeltaZulu.Agent.Tests;
 

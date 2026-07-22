@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Globalization;
 using System.Text;
 
-namespace DeltaZulu.Pipeline.Core.Forwarder;
+namespace DeltaZulu.Pipeline.Forwarder;
 
 public readonly record struct ForwarderFrame(int TransactionId, string Command, ReadOnlyMemory<byte> Payload);
 
