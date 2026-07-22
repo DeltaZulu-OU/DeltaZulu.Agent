@@ -36,8 +36,10 @@
     <!-- Project References -->
     <ItemGroup>
         <!-- Transitional: direct DurableBuffer ownership is removed after the LocalStream
-         migration (ROADMAP.md Phase 12); DurableBuffer may remain an implementation
-         dependency of LocalStream (ADR 0005, ADR 0008). -->
+         migration (ROADMAP.md Phase 12). LocalStream is its own primitive stream
+         substrate rather than a DurableBuffer-backed facade (ADR 0005, ADR 0008).
+         The project/submodule reference is replaced by a pinned DeltaZulu.LocalStream
+         package in ROADMAP.md Phase 1a before LocalStream owns daemon persistence. -->
         <ProjectReference Include="..\..\src\DeltaZulu.LocalStream\DeltaZulu.LocalStream.csproj" />
     </ItemGroup>
 

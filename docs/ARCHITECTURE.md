@@ -26,15 +26,19 @@ Implementation sequencing and current migration status are in
   and governed JSON projections.
 - The target agent-to-collector transport is **DeltaZulu.Forward** (ADR 0011):
   a proprietary, RELP-derived but non-wire-compatible reliable framing
-  protocol implemented in `DeltaZulu.Pipeline` itself. Until Phase 3a lands
-  it, the current transitional transport is literal RELP, owned by
-  `DeltaZulu.Relp`: it owns RELP framing, sessions, transaction identifiers,
-  and acknowledgements, and Pipeline supplies only payload adapters (ADR
-  0006). `DeltaZulu.Relp` remains the transport for any future rsyslog-world
-  peer input adapter regardless of Forward's arrival.
+  protocol implemented in `DeltaZulu.Pipeline` itself. Until Phase 12a lands
+  the target binary/Avro state machine, the checked-in daemon configuration uses
+  FORWARDER compatibility framing with MessagePack `DeliveryBatch` payloads.
+  Literal RELP is retained only for older validation notes and any future
+  rsyslog-world peer input adapter.
 - `DeltaZulu.LocalStream` is the Pipeline-visible durability and replay
-  boundary. `DeltaZulu.DurableBuffer` may remain behind LocalStream, but is not
-  an Agent-visible pipeline dependency after migration.
+  boundary: a primitive, non-distributed Kafka alternative for in-agent topics,
+  positions, subscriptions, checkpoints, and bounded retention. It is not a
+  wrapper around `DeltaZulu.DurableBuffer`; the direct DurableBuffer forwarding
+  path is a transitional transport spool and is not an Agent-visible pipeline
+  dependency after migration. Although the current scaffold is consumed from the
+  repository/submodule, LocalStream must become a pinned `DeltaZulu.LocalStream`
+  NuGet package before it owns daemon persistence.
 - Canonical semantic normalization belongs to DeltaZulu.Platform, not the edge
   agent.
 - The Proton leg is served through a Kafka-API-compatible intermediate
@@ -94,7 +98,7 @@ src/DeltaZulu.Pipeline/
   Enrichment/       ETW, RPC, and Windows enrichment
   Outputs/          NDJSON and thin RELP/Forward adapters
   Forward/          DeltaZulu.Forward framing, handshake, dedup window, and
-                    state machine (ADR 0011; ROADMAP.md Phase 3a; not yet
+                    state machine (ADR 0011; ROADMAP.md Phase 12a; not yet
                     implemented)
   Tunnel/
 ```
@@ -132,8 +136,8 @@ structured XML, CSV, JSON, Windows, and future native sources must therefore
 meet the same logical type checkpoint when they are enabled.
 
 The internal type-bearing transport is Avro generated from that catalog,
-carried over DeltaZulu.Forward once Phase 3a lands (RELP is the current
-transitional carrier). The collector decodes Avro once into Arrow record
+carried over DeltaZulu.Forward once Phase 12a lands (RELP-derived FORWARDER
+compatibility framing is the current transitional carrier). The collector decodes Avro once into Arrow record
 batches. DuckDB ingests from Arrow zero-copy; the Proton leg is fed by a
 Kafka-API-compatible intermediate protocol reading from the same Avro/Arrow
 representation (ADR 0012) rather than a bespoke sink. NDJSON is not an internal
@@ -186,8 +190,8 @@ appends all rows to `agent.output`, records a final disposition, then commits
 `FilterError`, and `OutputError`. A no-output event is deliberately committed
 only after its coverage disposition is recorded; errors and failed output appends
 are not committed. The forwarder commits `agent.output` only after a successful
-delivery acknowledgement (RELP today; a DeltaZulu.Forward batch ack once Phase
-3a lands).
+delivery acknowledgement (FORWARDER compatibility acknowledgement today; a
+DeltaZulu.Forward batch ack once Phase 12a lands).
 
 Metrics separately record acquisition/admission outcomes, structured/recognized/
 unrecognized/error materialization, PDAG generation and compilation, dispatch

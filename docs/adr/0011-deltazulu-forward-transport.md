@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Target design; not yet implemented (see ROADMAP.md Phase 3a).
+Accepted. Target design; not yet implemented (see ROADMAP.md Phase 12a).
 
 ## Context
 
@@ -47,12 +47,12 @@ pipeline as double-counted events.
 
 Interop with rsyslog-world or fluentd peers is a non-goal on this channel. Raw
 ingestion from such sources is a separate input adapter feeding Parse, and may
-continue to use literal RELP (`DeltaZulu.Relp`) as a receiving protocol for
+continue to use literal RELP (`DeltaZulu.Forward`) as a receiving protocol for
 that adapter.
 
 ## Alternatives rejected
 
-- **Pure RELP via a librelp wrapper**: carries legacy constraints the Avro
+- **Pure FORWARDER via a librelp wrapper**: carries legacy constraints the Avro
   payload already forfeits the interop those constraints exist for.
 - **gRPC streaming**: rejected for agent dependency weight, opaque
   flow-control tuning, and no native ack-on-commit semantics.
@@ -66,13 +66,12 @@ that adapter.
 
 ## Consequences
 
-- `DeltaZulu.Relp` (external submodule) narrows from "the agent-to-collector
-  transport" to "a legacy/rsyslog-world peer input adapter and the current
-  transitional local-validation transport" (`docs/RELP_RECEIVER_SETUP.md`,
-  `config/dzagent.yaml` `relp:`/`transport: relp`). It is not removed by this
-  ADR; it is re-scoped. Current code and configuration continue to speak
-  literal RELP until Phase 3a lands DeltaZulu.Forward; ADR 0006 remains
-  accepted for that transitional path.
+- Literal RELP narrows from "the agent-to-collector transport" to "a
+  legacy/rsyslog-world peer input adapter and older local-validation transport"
+  (`docs/RELP_RECEIVER_SETUP.md`). Current checked-in daemon configuration uses
+  `forwarder:`/`transport: forwarder` compatibility framing while the target
+  binary Avro DeltaZulu.Forward protocol remains Phase 12a work. ADR 0006
+  remains accepted for any literal-RELP peer input path.
 - The protocol state machine (retransmit-after-reconnect races, cross-session
   duplicates, txnr wraparound, half-open detection, window exhaustion,
   shutdown with unacked frames) is a separately testable component with its
@@ -82,5 +81,5 @@ that adapter.
 ## Revisit triggers
 
 None recorded yet; add here if fleet roaming/middlebox requirements make QUIC
-attractive, or if measured Forward overhead versus plain RELP framing proves
+attractive, or if measured Forward overhead versus plain RELP-derived text framing proves
 material.

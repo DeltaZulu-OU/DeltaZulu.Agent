@@ -15,7 +15,7 @@ release complexity before its internal contracts have stabilized.
 
 Keep `DeltaZulu.Pipeline` as one assembly. Enforce boundaries with folders,
 namespaces, interfaces, internal visibility, and architecture tests. Pipeline may
-depend on Normalize, LocalStream, RELP, deterministic codecs, and approved native
+depend on Parse, LocalStream, Forward, deterministic codecs, and approved native
 eventing libraries; it must not depend on Agent Runtime, Daemon, CLI,
 ProfileWorkbench, or Filter. Runtime owns orchestration and Filter owns Rx.Kql.
 
@@ -27,5 +27,6 @@ recreate component-level Pipeline assemblies by default.
 - New Pipeline features use the logical modules documented in Architecture.
 - Architecture tests prevent Agent-project references and identify transitional
   direct DurableBuffer uses.
-- A direct DurableBuffer dependency is removed after LocalStream migration;
-  DurableBuffer may remain an implementation dependency of LocalStream.
+- A direct DurableBuffer dependency is removed after LocalStream migration.
+  LocalStream is a primitive in-agent stream substrate, not a DurableBuffer
+  wrapper or facade.

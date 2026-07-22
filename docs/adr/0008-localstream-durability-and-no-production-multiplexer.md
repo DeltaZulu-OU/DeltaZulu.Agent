@@ -18,6 +18,14 @@ runtime's only internal physical topics. Parsed envelopes durably separate
 materialization from filtering; output rows durably separate filtering from
 acknowledged delivery. Logical topics stay in envelopes.
 
+LocalStream is a primitive, non-distributed Kafka alternative for in-agent
+topics, positions, subscriptions, checkpoints, replay, and bounded retention. It
+is not a wrapper around `DeltaZulu.DurableBuffer`; the current DurableBuffer
+forwarding spool is transitional transport durability with different concerns.
+The current repository/submodule scaffold must graduate to a pinned
+`DeltaZulu.LocalStream` NuGet package before LocalStream becomes the daemon's
+persistence boundary.
+
 The dispatcher appends outputs before committing a parsed position. The RELP
 forwarder commits output only after acknowledgement. The daemon has no
 general-purpose multiplexer. A bounded writer inside a LocalStream publisher is

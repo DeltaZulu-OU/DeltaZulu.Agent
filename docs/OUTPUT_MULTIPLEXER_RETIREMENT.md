@@ -61,7 +61,7 @@ prior to this document: `LocalStream`, `agent.parsed`, `agent.output`, `IParsedE
 is gated accordingly in the subtask matrix (Section 12).
 
 Likewise, `docs/adr/` contains only four ADRs (0001 Windows eventing library boundaries, 0002 Windows SID
-observation boundary, 0003 parser dispatch and RELP-native boundaries, 0003 profile KQL preserves source event
+observation boundary, 0003 parser dispatch and FORWARDER-native boundaries, 0003 profile KQL preserves source event
 shape, 0004 KQL capability alignment). There is no existing "LocalStream ADR" or "unified runtime ADR" to add
 language to, and no existing document defines phase numbers for this migration. This document is therefore
 written to be self-contained: Section 3 below is an explicit "Phase 0" that produces the ADRs this revision
@@ -70,10 +70,10 @@ otherwise assumes are already in place, and all later phase numbers anchor to se
 ### 2.3 LocalStream is not a durability replacement for DeltaZulu.DurableBuffer
 
 The repository's architecture discipline (`docs/ROADMAP.md`, "Architecture discipline") states that
-`DeltaZulu.DurableBuffer` is the authoritative durability and backpressure layer ahead of RELP dispatch. LocalStream,
+`DeltaZulu.DurableBuffer` is the authoritative durability and backpressure layer ahead of FORWARDER dispatch. LocalStream,
 as introduced by this document, is the **in-agent fan-in/fan-out substrate** between acquisition, parsing, and
-filtering — it is not a claim of replacing or duplicating RELP delivery durability. The forwarder subscription
-(Section 8) still enqueues into `DeltaZulu.DurableBuffer` before RELP dispatch; "no second queue before
+filtering — it is not a claim of replacing or duplicating FORWARDER delivery durability. The forwarder subscription
+(Section 8) still enqueues into `DeltaZulu.DurableBuffer` before FORWARDER dispatch; "no second queue before
 `agent.parsed`" refers to application-level routing queues, not to the existing durable buffer.
 
 ### 2.4 Test and cleanup location correction
@@ -134,7 +134,7 @@ Acquisition source C ─┘
                             ↓
                        agent.output
                             ↓
-                    RELP forwarder
+                    FORWARDER forwarder
 ```
 
 There are three apparent fan-in or fan-out points. None requires a general multiplexer.
@@ -298,7 +298,7 @@ Several consumers may need the accepted output stream:
 
 ```text
 agent.output
-    ├── RELP forwarder subscription
+    ├── FORWARDER forwarder subscription
     ├── local NDJSON diagnostic subscription
     └── future local inspection subscription
 ```
@@ -425,7 +425,7 @@ append or commit fails
 ### Forwarding failure
 
 ```text
-RELP send fails
+FORWARDER send fails
     → do not commit agent.output position
 ```
 
@@ -515,7 +515,7 @@ Add a new **LocalStream ADR**:
 
 > LocalStream topics and subscriptions provide durable in-agent fan-in and fan-out. The Pipeline shall not
 > introduce a separate general-purpose multiplexer between acquisition, filtering, output persistence, and
-> forwarding. `DeltaZulu.DurableBuffer` remains the authoritative durability and backpressure layer for RELP
+> forwarding. `DeltaZulu.DurableBuffer` remains the authoritative durability and backpressure layer for FORWARDER
 > dispatch; LocalStream does not replace it.
 
 Add a new **unified runtime ADR**:
@@ -756,7 +756,7 @@ the only workstream that safely touches today's code before the LocalStream subs
 
 | ID | Subtask | Depends on | Target boundary | Acceptance | Risk |
 |----|---------|-----------|-----------------|-----------|------|
-| P0.1 | Author the LocalStream ADR (topics, subscriptions, positions, fan-in/fan-out, relationship to `DeltaZulu.DurableBuffer`). | — | `docs/adr/0005-localstream-fan-in-fan-out.md` | ADR states LocalStream is the in-agent substrate; DurableBuffer stays the RELP durability layer; no general multiplexer. | Low |
+| P0.1 | Author the LocalStream ADR (topics, subscriptions, positions, fan-in/fan-out, relationship to `DeltaZulu.DurableBuffer`). | — | `docs/adr/0005-localstream-fan-in-fan-out.md` | ADR states LocalStream is the in-agent substrate; DurableBuffer stays the FORWARDER durability layer; no general multiplexer. | Low |
 | P0.2 | Author the unified-runtime ADR (per-event coordinated filter dispatch; no per-profile pipelines through a shared multiplexer). | — | `docs/adr/0006-unified-execution-plan-runtime.md` | ADR captures the two invariants quoted in Section 14, Phase 0. | Low |
 | P0.3 | Link this document from `docs/ROADMAP.md`. | P0.1, P0.2 | `docs/ROADMAP.md` | Roadmap references this file near pipeline extraction / architecture discipline. | Low |
 
@@ -774,14 +774,14 @@ the only workstream that safely touches today's code before the LocalStream subs
 |----|---------|-----------|-----------------|-----------|------|
 | B.1 | Implement LocalStream producer/subscription core (positions, concurrent appends, subscription checkpoints/lag). | P0.1 | new `src/DeltaZulu.Pipeline/Streaming/` | Concurrent producers get monotonic positions; independent subscriber checkpoints. | High |
 | B.2 | Define `agent.parsed` and `agent.output` topics. | B.1 | `.../Streaming/` | Two named streams instantiated by the runtime. | Med |
-| B.3 | Clarify LocalStream ↔ `DeltaZulu.DurableBuffer` boundary in code paths (RELP durability stays in the buffer). | B.1 | `src/DeltaZulu.Pipeline/Outputs/Relp/BufferedRelpSink.cs` | Forwarder still enqueues to DurableBuffer; no records unacknowledged outside it. | High |
+| B.3 | Clarify LocalStream ↔ `DeltaZulu.DurableBuffer` boundary in code paths (FORWARDER durability stays in the buffer). | B.1 | `src/DeltaZulu.Pipeline/Outputs/Relp/BufferedRelpSink.cs` | Forwarder still enqueues to DurableBuffer; no records unacknowledged outside it. | High |
 
 ### WS-C — Acquisition fan-in / parsed publisher (Phases 2–4, 11)
 
 | ID | Subtask | Depends on | Target boundary | Acceptance | Risk |
 |----|---------|-----------|-----------------|-----------|------|
 | C.1 | Add `IParsedEventPublisher` + `LocalStreamParsedEventPublisher` (serialization inside the adapter, not exposed as a component). | B.2 | `.../Streaming/ParsedEventPublisher.cs` | Many acquisition workers publish concurrently; one durable position each; concurrency-tested. | Med |
-| C.2 | Route all inputs (syslog TCP/UDP, files, auditd, Windows Event Log/EVTX/ETL/ETW, RELP) through the publisher instead of a shared sink. | C.1 | `src/DeltaZulu.Pipeline/Inputs/**` | No input writes directly to an output writer; no second queue before `agent.parsed`. | High |
+| C.2 | Route all inputs (syslog TCP/UDP, files, auditd, Windows Event Log/EVTX/ETL/ETW, FORWARDER) through the publisher instead of a shared sink. | C.1 | `src/DeltaZulu.Pipeline/Inputs/**` | No input writes directly to an output writer; no second queue before `agent.parsed`. | High |
 | C.3 | Auditd assembler emits completed events via the publisher. | C.1 | `src/DeltaZulu.Pipeline/Inputs/Auditd/**` | EOE/PROCTITLE-completed events publish once. | Med |
 
 ### WS-D — Unified parser / parse-query (Phase 7)
@@ -803,8 +803,8 @@ the only workstream that safely touches today's code before the LocalStream subs
 
 | ID | Subtask | Depends on | Target boundary | Acceptance | Risk |
 |----|---------|-----------|-----------------|-----------|------|
-| F.1 | RELP forwarder consumes `agent.output` as an independent LocalStream subscription (own checkpoint/lag/retry). | E.2, B.3 | `src/DeltaZulu.Pipeline/Outputs/Relp/**` | Forwarder is a subscriber; RELP-send failure does not commit its `agent.output` position. | High |
-| F.2 | Diagnostic NDJSON consumer as a separate subscription (no manual multi-sink invocation). | E.2 | `src/DeltaZulu.Pipeline/Outputs/Ndjson/**` | NDJSON and RELP failures are independent. | Med |
+| F.1 | FORWARDER forwarder consumes `agent.output` as an independent LocalStream subscription (own checkpoint/lag/retry). | E.2, B.3 | `src/DeltaZulu.Pipeline/Outputs/Relp/**` | Forwarder is a subscriber; FORWARDER-send failure does not commit its `agent.output` position. | High |
+| F.2 | Diagnostic NDJSON consumer as a separate subscription (no manual multi-sink invocation). | E.2 | `src/DeltaZulu.Pipeline/Outputs/Ndjson/**` | NDJSON and FORWARDER failures are independent. | Med |
 
 ### WS-G — Execution-plan runtime → remove per-profile pipelines (Phase 9; triggers deletion)
 

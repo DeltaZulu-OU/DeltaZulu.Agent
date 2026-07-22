@@ -16,10 +16,11 @@ below use the current name.
 > **Scope note (ADR 0011):** the long-term agent-to-collector transport is
 > DeltaZulu.Forward, a RELP-derived but non-wire-compatible protocol owned by
 > `DeltaZulu.Pipeline` itself, not `DeltaZulu.Relp`. This ADR's RELP-ownership
-> decision remains accepted for the current transitional local-validation
-> transport (`docs/RELP_RECEIVER_SETUP.md`, `config/dzagent.yaml`
-> `transport: relp`) and for any future rsyslog-world peer input adapter. It no
-> longer describes the target production transport.
+> decision remains accepted for the older literal-RELP local-validation path
+> (`docs/RELP_RECEIVER_SETUP.md`) and for any future rsyslog-world peer input
+> adapter. The checked-in daemon sample now uses `forwarder:` /
+> `transport: forwarder` compatibility framing, and this ADR no longer
+> describes the target production transport.
 
 ## Decision
 
@@ -36,8 +37,9 @@ candidate merely because no Normalize rule matches.
 
 ## Consequences
 
-- CSV, Event Log, EVTX, ETL, ETW, and structured MessagePack RELP payloads use
-  the structured path.
+- CSV, Event Log, EVTX, ETL, ETW, and structured MessagePack FORWARDER/RELP
+  payloads use the structured path.
 - TCP/UDP/file/FIFO plaintext paths do not import application parsers.
 - Auditd correlation remains an assembler after normalized record materialization.
-- RELP payload type, rather than RELP itself, determines the materialization path.
+- FORWARDER/RELP payload type, rather than the transport itself, determines the
+  materialization path.

@@ -17,7 +17,7 @@ DurableBuffer-first, profile-per-source, and permanent-multiplexer plans.
 ## Current baseline
 
 The repository has one multi-targeted `DeltaZulu.Pipeline` assembly that
-references `DeltaZulu.DurableBuffer` and `DeltaZulu.Relp` directly, plus the
+references `DeltaZulu.DurableBuffer` and `DeltaZulu.Forward` directly, plus the
 `DeltaZulu.Parse` (ADR 0013; renamed from `DeltaZulu.Normalize`) and
 `DeltaZulu.LocalStream` scaffold assemblies added in Phase 1 (marker types
 only; the PDAG compiler and stream runtime are Phase 6-7 and Phase 9 work).
@@ -26,7 +26,7 @@ uses `ChannelOutputMultiplexer` to serialize concurrent legacy output. Those
 are transitional implementation details, not target architecture. Existing
 syslog and auditd parsing is also transitional until Parse parity is
 established. Agent-to-collector forwarding still speaks literal RELP
-(`DeltaZulu.Relp`); DeltaZulu.Forward (ADR 0011), the target transport, is not
+(`DeltaZulu.Forward`); DeltaZulu.Forward (ADR 0011), the target transport, is not
 yet implemented.
 
 ## Current delivery status (2026-07-17)
@@ -83,21 +83,21 @@ authoritative for legacy profile-specific `SourceEvent` records.
 
 | Phase | Status | Objective | Completion evidence |
 | --- | --- | --- | --- |
-| 0 | Complete | Align ADRs and authoritative documentation. | Architecture, roadmap, README, and ADRs state one Pipeline, LocalStream boundaries, PDAG, RELP ownership, and no production multiplexer. |
-| 1 | Complete | Add Parse/LocalStream and architecture guards. | Pipeline references Parse, LocalStream, and RELP (`DeltaZulu.Pipeline.csproj`); `PipelineAssembly_ReferencesOnlyExternalPipelineDependencies`/`PipelineAssembly_ReferencesParseAndLocalStream` reject Agent-layer references and `PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked` reports the direct DurableBuffer use in `tests/DeltaZulu.Agent.Tests/ApplicationTests.cs` (and the equivalent in `DomainTests.cs`). Both new assemblies are scaffolds: they exist as real, referenced, tested project boundaries but implement no PDAG or stream runtime yet, which remain later phases. |
+| 0 | Complete | Align ADRs and authoritative documentation. | Architecture, roadmap, README, and ADRs state one Pipeline, LocalStream boundaries, PDAG, FORWARDER ownership, and no production multiplexer. |
+| 1 | Complete | Add Parse/LocalStream and architecture guards. | Pipeline references Parse, LocalStream, and FORWARDER (`DeltaZulu.Pipeline.csproj`); `PipelineAssembly_ReferencesOnlyExternalPipelineDependencies`/`PipelineAssembly_ReferencesParseAndLocalStream` reject Agent-layer references and `PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked` reports the direct DurableBuffer use in `tests/DeltaZulu.Agent.Tests/ApplicationTests.cs` (and the equivalent in `DomainTests.cs`). Both new assemblies are scaffolds: they exist as real, referenced, tested project boundaries but implement no PDAG or stream runtime yet, which remain later phases. |
 | 2 | Active | Define strict input contracts and compile validated acquisition plans. | `TextInputRecord` and `StructuredInputRecord` preserve acquisition metadata; resource configuration separates kind, framing, payload format, admission, parser domain, and deterministic acquisition key. The initial `ExecutionPlanCompiler` normalizes and rejects conflicting physical-resource definitions without replacing runtime execution. |
 | 2a | Planned | Align local streaming KQL authoring with RealTimeKql table naming. | A platform-neutral table-binding catalog maps concrete aliases such as `EtwTcp`, `EtwDns`, `AuthLog`, `NginxAccess`, and file-stem tables to acquisition plans, schemas, and openable inputs; raw/non-structured bindings carry a `raw` payload type and `DeltaZulu.Parse` patterns produce extracted fields; the local query path passes the resolved alias to Rx.Kql instead of rewriting it to `Source`; `Source` remains only a compatibility alias for legacy profiles. |
 | 3 | Planned | Generalize acquisition, framing, and decoding through protocol-specific adapters. | `file`, `fifo`, `syslog-tcp`, `syslog-udp`, and `syslog-relp` adapters emit either structured records or a common `raw` text record with bounded framing and no application parser dependency. FIFO creation/reopen is explicit configuration, not a syslog behavior. |
 | 4 | Planned | Add raw-text admission presets. | Syslog, auth.log, audit logs, web-server logs, and arbitrary file/FIFO text inputs share the `raw` payload path; transport-specific validation, decoding, size checks, and rejection metrics run before Parse, while field extraction is owned by `DeltaZulu.Parse` patterns. Valid unknown raw text reaches Parse. |
-| 5 | Planned | Move structured sources and RELP payload adapters to structured contracts. | CSV, Windows, and MessagePack `DeliveryBatch` sources bypass Parse; RELP protocol handling remains framing/session work and payload type selects text versus structured materialization. |
+| 5 | Planned | Move structured sources and FORWARDER payload adapters to structured contracts. | CSV, Windows, and MessagePack `DeliveryBatch` sources bypass Parse; RELP protocol handling remains framing/session work and payload type selects text versus structured materialization. |
 | 6 | Planned | Add restricted `parse.query` and a Parse compatibility materializer. | Existing `filter.query` profiles continue receiving compatible `SourceEvent` shapes; profile-scoped diagnostics validate topic-tagged parser rules; raw text and parser provenance are retained. |
 | 7 | Planned | Build unified Parse PDAG generations. | Parser domains group compatible rules deterministically; each plaintext record traverses one PDAG; recognized, unrecognized, and error outcomes remain explicit. |
 | 8 | Planned | Move auditd correlation after Parse. | The assembler consumes parsed fields, maintains bounded incomplete-group state, and retires the hardcoded audit parser in the acquisition adapter. |
 | 9 | Planned | Define parsed envelopes, type-contract catalog entries, and implement the LocalStream host. | `ParsedEventEnvelope` has stable identity, materialization state, and catalog-backed logical type metadata; Avro wire schemas, Arrow server schemas, generated sink DDL, and translator type tables are derived from one catalog generation. One LocalStream host provides append/read/commit/replay for `agent.parsed` and `agent.output`, but legacy DurableBuffer remains the active forwarder until dispatch and ACK semantics are proven. |
 | 10 | Planned | Replace profile-centric execution with execution plans. | The planner opens each physical resource once per acquisition key and binds acquisition to parser/materialization/stream plans deterministically; `ProfileBinding` no longer defines a pipeline instance. |
 | 11 | Planned | Add coordinated filter dispatch. | Every candidate runs in deterministic order; output append precedes parsed commit; no-candidate, no-match, filter error, and output error remain distinct. |
-| 12 | Planned | Migrate forwarding to LocalStream `agent.output` and retire direct DurableBuffer ownership. | The forwarder is an ACK-gated LocalStream subscription with replay; no forwarder-created DurableBuffer host remains Agent-visible. This phase may land with the transitional RELP transport before DeltaZulu.Forward (Phase 12a) replaces it. |
-| 12a | Planned | Implement DeltaZulu.Forward (ADR 0011) as the target agent-to-collector transport. | Binary framing (type, txnr, length, flags), typed offer/capability handshake (catalog version, schema fingerprints, compression, dedup-window size), one Avro batch per frame with ack-on-durable-commit, batch UUIDs, collector-side bounded dedup window, and backpressure/window-adjustment frames all exist as an independently tested state machine (retransmit-after-reconnect races, cross-session duplicates, txnr wraparound, half-open detection, window exhaustion, shutdown with unacked frames) per its own harness budget. `DeltaZulu.Relp`/literal RELP is retired as the primary transport once Forward is proven; it may remain for a separate rsyslog-world peer input adapter. |
+| 12 | Planned | Migrate forwarding to LocalStream `agent.output` and retire direct DurableBuffer ownership. | The forwarder is an ACK-gated LocalStream subscription with replay; no forwarder-created DurableBuffer host remains Agent-visible. This phase may land with the transitional FORWARDER transport before DeltaZulu.Forward (Phase 12a) replaces it. |
+| 12a | Planned | Implement DeltaZulu.Forward (ADR 0011) as the target agent-to-collector transport. | Binary framing (type, txnr, length, flags), typed offer/capability handshake (catalog version, schema fingerprints, compression, dedup-window size), one Avro batch per frame with ack-on-durable-commit, batch UUIDs, collector-side bounded dedup window, and backpressure/window-adjustment frames all exist as an independently tested state machine (retransmit-after-reconnect races, cross-session duplicates, txnr wraparound, half-open detection, window exhaustion, shutdown with unacked frames) per its own harness budget. `DeltaZulu.Forward`/literal RELP is retired as the primary transport once Forward is proven; it may remain for a separate rsyslog-world peer input adapter. |
 | 13 | Planned | Remove daemon multiplexer. | The daemon does not instantiate `ChannelOutputMultiplexer`; lifecycle uses plan-owned tasks, stream drain policy, and only private publisher serialization where required. |
 | 14 | Planned | Remove compatibility plaintext parsers. | Parse-only plaintext parsing has syslog, journal/FIFO, and auditd parity corpora; no transport adapter invokes an application-specific parser. |
 | 15 | Planned | Add blindness and end-to-end observability. | Admission, parser, filter, complete-blindness, streams, forwarding, and bounded unknown diagnostics are observable. |
@@ -148,7 +148,7 @@ final architecture until completed.
   dead-letter/error envelopes.
 - Parsed positions commit only after all output appends succeed or a recorded
   successful zero-output disposition; output positions commit only after a
-  forwarding acknowledgement (RELP today; a DeltaZulu.Forward batch ack once
+  forwarding acknowledgement (FORWARDER today; a DeltaZulu.Forward batch ack once
   Phase 12a lands).
 - Logical topics remain envelope properties. No `parsed.sshd`-style streams and
   no general-purpose daemon multiplexer are introduced.
@@ -189,7 +189,7 @@ declaration is a Phase 3b/18 integration-testing question.
 DeltaZulu.Forward (ADR 0011) is the target Avro-carrying transport between
 agent and collector, replacing literal RELP once Phase 12a lands; see ADR
 0011 for the framing, handshake, and dedup-window design and ADR 0006 for the
-narrowed, transitional role RELP retains.
+narrowed, transitional role FORWARDER retains.
 
 ## Validation expectations
 
@@ -226,10 +226,10 @@ acquisition/parser/filter plan binding.
 `BufferedRelpSink` owns the DurableBuffer host, starts the forwarding worker,
 and drains it during shutdown. It is not replaced merely by adding LocalStream:
 the LocalStream-backed forwarder must subscribe to `agent.output`, replay after
-restart, and commit only after a delivery acknowledgement (RELP until Phase
+restart, and commit only after a delivery acknowledgement (FORWARDER until Phase
 12a). The direct DurableBuffer project reference is removed only after those
 behaviors and their failure tests are in place. Phase 12a then replaces the
-RELP acknowledgement with a DeltaZulu.Forward batch acknowledgement per ADR
+FORWARDER acknowledgement with a DeltaZulu.Forward batch acknowledgement per ADR
 0011; Phase 12 does not require Forward to exist first.
 
 **Phase 13 — remove `ChannelOutputMultiplexer`:** the deletion condition is
