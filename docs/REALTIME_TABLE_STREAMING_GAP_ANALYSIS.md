@@ -7,9 +7,13 @@ This gap analysis compares DeltaZulu.Agent with `microsoft/KqlTools` specificall
 
 It builds on the table-handling comparison in `docs/REALTIMEKQL_TABLE_HANDLING_COMPARISON.md` and focuses on implementation gaps rather than general architecture.
 
+## Status snapshot
+
+This document was refreshed on 2026-07-21 against the current DeltaZulu.Agent tree and the archived `microsoft/KqlTools` repository. The upstream KqlTools repository is read-only as of 2026-06-15, so `master` is treated as the stable RealTimeKqlLibrary reference point.
+
 ## Scope correction
 
-KqlTools gives a single CLI-selected observable a KQL name. Its `EtwTcp` and `EtwDns` examples are aliases for ETW session streams, not provider-specific schema-registry tables: a session may contain events from multiple providers. It does not demonstrate a persistent catalog, resource resolver, or multiple simultaneously addressable live tables. DeltaZulu should use it as a single-stream authoring reference, not as a complete catalog architecture.
+KqlTools gives a single CLI-selected observable a KQL name. Its `EtwTcp` and `EtwDns` examples are aliases for ETW session streams, not provider-specific schema-registry tables: a session may contain events from multiple providers. It does not demonstrate a persistent catalog, resource resolver, or multiple simultaneously addressable live tables. DeltaZulu should use it as a single-stream authoring reference, not as a complete catalog architecture. Differences from that reference must be deliberate: `DeltaZulu.Parse` should replace application-specific parsing for raw/non-structured logs such as syslog, auth.log, audit logs, web-server logs, and arbitrary file text, but it must not accidentally replace the user-facing table alias model.
 
 ## Baseline: what KqlTools does well
 
@@ -44,36 +48,37 @@ DeltaZulu already has many of the raw ingredients:
 - Cross-platform `ISourceInput` abstractions that emit `SourceEvent` rows.
 - Windows inputs for ETW, ETL, Event Log, and EVTX in Windows builds.
 - Linux/local inputs for syslog, auditd, CSV, lines, FIFO/TCP syslog, and file-tail workflows.
-- A profile executor that streams `SourceEvent` rows through Rx.Kql.
-- A workbench source registry that can bind profiles or tail-mode inputs to runnable sources.
+- A profile executor that streams `SourceEvent` rows through Rx.Kql, registers custom scalar functions, surfaces Rx.Kql parse/runtime failures, and still exposes the observable as `Source`.
+- Query normalization that rewrites a profile-declared input table to `Source` outside quoted strings, preserving existing profile behavior but preventing concrete aliases from reaching Rx.Kql.
+- A workbench source registry that can bind profiles or tail-mode inputs to runnable sources. It creates `BoundWorkbenchSource` instances for syslog, auditd, CSV, lines, and Windows-only Event Log/EVTX/ETL/ETW adapters when built on Windows.
 - Schema descriptors and parser contracts for local authoring.
-- TUI and tail modes that can run live queries and display bounded result tables.
+- TUI and tail modes that can run live queries and display bounded result tables with read/matched/error/displayed counters and last-event timestamps.
 
 Relevant DeltaZulu code locations:
 
 - `src/DeltaZulu.Pipeline/Core/Abstractions/ISourceInput.cs` defines the observable source interface.
 - `src/DeltaZulu.Agent.Filter/Kql/ResourceKqlProfileExecutor.cs` streams `SourceEvent.ToKqlRow()` dictionaries into `KqlNodeHub.FromFiles`.
-- `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchSourceRegistry.cs` maps profiles and `--tail` inputs to concrete `ISourceInput` instances.
-- `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchQueryRunner.cs` runs finite and live workbench queries over bound sources.
-- `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchSchemaTree.cs` builds the current schema/source tree for the TUI.
+- `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchSourceRegistry.cs` maps profiles and `--tail` inputs to concrete `ISourceInput` instances and carries source display/table/schema data in `BoundWorkbenchSource`.
+- `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchQueryRunner.cs` runs finite and live workbench queries over bound sources, cloning each query into a profile whose input table is the bound table.
+- `src/DeltaZulu.Agent.ProfileWorkbench/WorkbenchSchemaTree.cs` builds the current schema/source tree for the TUI and still inserts `<Table> | Source ~= "<source>"` for source nodes.
 - `src/DeltaZulu.Agent.SchemaMetadata/SchemaDescriptor.cs` and `SchemaTextParser.cs` describe known table schemas.
 
 ## Core gap summary
 
 DeltaZulu already gathers resources as `IObservable<SourceEvent>` streams, binds selected profiles to `ISourceInput` instances in the workbench, and executes live KQL. The gap is not basic ingestion. The missing host-wide abstraction is a single resolver that ties a logical table name, schema, concrete resource configuration, and a shared live input instance together. Today, resource/profile schema, source selection, and the Rx.Kql observable name remain separate concerns, with execution normalized to `Source`.
 
-The workbench schema tree now presents configured sources as `<table> (source: <name>)` and columns as `<name>: <KQL type>`, including the runtime `source:string` and `_metadata:dynamic` fields. This improves authoring, but is intentionally not yet a host-wide executable table catalog.
+The workbench schema tree now presents configured sources as `<table> (source: <name>)` and columns as `<name>: <KQL type>`, including the runtime `source:string` and `_metadata:dynamic` fields. Workbench binding now reaches concrete live adapters through `BoundWorkbenchSource`, but those bindings remain workbench-local and profile/tail initiated. They are intentionally not yet a host-wide executable table catalog, and the executor still normalizes to `Source`.
 
 ## Gap matrix
 
 | Area | KqlTools behavior | DeltaZulu today | Gap | Recommended DeltaZulu target |
 | --- | --- | --- | --- | --- |
-| Table identity | Input stream name is the KQL table (`EtwTcp`, `EtwDns`, file stem) for one CLI-selected stream. | Profile `input.table` is rewritten to internal `Source`; the workbench retains the profile table/schema and source binding. | Table identity is fragmented; arbitrary queries cannot resolve a host resource by table name alone. | Make table binding explicit. Directly passing the logical name to Rx.Kql is optional; correct resolution to the same live resource is required. |
-| Resource discovery | CLI command selects exactly one input resource. | Profiles and `--tail` can bind inputs, but there is no single executable resource catalog. | Schema display, source binding, and execution are not unified around one catalog. | Add a local resource catalog that emits executable and schema-only `TableBinding` entries. |
+| Table identity | Input stream name is the KQL table (`EtwTcp`, `EtwDns`, file stem) for one CLI-selected stream. | Profile `input.table` is rewritten to internal `Source`; workbench/tail retain table/schema/source data only inside `BoundWorkbenchSource`. | Table identity is fragmented; arbitrary queries cannot resolve a host resource by table name alone, and Rx.Kql never sees the concrete table alias in the current executor. | Make table binding explicit. Directly passing the logical name to Rx.Kql is optional for compatibility paths, but new local-query execution should resolve to the same live resource and prefer the logical table name. |
+| Resource discovery | CLI command selects exactly one input resource. | Profiles and `--tail` can bind inputs through `WorkbenchSourceRegistry`, including platform-gated Windows adapters and Linux/local file adapters, but there is no single executable resource catalog. | Schema display, source binding, and execution are closer in the workbench than before, but still not unified around a reusable catalog. | Add a local resource catalog that emits executable and schema-only `TableBinding` entries. |
 | Real-time table gathering | Event components expose live observables directly to KQL. | `ISourceInput` exposes live observables, but binding is profile/workbench-specific. | The runtime can gather streams, but not yet as first-class named tables independent of profiles. | Promote `BoundWorkbenchSource` into a general `TableBinding` + `ISourceInput` factory. |
-| Streaming query lifecycle | Query files become standing subscriptions until completion or Ctrl+C. | Workbench supports live subscriptions; daemon profiles run continuously; tail mode displays live bounded rows. | Query lifecycle is split across daemon profiles, TUI, and tail mode rather than one streaming-query API. | Introduce a shared streaming query service used by TUI, tail, and daemon-local diagnostics. |
+| Streaming query lifecycle | Query files become standing subscriptions until completion or Ctrl+C. | Workbench supports live subscriptions with counters; daemon profiles run continuously; tail mode displays live bounded rows. | Query lifecycle and counters are implemented in multiple paths instead of one streaming-query API. | Introduce a shared streaming query service used by TUI, tail, and daemon-local diagnostics. |
 | Schema availability | Mostly inferred from event dictionaries; low ceremony. | Stronger schema descriptors exist, but provider/source-specific table schemas are not always executable. | DeltaZulu has schema metadata but not enough binding metadata to say “this schema is runnable now.” | `schemas`/TUI should show table, aliases, columns, and executable/schema-only state. |
-| Cross-platform input model | Windows-heavy with syslog/csv support. | Cross-platform inputs exist; Windows-specific inputs are conditionally compiled. | Table naming examples are currently Windows-centric. | Use platform-neutral table bindings with Windows and Linux discovery adapters. |
+| Cross-platform input model | Windows-heavy with syslog/csv support. | Cross-platform inputs exist; Windows-specific inputs are conditionally compiled; `DeltaZulu.Parse` is the planned parser-materialization path for raw/non-structured text sources. | Table naming examples are currently Windows-centric, and parser migration could accidentally collapse concrete aliases into generic family tables. | Use platform-neutral table bindings with Windows, Linux, and local raw discovery adapters. Keep KqlTools-style table aliases (`EtwTcp`, `EtwDns`, file stems, plus deliberate raw-log aliases such as `AuthLog` or `NginxAccess`) separate from Parse materialization. |
 | Query authoring | Query starts with the actual stream alias. | TUI insertion currently emits `<Table> | Source ~= "<source>"` for some profile sources. | The inserted query is more complex than KqlTools and exposes internal source filtering. | Insert only the concrete table alias when a table binding is unambiguous. |
 | Output model | Streaming output sinks are pluggable. | Agent pipeline forwards records; workbench/TUI displays tables; durable/RELP output exists for daemon paths. | Local streaming query output is not yet a pluggable sink model like KqlTools. | Define output sinks for local streaming queries: TUI table, NDJSON, MessagePack/RELP, ADX/export later. |
 | Multi-resource queries | Primarily one input observable per command/query. | Current profile executor is also effectively one source stream. | Multi-table joins are not the immediate KqlTools parity target. | First match KqlTools single-stream behavior; defer multi-table joins/catalog composition. |
@@ -82,14 +87,19 @@ The workbench schema tree now presents configured sources as `<table> (source: <
 
 ### Phase 0: Correctness and production parity
 
+**Current status:** Partially addressed. The profile executor now has stronger query-normalization and Rx.Kql failure handling, and the workbench runner tracks live counters. The remaining Phase 0 concern is not whether streams can run, but whether all profile/daemon/workbench paths share the same source factory and standing-query semantics.
+
 Before adding a catalog, preserve correct effective profile contracts:
 
 - An omitted `input` block must allow family defaults (`Etw`, `EventLog`, known native schemas) to apply. `ResourceInputContract.Table` therefore defaults to empty, and the YAML loader owns default application.
 - Add tests that load checked-in profiles—especially `profiles/windows/etw/tcpip.yaml`—rather than only constructing profiles in memory.
 - Consolidate daemon and workbench input factories. The daemon currently has a narrower input switch and fixed Linux syslog/auditd paths; it must not silently diverge from available `ISourceInput` adapters.
 - Verify `summarize`/`bin` behavior, hot-reload state reset, failure isolation, and bounded-memory policies before treating stateful KQL as a supported standing-query contract.
+- Keep the current Rx.Kql parse/runtime failure surfacing as a baseline when moving execution behind a shared streaming service.
 
 ### 1. Executable table catalog
+
+**Current status:** Still open. `BoundWorkbenchSource` is the closest implementation artifact, but it is scoped to the profile workbench and directly embeds an `ISourceInput` rather than exposing catalog metadata plus an opener/factory.
 
 **Gap:** DeltaZulu can describe schemas and bind workbench sources, but there is no single catalog object that says: “`SyslogSshd` is a runnable table on this host, with these aliases, this schema, and this input factory.”
 
@@ -111,6 +121,8 @@ This should subsume `BoundWorkbenchSource` for local query execution while allow
 
 ### 2. Table-first query resolution
 
+**Current status:** Still open and now explicit in code. `WorkbenchQueryRunner` passes the bound table into the cloned profile, but `ResourceKqlProfileExecutor` immediately normalizes that table to the hard-coded `Source` observable before calling `KqlNodeHub.FromFiles`.
+
 **Gap:** `ResourceKqlProfileExecutor` currently exposes Rx.Kql input as `Source`, then normalizes the profile table to `Source` before execution. That prevents KqlTools-style queries from using concrete table names as the actual Rx.Kql input names.
 
 **Action:** Add a resolver before execution:
@@ -123,18 +135,22 @@ For `EtwTcp | where ...`, the resolver should select the `EtwTcp` binding and pa
 
 ### 3. Cross-platform resource discovery
 
+**Current status:** Partially addressed for manual binding. `WorkbenchSourceRegistry` can open Linux/local file sources and Windows-only ETW/Event Log/EVTX/ETL sources behind conditional compilation, but discovery remains profile/tail driven rather than host-catalog driven.
+
 **Gap:** DeltaZulu has platform-specific inputs, but table discovery is not yet a unified cross-platform operation.
 
 **Action:** Add discovery adapters that contribute to the same catalog:
 
 - Windows adapter: Event Log channels, ETW sessions/providers, EVTX/ETL replay bindings.
-- Linux adapter: auditd log stream, syslog files/services, FIFO/TCP syslog bindings.
-- Local/file adapter: `Lines`, `Csv`, parser-detected file tables.
+- Linux adapter: auditd log stream, syslog files/services, auth.log, FIFO/TCP syslog bindings, and other raw text sources. The acquisition adapter supplies collection metadata and a common `raw` payload; `DeltaZulu.Parse` owns field materialization through patterns.
+- Local/file adapter: `Raw`, `Lines`, `Csv`, parser-detected file tables, and KqlTools-style file-stem aliases.
 - Profile adapter: checked-in profiles as schema-only or executable bindings depending on available resource configuration.
 
 Core catalog and query-resolution code must stay platform-neutral; only discovery/opening adapters should be platform-specific.
 
 ### 4. Schema as runnable documentation
+
+**Current status:** Partially addressed for visibility, open for table-first authoring. The schema tree includes runtime fields and source nodes, but its insertion text still emits a family table plus `Source ~= ...` when source metadata is present.
 
 **Gap:** DeltaZulu schemas are useful for authoring, but they do not yet consistently represent runnable tables. The current TUI schema tree can insert a family table plus `Source ~= ...`, which is not as direct as KqlTools.
 
@@ -143,14 +159,17 @@ Core catalog and query-resolution code must stay platform-neutral; only discover
 ```text
 EtwTcp          executable  WindowsEtw.Native + payload fields
 EtwDns          executable  WindowsEtw.Native + payload fields
-SyslogSshd      executable  LinuxSyslog.Native + parser fields
-AuditdSyscall   executable  LinuxAuditd.AssembledEvent
+AuthLog         executable  raw + Parse pattern fields
+NginxAccess     executable  raw + Parse pattern fields
+AuditdSyscall   executable  raw + Parse pattern fields
 Lines           executable  lineNumber:long,line:string
 ```
 
-Selecting a table should insert `EtwTcp | ` or `SyslogSshd | `, not a generic table plus source predicate, unless the binding is intentionally a family table.
+Selecting a table should insert `EtwTcp | `, `EtwDns | `, or `AuthLog | `, not a generic table plus source predicate, unless the binding is intentionally a family table.
 
 ### 5. Streaming query service
+
+**Current status:** Still open. `WorkbenchQueryRunner` is a useful nucleus because it owns validation, finite/live subscriptions, row limits, counters, and errors for the workbench, but it is not yet a shared service used by daemon or local diagnostics.
 
 **Gap:** KqlTools has one obvious streaming-query path. DeltaZulu has daemon profiles, workbench live mode, and tail mode with overlapping but separate execution paths.
 
@@ -163,6 +182,8 @@ StreamingQueryService.Run(TableBinding binding, string query, StreamingQueryOpti
 The service should own query validation, Rx.Kql startup, counters, cancellation, errors, and output sink fan-out. TUI, `--tail`, and daemon diagnostics can call it rather than each rebuilding the pipeline.
 
 ### 6. Output sinks for streaming queries
+
+**Current status:** Still open. Local query output is still coupled to workbench/TUI result collection, while production delivery uses separate output contracts.
 
 **Gap:** DeltaZulu has production delivery outputs and TUI display outputs, but not a KqlTools-like local streaming query sink abstraction.
 
@@ -190,8 +211,8 @@ The service should own query validation, Rx.Kql startup, counters, cancellation,
 
 | Priority | Work item | Outcome |
 | --- | --- | --- |
-| P0 | Create `TableBinding` model and local catalog interface. | One representation for queryable real-time tables. |
-| P0 | Add query table resolver for single-source pipeline queries. | `EtwTcp | ...` can select a binding before execution. |
+| P0 | Create `TableBinding` model and local catalog interface. | One representation for queryable real-time tables, with aliases named in the KqlTools style (`EtwTcp`, `EtwDns`, file stems) where applicable and raw/non-structured sources represented by a common `raw` payload type. |
+| P0 | Add query table resolver for single-source pipeline queries. | `EtwTcp | ...` and `EtwDns | ...` select bindings before execution; raw-log aliases such as `AuthLog | ...` or `NginxAccess | ...` are deliberate DeltaZulu extensions whose fields come from Parse patterns. |
 | P0 | Teach executor/workbench path to pass resolved table name to `KqlNodeHub.FromFiles`. | Rx.Kql sees the concrete table alias. |
 | P1 | Move `WorkbenchSourceRegistry` binding logic behind the catalog. | TUI/tail/source binding use one table catalog. |
 | P1 | Update schema tree insertion to use table aliases directly. | Users type what they see in the schema tree. |
@@ -205,9 +226,9 @@ The service should own query validation, Rx.Kql startup, counters, cancellation,
 Add tests that prove the gap is closed:
 
 - Catalog returns executable `EtwTcp`/`EtwDns` bindings on Windows when the resources are available or schema-only entries when not available.
-- Catalog returns executable Linux bindings such as `Syslog`, `SyslogSshd`, `Auditd`, or `AuditdSyscall` when configured paths/resources exist.
+- Catalog returns executable raw/non-structured log bindings such as `AuthLog`, `NginxAccess`, `Syslog`, `Auditd`, or file-stem aliases when configured paths/resources exist, while `DeltaZulu.Parse` supplies their parser-derived fields from patterns.
 - `EtwTcp | where EventId in (10, 11)` resolves `EtwTcp` and passes `EtwTcp` to Rx.Kql.
-- `SyslogSshd | where Severity == "error"` resolves a Linux syslog binding and passes `SyslogSshd` to Rx.Kql.
+- `AuthLog | where Severity == "error"` resolves a raw auth.log binding and passes `AuthLog` to Rx.Kql after Parse materialization.
 - Existing `Source | ...` profile queries still execute through compatibility aliases.
 - Unknown tables fail before opening source inputs.
 - Schema tree selection inserts the concrete table name.
@@ -215,4 +236,4 @@ Add tests that prove the gap is closed:
 
 ## Bottom line
 
-DeltaZulu is closer than it looks: it already has real-time source inputs, schema metadata, Rx.Kql execution, and live TUI/tail query paths. The main gap is not collection capability; it is the absence of a unified table-binding layer that makes gathered resources appear as first-class KQL tables. Closing that gap will give DeltaZulu the KqlTools simplicity of `EtwTcp | ...` and `SyslogSshd | ...` while retaining DeltaZulu's stronger cross-platform resource metadata, schemas, and production pipeline integration.
+DeltaZulu is closer than it looks: it already has real-time source inputs, schema metadata, Rx.Kql execution, and live TUI/tail query paths. The main gap is not collection capability; it is the absence of a unified table-binding layer that makes gathered resources appear as first-class KQL tables. Closing that gap will give DeltaZulu the KqlTools simplicity of `EtwTcp | ...`, `EtwDns | ...`, and raw-log aliases such as `AuthLog | ...` while retaining DeltaZulu's stronger cross-platform resource metadata, Parse-based extraction, schemas, and production pipeline integration.

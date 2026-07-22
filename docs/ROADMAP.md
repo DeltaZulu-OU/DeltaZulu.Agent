@@ -42,6 +42,11 @@ Phase 7 can compile a unified PDAG.
 The following capabilities are deliberately **not** claimed as present yet; the
 current code/documentation gap inventory is maintained in
 [`IMPLEMENTATION_GAP_ANALYSIS.md`](IMPLEMENTATION_GAP_ANALYSIS.md).
+KqlTools/RealTimeKql alignment is tracked as an intentional local-query lane in
+[`REALTIME_TABLE_STREAMING_GAP_ANALYSIS.md`](REALTIME_TABLE_STREAMING_GAP_ANALYSIS.md):
+DeltaZulu should preserve KqlTools-style queryable table aliases such as
+`EtwTcp`, `EtwDns`, and file-stem tables for local streaming queries, while
+using `DeltaZulu.Parse` for pattern-based extraction behind raw table bindings.
 
 - Parse is not a plaintext parser yet; it is an assembly boundary only.
 - LocalStream has no host, storage, producer, subscription, replay, or commit
@@ -59,8 +64,15 @@ current code/documentation gap inventory is maintained in
 
 Phase 2 work must preserve the legacy behavior through compatibility adapters;
 it must not prematurely move structured sources through Parse or replace
-the daemon runtime. The type-contract-catalog/Avro/Arrow architecture recorded
-in ADR 0010 is accepted target design, but it is not implemented in the current
+the daemon runtime. It must also avoid accidentally erasing the RealTimeKql
+authoring model: replacing hardcoded syslog, auditd, auth.log, web-server-log,
+and other non-structured log parsers with `DeltaZulu.Parse` changes how raw text
+becomes fields, not the KQL table identity users type. Local streaming queries
+should still prefer explicit, KqlTools-style table aliases (`EtwTcp`, `EtwDns`,
+`AuthLog`, `NginxAccess`, file stems) over generic family tables plus `Source`
+predicates when a binding is unambiguous. The
+type-contract-catalog/Avro/Arrow architecture recorded in ADR 0010 is accepted
+target design, but it is not implemented in the current
 baseline and must not be implied by Phase 2 input records alone. Parse is
 the first production migration priority after the typed input boundary: it
 establishes the parsed-event contract that LocalStream will persist. LocalStream
@@ -74,8 +86,9 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | 0 | Complete | Align ADRs and authoritative documentation. | Architecture, roadmap, README, and ADRs state one Pipeline, LocalStream boundaries, PDAG, RELP ownership, and no production multiplexer. |
 | 1 | Complete | Add Parse/LocalStream and architecture guards. | Pipeline references Parse, LocalStream, and RELP (`DeltaZulu.Pipeline.csproj`); `PipelineAssembly_ReferencesOnlyExternalPipelineDependencies`/`PipelineAssembly_ReferencesParseAndLocalStream` reject Agent-layer references and `PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked` reports the direct DurableBuffer use in `tests/DeltaZulu.Agent.Tests/ApplicationTests.cs` (and the equivalent in `DomainTests.cs`). Both new assemblies are scaffolds: they exist as real, referenced, tested project boundaries but implement no PDAG or stream runtime yet, which remain later phases. |
 | 2 | Active | Define strict input contracts and compile validated acquisition plans. | `TextInputRecord` and `StructuredInputRecord` preserve acquisition metadata; resource configuration separates kind, framing, payload format, admission, parser domain, and deterministic acquisition key. The initial `ExecutionPlanCompiler` normalizes and rejects conflicting physical-resource definitions without replacing runtime execution. |
-| 3 | Planned | Generalize acquisition, framing, and decoding through protocol-specific adapters. | `file`, `fifo`, `syslog-tcp`, `syslog-udp`, and `syslog-relp` adapters emit typed records with bounded framing and no application parser dependency. FIFO creation/reopen is explicit configuration, not a syslog behavior. |
-| 4 | Planned | Add syslog admission presets. | TCP and UDP may use the same numeric port; TCP supports bounded RFC 6587 octet-counted and newline framing; PRI validation, decoding, size checks, and rejection metrics run before Parse. Valid unknown syslog reaches Parse. |
+| 2a | Planned | Align local streaming KQL authoring with RealTimeKql table naming. | A platform-neutral table-binding catalog maps concrete aliases such as `EtwTcp`, `EtwDns`, `AuthLog`, `NginxAccess`, and file-stem tables to acquisition plans, schemas, and openable inputs; raw/non-structured bindings carry a `raw` payload type and `DeltaZulu.Parse` patterns produce extracted fields; the local query path passes the resolved alias to Rx.Kql instead of rewriting it to `Source`; `Source` remains only a compatibility alias for legacy profiles. |
+| 3 | Planned | Generalize acquisition, framing, and decoding through protocol-specific adapters. | `file`, `fifo`, `syslog-tcp`, `syslog-udp`, and `syslog-relp` adapters emit either structured records or a common `raw` text record with bounded framing and no application parser dependency. FIFO creation/reopen is explicit configuration, not a syslog behavior. |
+| 4 | Planned | Add raw-text admission presets. | Syslog, auth.log, audit logs, web-server logs, and arbitrary file/FIFO text inputs share the `raw` payload path; transport-specific validation, decoding, size checks, and rejection metrics run before Parse, while field extraction is owned by `DeltaZulu.Parse` patterns. Valid unknown raw text reaches Parse. |
 | 5 | Planned | Move structured sources and RELP payload adapters to structured contracts. | CSV, Windows, and MessagePack `DeliveryBatch` sources bypass Parse; RELP protocol handling remains framing/session work and payload type selects text versus structured materialization. |
 | 6 | Planned | Add restricted `parse.query` and a Parse compatibility materializer. | Existing `filter.query` profiles continue receiving compatible `SourceEvent` shapes; profile-scoped diagnostics validate topic-tagged parser rules; raw text and parser provenance are retained. |
 | 7 | Planned | Build unified Parse PDAG generations. | Parser domains group compatible rules deterministically; each plaintext record traverses one PDAG; recognized, unrecognized, and error outcomes remain explicit. |
@@ -93,9 +106,12 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | 18 | Planned | Verify sink ingest and replay assumptions. | Proton's Kafka-API-compatible external-stream ingestion is wired per ADR 0012 (Redpanda/embedded Kafka-protocol broker primary path, Python external-stream fallback) and its logical-type handling is verified against the targeted OSS version — the availability question is closed affirmatively (ADR 0012); only the logical-type declaration form remains open. Arrow-to-DuckDB appender performance is benchmarked against NDJSON at realistic event rates; agent Avro spooling/replay ordering and schema-version pinning are specified and tested; broker-hop latency is measured against the NRT budget (ADR 0012 revisit trigger). |
 | 19 | Planned | Optimize only with benchmarks. | Before/after evidence preserves parsing, commit, queue, and blindness invariants. |
 
-Phases 2–5 establish the strict source boundary. Phases 6–8 are the first
-production migration priority because they remove parser ownership overlap and
-stabilize materialization semantics. LocalStream contract/design work may run
+Phases 2–5 establish the strict source boundary. Phase 2a is the companion
+local-query compatibility lane: it deliberately preserves the KqlTools mental
+model for stream/table aliases while Phases 6–8 move raw-text materialization
+to Parse. Phases 6–8 are the first production migration priority because they
+remove parser ownership overlap and stabilize materialization semantics.
+LocalStream contract/design work may run
 alongside them, but Phase 12 cannot begin until parsed envelopes, execution
 plans, coordinated dispatch, and commit-order tests exist. Phases 9–13 are one
 coordinated daemon and type-contract migration and must not be represented as
@@ -113,6 +129,11 @@ final architecture until completed.
 - A source specification names a transport/acquisition kind separately from
   framing, payload format, admission policy, and Parse parser domain. The
   planner rejects incompatible combinations and conflicting acquisition keys.
+- Local streaming KQL exposes deliberate table aliases (`EtwTcp`, `EtwDns`,
+  `AuthLog`, `NginxAccess`, file stems) resolved through a table-binding catalog;
+  raw/non-structured logs use a common `raw` payload type and Parse patterns for
+  extraction, without regressing authoring to accidental `Source`-predicate
+  queries.
 
 ### Durability and dispatch
 
@@ -136,7 +157,9 @@ final architecture until completed.
 
 - A physical resource opens once per deterministic acquisition key.
 - Input adapters emit collection facts and payloads only; they never invoke
-  application-specific syslog, journal, or auditd parsers.
+  application-specific syslog, journal, auth.log, auditd, web-server-log, or
+  other non-structured log parsers. Those inputs use the common `raw` payload
+  path and rely on `DeltaZulu.Parse` patterns for extraction.
 - Parser and filter generations replace atomically and independently.
 - Admission rejection, parser no-match, filter no-candidate, filter no-match,
   and operational errors remain distinct. Unknown records never disappear
@@ -178,9 +201,12 @@ commit-order, reload, and failure-injection coverage before it is called complet
 ## Historical guidance
 
 The legacy direct DurableBuffer forwarding path, profile-per-source daemon
-execution, hardcoded syslog/auditd plaintext parsers, and
+execution, hardcoded syslog/auditd/plaintext parsers, and
 `ChannelOutputMultiplexer` are retained only as transitional descriptions of the
-current baseline. They are not design options for new daemon work.
+current baseline. New non-structured log ingestion should use the common `raw`
+payload path plus `DeltaZulu.Parse` patterns, not source-specific parser logic
+in acquisition adapters. These transitional details are not design options for
+new daemon work.
 
 ## Phase 10, 12, and 13 implementation notes
 
