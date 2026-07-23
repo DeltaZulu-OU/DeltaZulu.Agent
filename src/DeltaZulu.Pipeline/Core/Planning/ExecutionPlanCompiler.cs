@@ -133,7 +133,7 @@ public sealed class ExecutionPlanCompiler
     private static string InferFraming(string kind, string mode) => kind switch {
         "syslog-tcp" => "rfc6587-or-newline",
         "syslog-udp" => "datagram",
-        "syslog-forwarder" => "forwarder-frame",
+        "syslog-forwarder" => "forward-session",
         "fifo" => "line",
         "file" => Comparer.Equals(mode, "tail") ? "line-tail" : "line",
         _ => "native"

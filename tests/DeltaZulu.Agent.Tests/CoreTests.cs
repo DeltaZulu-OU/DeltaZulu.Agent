@@ -1,7 +1,5 @@
 using System.Dynamic;
-using System.Text;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Forwarder;
 
 namespace DeltaZulu.Agent.Tests;
 
@@ -43,26 +41,6 @@ public sealed class CoreTests
 
         Assert.AreEqual(42, result["KEEP"]);
         Assert.IsFalse(result.ContainsKey("drop"));
-    }
-
-    [TestMethod]
-    public async Task ReadFrameAsync_ReturnsNullWhenStreamEndsBeforePayloadCompletes()
-    {
-        await using var stream = new MemoryStream(Encoding.ASCII.GetBytes("1 syslog 5 abc"));
-
-        var result = await ForwarderFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
-
-        Assert.IsNull(result);
-    }
-
-    [TestMethod]
-    public async Task ReadFrameAsync_ReturnsNullWhenStreamEndsBeforeTerminator()
-    {
-        await using var stream = new MemoryStream(Encoding.ASCII.GetBytes("1 syslog 3 abc"));
-
-        var result = await ForwarderFrameCodec.ReadFrameAsync(stream, TestContext.CancellationToken);
-
-        Assert.IsNull(result);
     }
 
     public TestContext TestContext { get; set; }

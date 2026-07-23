@@ -1,14 +1,11 @@
 using System.Collections;
 using System.Net;
-using System.Net.Security;
 using System.Net.Sockets;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Forwarder;
+using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Inputs.Common;
 using MessagePack;
@@ -29,14 +26,12 @@ public sealed class ForwarderInput : ISourceInput
 {
     private readonly ForwarderInputConfiguration _configuration;
     private readonly MessagePackPayloadSerializer _serializer = new();
-    private readonly X509Certificate2? _serverCertificate;
 
     public ForwarderInput(ForwarderInputConfiguration configuration, string name = "forwarder-input")
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         Name = name;
         Validate(configuration);
-        _serverCertificate = LoadServerCertificate(configuration);
     }
 
     public string Name { get; }
@@ -73,12 +68,6 @@ public sealed class ForwarderInput : ISourceInput
                 _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
             };
 
-    private static X509Certificate2? LoadServerCertificate(ForwarderInputConfiguration configuration) => !configuration.UseTls
-            ? null
-            : string.IsNullOrEmpty(configuration.ServerCertificatePassword)
-            ? X509CertificateLoader.LoadCertificateFromFile(configuration.ServerCertificatePath!)
-            : X509CertificateLoader.LoadPkcs12FromFile(configuration.ServerCertificatePath!, configuration.ServerCertificatePassword);
-
     private static string SanitizeErrorMessage(string message) => message.Replace('\r', ' ').Replace('\n', ' ');
 
     private static void Validate(ForwarderInputConfiguration configuration)
@@ -88,9 +77,9 @@ public sealed class ForwarderInput : ISourceInput
             throw new ArgumentOutOfRangeException(nameof(configuration.Port));
         }
 
-        if (configuration.UseTls && string.IsNullOrWhiteSpace(configuration.ServerCertificatePath))
+        if (configuration.UseTls)
         {
-            throw new InvalidDataException("Forwarder/TLS input requires serverCertificatePath.");
+            throw new InvalidDataException("DeltaZulu.Forward input does not support the legacy TLS stream wrapper in this Agent integration path.");
         }
     }
 
@@ -108,39 +97,39 @@ public sealed class ForwarderInput : ISourceInput
 
     private async Task HandleClientAsync(TcpClient client, IObserver<SourceEvent> observer, CancellationToken cancellationToken)
     {
-        using var clientRegistration = client;
         try
         {
-            await using var stream = await OpenStreamAsync(client, cancellationToken).ConfigureAwait(false);
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var maybeFrame = await ForwarderFrameCodec.ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
-                if (maybeFrame is not { } frame)
+            await using var connection = ForwardConnection.FromAcceptedClient(client);
+            var options = new ForwardSessionOptions {
+                BatchHandler = (frameType, batchId, payload, ct) =>
                 {
-                    return;
-                }
+                    if (frameType is not ForwardFrameType.TypedBatch and not ForwardFrameType.RawEnvelope)
+                    {
+                        return Task.FromResult(new ForwardAckOutcome(2, $"Unsupported batch frame type {frameType}"));
+                    }
 
-                if (frame.Command.Equals("open", StringComparison.OrdinalIgnoreCase))
-                {
-                    await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", cancellationToken).ConfigureAwait(false);
-                    continue;
+                    var accepted = PublishPayload(payload, observer, out var errorMessage);
+                    return Task.FromResult(accepted
+                        ? new ForwardAckOutcome(0, null)
+                        : new ForwardAckOutcome(1, errorMessage));
                 }
+            };
 
-                if (frame.Command.Equals("close", StringComparison.OrdinalIgnoreCase))
-                {
-                    await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", cancellationToken).ConfigureAwait(false);
-                    return;
-                }
+            await using var session = await ForwardSession.AcceptAsync(
+                connection,
+                offer => new ForwardHandshakeAck(
+                    Accepted: true,
+                    ProtocolVersion: offer.ProtocolVersion,
+                    SessionId: Guid.NewGuid(),
+                    GrantedWindowSize: offer.RequestedWindowSize,
+                    DedupWindowSize: offer.DedupWindowSize,
+                    CompressionSelected: offer.CompressionOffered,
+                    UnknownSchemaFingerprints: [],
+                    RejectReason: string.Empty),
+                options,
+                cancellationToken).ConfigureAwait(false);
 
-                if (!frame.Command.Equals("syslog", StringComparison.OrdinalIgnoreCase))
-                {
-                    await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "500 unsupported command", cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                var accepted = PublishPayload(frame.Payload, observer, out var errorMessage);
-                await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, accepted ? "200 OK" : $"500 {errorMessage}", cancellationToken).ConfigureAwait(false);
-            }
+            await session.Completion.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (EndOfStreamException)
         {
@@ -159,22 +148,6 @@ public sealed class ForwarderInput : ISourceInput
         {
             return;
         }
-    }
-
-    private async ValueTask<Stream> OpenStreamAsync(TcpClient client, CancellationToken cancellationToken)
-    {
-        var network = client.GetStream();
-        if (!_configuration.UseTls)
-        {
-            return network;
-        }
-
-        var ssl = new SslStream(network, leaveInnerStreamOpen: false);
-        await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions {
-            ServerCertificate = _serverCertificate,
-            EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
-        }, cancellationToken).ConfigureAwait(false);
-        return ssl;
     }
 
     private bool PublishPayload(ReadOnlyMemory<byte> payload, IObserver<SourceEvent> observer, out string errorMessage)

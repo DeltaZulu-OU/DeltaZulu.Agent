@@ -6,7 +6,7 @@ using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
-using DeltaZulu.Pipeline.Forwarder;
+using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Core.Observability;
@@ -823,36 +823,37 @@ public sealed class ForwarderTests
             try
             {
                 _client = await _listener.AcceptTcpClientAsync(_cts.Token).ConfigureAwait(false);
-                await using var stream = _client.GetStream();
-
-                while (!_cts.IsCancellationRequested)
-                {
-                    var maybeFrame = await ForwarderFrameCodec.ReadFrameAsync(stream, _cts.Token).ConfigureAwait(false);
-                    if (maybeFrame is not { } frame)
+                await using var connection = ForwardConnection.FromAcceptedClient(_client);
+                var options = new ForwardSessionOptions {
+                    BatchHandler = (frameType, batchId, payload, ct) =>
                     {
-                        return;
+                        if (frameType is not ForwardFrameType.RawEnvelope and not ForwardFrameType.TypedBatch)
+                        {
+                            return Task.FromResult(new ForwardAckOutcome(2, $"Unsupported batch frame type {frameType}"));
+                        }
+
+                        _batchSource.TrySetResult(new MessagePackPayloadSerializer().Deserialize<DeliveryBatch>(payload));
+                        return Task.FromResult(_acceptSyslog
+                            ? new ForwardAckOutcome(0, null)
+                            : new ForwardAckOutcome(1, "rejected"));
                     }
+                };
 
-                    switch (frame.Command)
-                    {
-                        case "open":
-                            await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK\nrelp_version=0\ncommands=syslog", _cts.Token).ConfigureAwait(false);
-                            break;
+                await using var session = await ForwardSession.AcceptAsync(
+                    connection,
+                    offer => new ForwardHandshakeAck(
+                        Accepted: true,
+                        ProtocolVersion: offer.ProtocolVersion,
+                        SessionId: Guid.NewGuid(),
+                        GrantedWindowSize: offer.RequestedWindowSize,
+                        DedupWindowSize: offer.DedupWindowSize,
+                        CompressionSelected: offer.CompressionOffered,
+                        UnknownSchemaFingerprints: [],
+                        RejectReason: string.Empty),
+                    options,
+                    _cts.Token).ConfigureAwait(false);
 
-                        case "syslog":
-                            _batchSource.TrySetResult(new MessagePackPayloadSerializer().Deserialize<DeliveryBatch>(frame.Payload));
-                            await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, _acceptSyslog ? "200 OK" : "500 rejected", _cts.Token).ConfigureAwait(false);
-                            if (!_acceptSyslog)
-                            {
-                                return;
-                            }
-                            break;
-
-                        case "close":
-                            await ForwarderFrameCodec.WriteResponseAsync(stream, frame.TransactionId, "200 OK", _cts.Token).ConfigureAwait(false);
-                            return;
-                    }
-                }
+                await session.Completion.WaitAsync(_cts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (_cts.IsCancellationRequested)
             {
