@@ -11,5 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DeltaZulu.DurableBuffer" />
+    <PackageReference Include="DeltaZulu.LocalStream" />
   </ItemGroup>
 </Project>

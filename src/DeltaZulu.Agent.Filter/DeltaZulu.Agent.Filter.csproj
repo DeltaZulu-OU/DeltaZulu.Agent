@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DeltaZulu.DurableBuffer" />
+    <PackageReference Include="DeltaZulu.LocalStream" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="Microsoft.Rx.Kql" />

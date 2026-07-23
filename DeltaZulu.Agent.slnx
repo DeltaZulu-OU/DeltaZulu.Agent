@@ -8,7 +8,5 @@
   <Project Path="src/DeltaZulu.Agent.ProfileWorkbench/DeltaZulu.Agent.ProfileWorkbench.csproj" />
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
   <Project Path="src/DeltaZulu.Agent.SchemaMetadata/DeltaZulu.Agent.SchemaMetadata.csproj" />
-  <Project Path="src/DeltaZulu.LocalStream/DeltaZulu.LocalStream.csproj" />
-  <Project Path="src/DeltaZulu.Parse/DeltaZulu.Parse.csproj" />
   <Project Path="src/DeltaZulu.Pipeline/DeltaZulu.Pipeline.csproj" />
 </Solution>

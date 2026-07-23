@@ -174,14 +174,13 @@ than git submodules. `Directory.Packages.props` pins package versions, including
 - `DeltaZulu.DurableBuffer` for the current transitional forwarding spool.
 - `DeltaZulu.Forward` for shared forwarder protocol contracts.
 - `DeltaZulu.Parse` for the Parse assembly boundary.
-- `DeltaZulu.LocalStream`, which is still consumed from the in-repository/submodule
-  scaffold today but is a priority package-conversion item in the roadmap.
+- `DeltaZulu.LocalStream` for the LocalStream package boundary.
 
 `NuGet.config` maps `DeltaZulu.*` packages to a package source named
 `deltazulu-github`; the build environment must register that source, while
-general third-party packages resolve from `nuget.org`. LocalStream remains a
-project/submodule reference only until its NuGet package is published and the
-roadmap's package-conversion gate is complete.
+general third-party packages resolve from `nuget.org`. LocalStream is consumed
+as a package reference; do not reintroduce an in-repository project/submodule
+placeholder.
 
 ## Documentation
 

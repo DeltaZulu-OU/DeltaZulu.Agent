@@ -36,9 +36,8 @@ Implementation sequencing and current migration status are in
   positions, subscriptions, checkpoints, and bounded retention. It is not a
   wrapper around `DeltaZulu.DurableBuffer`; the direct DurableBuffer forwarding
   path is a transitional transport spool and is not an Agent-visible pipeline
-  dependency after migration. Although the current scaffold is consumed from the
-  repository/submodule, LocalStream must become a pinned `DeltaZulu.LocalStream`
-  NuGet package before it owns daemon persistence.
+  dependency after migration. LocalStream is consumed as a pinned
+  `DeltaZulu.LocalStream` NuGet package before it owns daemon persistence.
 - Canonical semantic normalization belongs to DeltaZulu.Platform, not the edge
   agent.
 - The Proton leg is served through a Kafka-API-compatible intermediate

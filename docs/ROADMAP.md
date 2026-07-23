@@ -17,10 +17,11 @@ DurableBuffer-first, profile-per-source, and permanent-multiplexer plans.
 ## Current baseline
 
 The repository has one multi-targeted `DeltaZulu.Pipeline` assembly that
-references `DeltaZulu.DurableBuffer` and `DeltaZulu.Forward` directly, plus the
-`DeltaZulu.Parse` (ADR 0013; renamed from `DeltaZulu.Normalize`) and
-`DeltaZulu.LocalStream` scaffold assemblies added in Phase 1 (marker types
-only; the PDAG compiler and stream runtime are Phase 6-7 and Phase 9 work).
+references `DeltaZulu.DurableBuffer`, `DeltaZulu.Forward`, `DeltaZulu.Parse`
+(ADR 0013; renamed from `DeltaZulu.Normalize`), and `DeltaZulu.LocalStream`
+through package references. The prior in-repository Parse and LocalStream
+placeholder projects have been removed; the PDAG compiler and stream runtime
+remain Phase 6-7 and Phase 9 work.
 The daemon still runs separate `ProfileBinding`/`ResourcePipeline` work and
 uses `ChannelOutputMultiplexer` to serialize concurrent legacy output. Those
 are transitional implementation details, not target architecture. Existing
@@ -48,10 +49,11 @@ DeltaZulu should preserve KqlTools-style queryable table aliases such as
 `EtwTcp`, `EtwDns`, and file-stem tables for local streaming queries, while
 using `DeltaZulu.Parse` for pattern-based extraction behind raw table bindings.
 
-- Parse is not a plaintext parser yet; it is an assembly boundary only.
-- LocalStream has no host, storage, producer, subscription, replay, or commit
-  implementation yet; `agent.parsed` and `agent.output` are canonical names
-  only.
+- Parse is consumed as a package boundary; this repository does not yet wire a
+  plaintext parser implementation into the runtime.
+- LocalStream is consumed as a package boundary, but this repository does not
+  yet wire host, storage, producer, subscription, replay, or commit behavior
+  into the daemon runtime.
 - The daemon is not yet an execution-plan runtime and still uses per-profile
   `ResourcePipeline` instances, direct DurableBuffer forwarding, and
   `ChannelOutputMultiplexer`.
@@ -84,7 +86,7 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | Phase | Status | Objective | Completion evidence |
 | --- | --- | --- | --- |
 | 0 | Complete | Align ADRs and authoritative documentation. | Architecture, roadmap, README, and ADRs state one Pipeline, LocalStream boundaries, PDAG, FORWARDER ownership, and no production multiplexer. |
-| 1 | Complete | Add Parse/LocalStream and architecture guards. | Pipeline references Parse, LocalStream, and FORWARDER (`DeltaZulu.Pipeline.csproj`); `PipelineAssembly_ReferencesOnlyExternalPipelineDependencies`/`PipelineAssembly_ReferencesParseAndLocalStream` reject Agent-layer references and `PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked` reports the direct DurableBuffer use in `tests/DeltaZulu.Agent.Tests/ApplicationTests.cs` (and the equivalent in `DomainTests.cs`). Both new assemblies are scaffolds: they exist as real, referenced, tested project boundaries but implement no PDAG or stream runtime yet, which remain later phases. |
+| 1 | Complete | Add Parse/LocalStream and architecture guards. | Pipeline references Parse, LocalStream, and FORWARDER as package dependencies (`DeltaZulu.Pipeline.csproj`); `PipelineAssembly_ReferencesOnlyExternalPipelineDependencies` rejects Agent-layer references and `PipelineAssembly_TransitionalDirectDurableBufferReferenceIsTracked` reports the direct DurableBuffer use in `tests/DeltaZulu.Agent.Tests/ApplicationTests.cs`. Parse and LocalStream are package boundaries rather than in-repository placeholder projects; PDAG and stream-runtime integration remain later phases. |
 | 2 | Active | Define strict input contracts and compile validated acquisition plans. | `TextInputRecord` and `StructuredInputRecord` preserve acquisition metadata; resource configuration separates kind, framing, payload format, admission, parser domain, and deterministic acquisition key. The initial `ExecutionPlanCompiler` normalizes and rejects conflicting physical-resource definitions without replacing runtime execution. |
 | 2a | Planned | Align local streaming KQL authoring with RealTimeKql table naming. | A platform-neutral table-binding catalog maps concrete aliases such as `EtwTcp`, `EtwDns`, `AuthLog`, `NginxAccess`, and file-stem tables to acquisition plans, schemas, and openable inputs; raw/non-structured bindings carry a `raw` payload type and `DeltaZulu.Parse` patterns produce extracted fields; the local query path passes the resolved alias to Rx.Kql instead of rewriting it to `Source`; `Source` remains only a compatibility alias for legacy profiles. |
 | 3 | Planned | Generalize acquisition, framing, and decoding through protocol-specific adapters. | `file`, `fifo`, `syslog-tcp`, `syslog-udp`, and `syslog-relp` adapters emit either structured records or a common `raw` text record with bounded framing and no application parser dependency. FIFO creation/reopen is explicit configuration, not a syslog behavior. |

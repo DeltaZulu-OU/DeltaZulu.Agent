@@ -22,9 +22,9 @@ LocalStream is a primitive, non-distributed Kafka alternative for in-agent
 topics, positions, subscriptions, checkpoints, replay, and bounded retention. It
 is not a wrapper around `DeltaZulu.DurableBuffer`; the current DurableBuffer
 forwarding spool is transitional transport durability with different concerns.
-The current repository/submodule scaffold must graduate to a pinned
-`DeltaZulu.LocalStream` NuGet package before LocalStream becomes the daemon's
-persistence boundary.
+`DeltaZulu.LocalStream` must remain a pinned NuGet package dependency before
+LocalStream becomes the daemon's persistence boundary; do not reintroduce an
+in-repository placeholder project.
 
 The dispatcher appends outputs before committing a parsed position. The RELP
 forwarder commits output only after acknowledgement. The daemon has no

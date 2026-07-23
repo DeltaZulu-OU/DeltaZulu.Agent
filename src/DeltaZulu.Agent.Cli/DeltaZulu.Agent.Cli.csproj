@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="DeltaZulu.DurableBuffer" />
+    <PackageReference Include="DeltaZulu.LocalStream" />
     <PackageReference Include="Terminal.Gui" />
     <PackageReference Include="Terminal.Gui.Editor" />
     <PackageReference Include="Microsoft.Data.Sqlite" />

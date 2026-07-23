@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="DeltaZulu.DurableBuffer" />
+        <PackageReference Include="DeltaZulu.LocalStream" />
         <PackageReference Include="System.Reactive" />
         <PackageReference Include="YamlDotNet" />
     </ItemGroup>

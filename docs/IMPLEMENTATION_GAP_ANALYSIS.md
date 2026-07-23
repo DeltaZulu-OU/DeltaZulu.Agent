@@ -26,8 +26,7 @@ sed -n '1,220p' src/DeltaZulu.Pipeline/DeltaZulu.Pipeline.csproj
 sed -n '1,240p' src/DeltaZulu.Agent.Runtime/AgentRuntime.cs
 sed -n '1,220p' src/DeltaZulu.Pipeline/Core/ResourcePipeline.cs
 sed -n '1,220p' src/DeltaZulu.Pipeline/Outputs/Forwarder/BufferedForwarderSink.cs
-sed -n '1,200p' src/DeltaZulu.LocalStream/LocalStreamTopics.cs
-sed -n '1,80p' src/DeltaZulu.Parse/ParseAssemblyMarker.cs
+rg "DeltaZulu\.(Parse|LocalStream)|ProjectReference" Directory.Packages.props DeltaZulu.Agent.slnx src/DeltaZulu.Pipeline -n
 ```
 
 ## Executive summary
@@ -45,8 +44,8 @@ adapters and runtime wiring move to those contracts.
 The important implementation facts are:
 
 - `DeltaZulu.Pipeline` references `DeltaZulu.Parse` (renamed from
-  `DeltaZulu.Normalize` by ADR 0013) and `DeltaZulu.LocalStream`, but both are
-  marker/scaffold assemblies.
+  `DeltaZulu.Normalize` by ADR 0013) and `DeltaZulu.LocalStream` as NuGet
+  packages; the prior in-repository marker/scaffold projects have been removed.
 - `DeltaZulu.Pipeline` still directly references `DeltaZulu.DurableBuffer` and
   creates a DurableBuffer-backed FORWARDER sink.
 - `AgentRuntime` still starts one `ResourcePipeline` per `ProfileBinding` and
@@ -61,9 +60,9 @@ The important implementation facts are:
 - `TextInputRecord`, `StructuredInputRecord`, and `ExecutionPlanCompiler` now
   exist as Phase 2 scaffolds, but current inputs have not been adapted to emit
   them yet.
-- `DeltaZulu.LocalStream` is still consumed as an in-repository/submodule
-  scaffold; publishing and consuming it as a NuGet package is now a priority
-  roadmap gate before it becomes the daemon stream substrate.
+- `DeltaZulu.LocalStream` is consumed through the NuGet package boundary; its
+  host/storage behavior remains a priority roadmap gate before it becomes the
+  daemon stream substrate.
 - Current KQL execution operates over `SourceEvent.ToKqlRow()` dictionaries, not
   over typed catalog-backed `ParsedEventEnvelope` rows.
 
@@ -72,13 +71,13 @@ The important implementation facts are:
 | Area | Documented target | Current code fact | Status | Required fix before claiming target |
 | --- | --- | --- | --- | --- |
 | Pipeline assembly boundary | One `DeltaZulu.Pipeline` assembly with internal folders; Pipeline may reference Parse, LocalStream, Forward, deterministic format libraries, and approved eventing libraries. | `DeltaZulu.Pipeline.csproj` is multi-targeted and references Parse, LocalStream, Forward, and DurableBuffer. Tests explicitly allow Parse/LocalStream/Forward and track DurableBuffer as transitional. | Aligned with Phase 1; transitional DurableBuffer remains. | Keep dependency guards. Remove direct DurableBuffer only when LocalStream-backed forwarding replaces it. |
-| Parse | Parse is the sole structural plaintext parser; compatible rules compile into one PDAG per parser domain. | `DeltaZulu.Parse` contains only `ParseAssemblyMarker`; syslog/auditd parsing still occurs in input-specific parser classes. | Gap. | Implement `parse.query`, parser domains/generations, PDAG compiler/runtime, topic-tag validation, and compatibility materializer. |
+| Parse | Parse is the sole structural plaintext parser; compatible rules compile into one PDAG per parser domain. | `DeltaZulu.Parse` is consumed as a NuGet dependency; syslog/auditd parsing still occurs in input-specific parser classes. | Gap. | Implement or consume `parse.query`, parser domains/generations, PDAG compiler/runtime, topic-tag validation, and compatibility materializer through the package boundary. |
 | Input boundary | Inputs acquire, frame, decode, and emit `TextInputRecord` or `StructuredInputRecord`; they do not parse application-specific plaintext. | `TextInputRecord`, `StructuredInputRecord`, and `ExecutionPlanCompiler` exist. Current inputs still implement `ISourceInput` and emit `SourceEvent`; runtime does not consume acquisition plans. | Partial; roadmap Phase 2 remains active. | Adapt current inputs through compatibility shims, preserve source metadata, and wire plan compilation into runtime validation without replacing execution prematurely. |
 | Syslog admission/framing | Syslog adapters perform transport/framing/admission only; valid unknown syslog reaches Parse. | `TcpSyslogInput`, FIFO, and file-tail syslog inputs instantiate `LightweightSyslogParser` and parse directly; TCP reads newline-delimited text and does not implement bounded RFC 6587 octet-counted framing. | Gap. | Split syslog transport/framing/admission from Parse; add size/PRI/admission metrics and RFC 6587 support. |
 | Auditd materialization | Auditd correlation runs after Parse and consumes parsed fields. | `AuditdFileInput` directly uses `AuditdRecordParser` and `AuditdEventAssembler` inside the input adapter. | Gap. | Move record parsing to Parse compatibility rules and move multi-record assembly to post-materialization assembly. |
 | Runtime topology | Execution plans open each physical resource once, then publish parsed envelopes to LocalStream. | Acquisition plans can be compiled, but `AgentRuntime` still creates one `ResourcePipeline` per `ProfileBinding`; `ResourcePipeline` directly connects input observable to profile executor to output writer. | Gap. | Replace profile-centric runtime with execution-plan compiler/runtime and LocalStream publishers/subscriptions. |
 | Output multiplexer | No daemon-level general-purpose output multiplexer in target runtime. | `AgentRuntime.RunMultiple` constructs `ChannelOutputMultiplexer`; tests cover that behavior. | Intentional transition. | Delete or restrict `ChannelOutputMultiplexer` only after `AgentRuntime` no longer starts one pipeline per binding. |
-| LocalStream | One LocalStream host owns `agent.parsed` and `agent.output`, with append/read/commit/replay, and is consumed through a stable `DeltaZulu.LocalStream` NuGet package boundary. | `DeltaZulu.LocalStream` exposes only canonical topic constants and is still referenced from the in-repository/submodule scaffold. | Gap and priority packaging gate. | Publish/package LocalStream, pin it in `Directory.Packages.props`, switch Pipeline from the project/submodule reference to the package, then implement host, storage, producers, subscriptions, commit/replay, expiry, metrics, and failure tests. |
+| LocalStream | One LocalStream host owns `agent.parsed` and `agent.output`, with append/read/commit/replay, and is consumed through a stable `DeltaZulu.LocalStream` NuGet package boundary. | `DeltaZulu.LocalStream` is pinned in `Directory.Packages.props` and referenced as a package, not an in-repository project. | Partial; host behavior remains a priority implementation gate. | Implement/consume host, storage, producers, subscriptions, commit/replay, expiry, metrics, and failure tests through the package boundary. |
 | Forwarding durability | Forwarder subscribes to `agent.output` and commits only after ACK; LocalStream is the primitive stream substrate, not a DurableBuffer facade. | `BufferedForwarderSink` owns a `DurableBufferHost<DeliveryRecord>` directly and starts a `ForwarderOutputWorker`. | Intentional transition. | Replace direct forwarding-spool ownership with an ACK-gated LocalStream subscription, then remove Pipeline's direct DurableBuffer reference (ROADMAP.md Phase 12). Do not treat DurableBuffer as the required low-level foundation for LocalStream. |
 | Forward transport | DeltaZulu.Forward (ADR 0011): a proprietary, RELP-derived but non-wire-compatible framing protocol carries Avro batches with ack-on-commit, a typed handshake, and a collector-side dedup window. | Current forwarding uses repository FORWARDER compatibility framing with MessagePack `DeliveryBatch` payloads, not the target binary Avro batch protocol. | Partial scaffold / target gap. | Implement binary framing, typed handshake, Avro batch frames, dedup window, and the protocol state machine (ROADMAP.md Phase 12a) with its own test harness before claiming target Forward transport. |
 | Typed envelopes | Parsed events carry stable identity, materialization state, catalog logical type metadata, topic, raw message, and provenance. | Current row model is `SourceEvent` and `ResourceOutputRecord`; `SourceEvent.ToKqlRow()` returns a dictionary plus `_metadata`. | Gap. | Add `ParsedEventEnvelope` and materialization outcome model, then adapt existing filters through compatibility projection. |
@@ -90,11 +89,9 @@ The important implementation facts are:
 
 ## Documentation conflicts and guardrails
 
-1. **Phase-number drift has been corrected in touched scaffold comments.**
-   `LocalStreamTopics`, `ParseAssemblyMarker`, and the transitional
-   DurableBuffer project-reference comment now point to the current roadmap phase
-   numbers. Keep code comments aligned whenever phases are renumbered, because
-   comments are executable guidance for maintainers.
+1. **Scaffold packages are no longer represented by in-repository dummy projects.**
+   `DeltaZulu.Parse` and `DeltaZulu.LocalStream` should stay package references;
+   do not reintroduce placeholder projects just to satisfy solution shape.
 2. **Architecture diagrams show target nouns without enough current-state guard.**
    `ARCHITECTURE.md` is intentionally target-state, but nearby roadmap language
    must continue to state that the type-contract catalog, Avro, Arrow,

@@ -16,6 +16,7 @@
         <PackageReference Include="CsvHelper" />
         <PackageReference Include="DeltaZulu.DurableBuffer" />
         <PackageReference Include="DeltaZulu.Forward" />
+        <PackageReference Include="DeltaZulu.LocalStream" />
         <PackageReference Include="DeltaZulu.Parse" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="Polly.Core" />
@@ -31,16 +32,6 @@
         <PackageReference Include="System.Management" />
         <PackageReference Include="Tx.Windows" />
         <PackageReference Include="Tx.Windows.Logs" />
-    </ItemGroup>
-
-    <!-- Project References -->
-    <ItemGroup>
-        <!-- Transitional: direct DurableBuffer ownership is removed after the LocalStream
-         migration (ROADMAP.md Phase 12). LocalStream is its own primitive stream
-         substrate rather than a DurableBuffer-backed facade (ADR 0005, ADR 0008).
-         The project/submodule reference is replaced by a pinned DeltaZulu.LocalStream
-         package in ROADMAP.md Phase 1a before LocalStream owns daemon persistence. -->
-        <ProjectReference Include="..\..\src\DeltaZulu.LocalStream\DeltaZulu.LocalStream.csproj" />
     </ItemGroup>
 
     <!-- Internals Visibility -->

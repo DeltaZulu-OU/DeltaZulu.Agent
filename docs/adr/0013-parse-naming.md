@@ -44,9 +44,10 @@ The rename is executed as an assembly, namespace, and prose change:
 
 ## Consequences
 
-No functional change: at the time of this rename, `DeltaZulu.Parse` contains
-only the scaffold assembly marker (ROADMAP.md Phase 1), so the rename is
-mechanical. Future documents must not reintroduce "normalize"/"normalization"
-as a name for typed extraction; that vocabulary is reserved for the semantic
+No functional change: at the time of this rename, `DeltaZulu.Parse` was only
+an assembly-boundary scaffold (ROADMAP.md Phase 1), so the rename was
+mechanical. The scaffold project has since moved out of this repository and is
+consumed as a package boundary. Future documents must not reintroduce
+"normalize"/"normalization" as a name for typed extraction; that vocabulary is reserved for the semantic
 layer per ADR 0005, and its trigger for un-deferral is a portable
 detection-pack requirement, not this rename.
