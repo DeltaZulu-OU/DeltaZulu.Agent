@@ -1,14 +1,9 @@
-using System.Collections;
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json;
-using DeltaZulu.Pipeline.Core.Abstractions;
-using DeltaZulu.Pipeline.Core.Delivery;
-using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Forward;
-using DeltaZulu.Pipeline.Core.MessagePack;
+using DeltaZulu.Pipeline.Core.Abstractions;
+using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Inputs.Common;
-using MessagePack;
 
 namespace DeltaZulu.Pipeline.Inputs.Forwarder;
 
@@ -25,7 +20,6 @@ public sealed record ForwarderInputConfiguration
 public sealed class ForwarderInput : ISourceInput
 {
     private readonly ForwarderInputConfiguration _configuration;
-    private readonly MessagePackPayloadSerializer _serializer = new();
 
     public ForwarderInput(ForwarderInputConfiguration configuration, string name = "forwarder-input")
     {
@@ -54,19 +48,6 @@ public sealed class ForwarderInput : ISourceInput
             },
             handleClientAsync: HandleClientAsync,
             cancellationToken);
-
-    private static string? GetString(IReadOnlyDictionary<string, object?> fields, string key) => !fields.TryGetValue(key, out var value) || value is null
-            ? null
-            : value switch {
-                string text when !string.IsNullOrWhiteSpace(text) => text,
-                JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString(),
-                JsonElement element when element.ValueKind is JsonValueKind.Object or JsonValueKind.Array => null,
-                DateTimeOffset timestamp => timestamp.ToString("O"),
-                DateTime timestamp => timestamp.ToString("O"),
-                IDictionary => null,
-                IEnumerable when value is not string => null,
-                _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
-            };
 
     private static string SanitizeErrorMessage(string message) => message.Replace('\r', ' ').Replace('\n', ' ');
 
@@ -101,18 +82,14 @@ public sealed class ForwarderInput : ISourceInput
         {
             await using var connection = ForwardConnection.FromAcceptedClient(client);
             var options = new ForwardSessionOptions {
-                BatchHandler = (frameType, batchId, payload, ct) =>
-                {
-                    if (frameType is not ForwardFrameType.TypedBatch and not ForwardFrameType.RawEnvelope)
-                    {
-                        return Task.FromResult(new ForwardAckOutcome(2, $"Unsupported batch frame type {frameType}"));
-                    }
-
-                    var accepted = PublishPayload(payload, observer, out var errorMessage);
-                    return Task.FromResult(accepted
+                BatchHandler = (frameType, batchId, payload, ct) => Task.FromResult(frameType switch {
+                    ForwardFrameType.TypedBatch => PublishTypedBatch(payload, observer, out var errorMessage)
                         ? new ForwardAckOutcome(0, null)
-                        : new ForwardAckOutcome(1, errorMessage));
-                }
+                        : new ForwardAckOutcome(1, errorMessage),
+                    // Unparsed bytes for a source parsed at the collector tier -- not this input's job to decode.
+                    ForwardFrameType.RawEnvelope => new ForwardAckOutcome(0, null),
+                    _ => new ForwardAckOutcome(2, $"Unsupported batch frame type {frameType}")
+                })
             };
 
             await using var session = await ForwardSession.AcceptAsync(
@@ -150,19 +127,11 @@ public sealed class ForwarderInput : ISourceInput
         }
     }
 
-    private bool PublishPayload(ReadOnlyMemory<byte> payload, IObserver<SourceEvent> observer, out string errorMessage)
+    private bool PublishTypedBatch(ReadOnlyMemory<byte> payload, IObserver<SourceEvent> observer, out string errorMessage)
     {
         try
         {
-            var batch = _serializer.Deserialize<DeliveryBatch>(payload);
-            if (batch is null)
-            {
-                errorMessage = "invalid MessagePack DeliveryBatch: payload decoded to null";
-                Console.Error.WriteLine($"FORWARDER input rejected {payload.Length} byte payload: {errorMessage}.");
-                Console.Error.Flush();
-                return false;
-            }
-
+            var batch = ForwardLogBatchCodec.Decode(payload);
             foreach (var record in batch.Records)
             {
                 observer.OnNext(ToSourceEvent(record));
@@ -171,38 +140,37 @@ public sealed class ForwarderInput : ISourceInput
             errorMessage = string.Empty;
             return true;
         }
-        catch (MessagePackSerializationException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            errorMessage = $"invalid MessagePack DeliveryBatch: {SanitizeErrorMessage(ex.Message)}";
+            errorMessage = $"invalid ForwardLogBatch: {SanitizeErrorMessage(ex.Message)}";
             Console.Error.WriteLine($"FORWARDER input rejected {payload.Length} byte payload: {errorMessage}");
             Console.Error.Flush();
             return false;
         }
     }
 
-    private SourceEvent ToSourceEvent(DeliveryRecord deliveryRecord)
+    private static SourceEvent ToSourceEvent(ForwardLogRecord record)
     {
-        var record = deliveryRecord.Record;
         var metadata = new ResourceMetadata {
-            CollectorId = GetString(record.Metadata, "collectorId") ?? deliveryRecord.AgentId,
-            ProfileId = GetString(record.Metadata, "profileId") ?? deliveryRecord.ProfileId,
-            ProfileVersion = GetString(record.Metadata, "profileVersion"),
-            SourceType = GetString(record.Metadata, "sourceType") ?? "Transport",
-            SourceName = GetString(record.Metadata, "sourceName") ?? deliveryRecord.SourceId,
-            Platform = GetString(record.Metadata, "platform") ?? "portable",
-            Hostname = GetString(record.Metadata, "hostname") ?? deliveryRecord.AgentId,
+            CollectorId = record.AgentId,
+            ProfileId = record.ProfileId,
+            ProfileVersion = record.ProfileVersion,
+            SourceType = record.SourceType,
+            SourceName = record.SourceName,
+            Platform = record.Platform ?? "portable",
+            Hostname = record.Hostname ?? record.AgentId,
             IngestedAt = DateTimeOffset.UtcNow,
             ParserName = nameof(ForwarderInput),
             RawPreserved = true,
             Properties = new Dictionary<string, object?> {
                 ["forwarder"] = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) {
-                    ["deliveryID"] = deliveryRecord.DeliveryId,
-                    ["recordId"] = deliveryRecord.RecordId,
-                    ["createdAt"] = deliveryRecord.CreatedAt
+                    ["deliveryID"] = record.DeliveryId,
+                    ["recordId"] = record.RecordId,
+                    ["createdAt"] = record.CreatedAt
                 }
             }
         };
 
-        return new SourceEvent(metadata, new Dictionary<string, object?>(record.Event, StringComparer.OrdinalIgnoreCase));
+        return new SourceEvent(metadata, new Dictionary<string, object?>(record.Fields, StringComparer.OrdinalIgnoreCase));
     }
 }

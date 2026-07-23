@@ -47,7 +47,7 @@ public sealed record ForwarderDaemonPipelineFilterConfiguration
 public sealed record ForwarderDaemonPipelineOutputConfiguration
 {
     public string Mode { get; init; } = "forward";
-    public string Encoding { get; init; } = "messagepack";
+    public string Encoding { get; init; } = "forward";
     public string Transport { get; init; } = "forwarder";
     public string? File { get; init; }
     public bool PrettyPrint { get; init; }
@@ -157,9 +157,9 @@ public sealed class YamlForwarderDaemonConfigurationLoader
 
         if (outputMode == "forward")
         {
-            if (!configuration.Pipeline.Output.Encoding.Equals("messagepack", StringComparison.OrdinalIgnoreCase))
+            if (!configuration.Pipeline.Output.Encoding.Equals("forward", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException($"{prefix} pipeline.output.encoding must be 'messagepack' when pipeline.output.mode is forward.");
+                throw new InvalidDataException($"{prefix} pipeline.output.encoding must be 'forward' when pipeline.output.mode is forward.");
             }
 
             if (!configuration.Pipeline.Output.Transport.Equals("forwarder", StringComparison.OrdinalIgnoreCase))

@@ -3,9 +3,9 @@ using DeltaZulu.DurableBuffer;
 using DeltaZulu.DurableBuffer.Configuration;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
+using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
-using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Pipeline.Outputs.Forwarder;
 
 namespace DeltaZulu.Agent.Tests;
@@ -18,8 +18,11 @@ public sealed class ForwarderOutputWorkerTests
     {
         using var directory = new TemporaryDirectory();
         var reader = new StubBufferReader();
-        var transport = new CallbackTransport(batch =>
-            new DeliveryAck { BatchId = batch.BatchId, Accepted = true });
+        ForwardLogBatch? sentBatch = null;
+        var transport = new CallbackTransport(batch => {
+            sentBatch = batch;
+            return new DeliveryAck { BatchId = batch.BatchId, Accepted = true };
+        });
         var worker = new ForwarderOutputWorker(reader, transport, new ForwarderRetryConfiguration());
 
         var chunk = await CreateChunkOnDiskAsync(directory.Path);
@@ -31,6 +34,10 @@ public sealed class ForwarderOutputWorkerTests
         Assert.HasCount(1, reader.Completed);
         Assert.AreEqual(chunk.Id, reader.Completed[0].Id);
         Assert.IsEmpty(reader.DeadLettered);
+
+        Assert.IsNotNull(sentBatch);
+        Assert.AreEqual(Guid.Parse(chunk.Id.Value), sentBatch.BatchId,
+            "The batch id sent to the transport must be a deterministic derivation of the chunk id.");
 
         var snapshot = worker.GetSnapshot();
         Assert.AreEqual(1, snapshot.SendAttemptsTotal);
@@ -172,7 +179,7 @@ public sealed class ForwarderOutputWorkerTests
         string directoryPath,
         int declaredRecordCount = 1)
     {
-        await using var host = new DurableBufferHost<DeliveryRecord>(
+        await using var host = new DurableBufferHost<ForwardLogRecord>(
             new DurableBufferOptions {
                 StoragePath = directoryPath,
                 MaxChunkRecords = 1,
@@ -206,15 +213,14 @@ public sealed class ForwarderOutputWorkerTests
         };
     }
 
-    private static DeliveryRecord CreateRecord() => new() {
+    private static ForwardLogRecord CreateRecord() => new() {
+        DeliveryId = Guid.NewGuid().ToString("N"),
         AgentId = "agent-01",
-        SourceId = "Syslog:auth.log",
+        SourceType = "Syslog",
+        SourceName = "auth.log",
         RecordId = "42",
         CreatedAt = DateTimeOffset.UtcNow,
-        Record = new ResourceOutputRecord {
-            Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
-            Event = new Dictionary<string, object?> { ["Message"] = "hello" }
-        }
+        Fields = new Dictionary<string, object?> { ["Message"] = "hello" }
     };
 
     private sealed class StubBufferReader : IDurableBufferReader
@@ -252,14 +258,14 @@ public sealed class ForwarderOutputWorkerTests
 
     private sealed class CallbackTransport : IDeliveryTransport
     {
-        private readonly Func<DeliveryBatch, DeliveryAck> _handler;
+        private readonly Func<ForwardLogBatch, DeliveryAck> _handler;
 
-        public CallbackTransport(Func<DeliveryBatch, DeliveryAck> handler)
+        public CallbackTransport(Func<ForwardLogBatch, DeliveryAck> handler)
         {
             _handler = handler;
         }
 
-        public ValueTask<DeliveryAck> SendAsync(DeliveryBatch batch, CancellationToken cancellationToken = default) =>
+        public ValueTask<DeliveryAck> SendAsync(ForwardLogBatch batch, CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(_handler(batch));
     }
 

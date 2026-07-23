@@ -149,7 +149,7 @@ public sealed class ExecutionPlanCompiler
         return kind switch {
             "csv" => "csv",
             "eventlog" or "evtx" or "etl" or "etw" => "structured",
-            "messagepack" or "forwarder-messagepack" => "messagepack-deliverybatch",
+            "messagepack" or "forwarder-messagepack" => "forward-typed-batch",
             _ => "text"
         };
     }

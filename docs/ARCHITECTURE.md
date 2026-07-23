@@ -26,9 +26,10 @@ Implementation sequencing and current migration status are in
   and governed JSON projections.
 - The target agent-to-collector transport is **DeltaZulu.Forward** (ADR 0011):
   a proprietary, RELP-derived but non-wire-compatible reliable framing
-  protocol implemented in `DeltaZulu.Pipeline` itself. Until Phase 12a lands
-  the target binary/Avro state machine, the checked-in daemon configuration uses
-  FORWARDER compatibility framing with MessagePack `DeliveryBatch` payloads.
+  protocol. The checked-in daemon configuration uses FORWARDER `TypedBatch`
+  framing: Pipeline maps records into DeltaZulu.Forward's `ForwardLogRecord`/
+  `ForwardLogBatch` contract and hands them to `ForwardLogBatchCodec`, which
+  owns wire encoding entirely inside the DeltaZulu.Forward package.
   Literal RELP is retained only for older validation notes and any future
   rsyslog-world peer input adapter.
 - `DeltaZulu.LocalStream` is the Pipeline-visible durability and replay
@@ -65,7 +66,7 @@ KQL scalars + logical annotations + nullability + units]
     FD -->|accepted rows| OS[(LocalStream: agent.output)]
     FD -->|no rows| D[Record coverage disposition and commit]
     OS --> RF[Forwarder subscription]
-    RF --> B[DeliveryBatch]
+    RF --> B[ForwardLogBatch]
     B --> FWD[DeltaZulu.Forward -- target; RELP via DeltaZulu.Relp -- current transitional]
     FWD --> ACK[Remote acknowledgement]
     ACK --> C[Commit agent.output position]
@@ -84,9 +85,9 @@ non-thread-safe LocalStream producer is private to the publisher adapter.
 
 ```text
 src/DeltaZulu.Pipeline/
-  Core/             Acquisition, delivery, events, MessagePack, Avro/Arrow
-                    schema projections, governed NDJSON edges, observability,
-                    and profiles
+  Core/             Acquisition, delivery, events, Avro/Arrow schema
+                    projections, governed NDJSON edges, observability, and
+                    profiles
   Inputs/           Files, network, pipes, syslog, RELP, Windows, framing,
                     decoding, mapping, and transitional legacy adapters
   Parsing/          parse.query compiler, parser domains/generations, PDAG
@@ -124,7 +125,7 @@ Admission checks nonempty, bounded, decodable text and a valid PRI (`<0>` to
 separately and is never parser blindness. A valid but unmatched candidate is
 published as unrecognized with its raw message preserved.
 
-CSV, Event Log, EVTX, ETL, ETW, and MessagePack `DeliveryBatch` RELP payloads
+CSV, Event Log, EVTX, ETL, ETW, and `ForwardLogBatch` RELP payloads
 are structured paths. RELP payload type—not the RELP protocol—determines whether
 a record is structured or plaintext.
 

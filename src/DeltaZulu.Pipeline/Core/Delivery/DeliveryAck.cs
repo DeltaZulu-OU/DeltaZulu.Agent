@@ -5,7 +5,7 @@ namespace DeltaZulu.Pipeline.Core.Delivery;
 public sealed record DeliveryAck
 {
     [JsonPropertyName("batchId")]
-    public required string BatchId { get; init; }
+    public required Guid BatchId { get; init; }
 
     [JsonPropertyName("accepted")]
     public required bool Accepted { get; init; }

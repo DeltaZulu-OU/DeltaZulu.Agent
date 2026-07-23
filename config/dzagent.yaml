@@ -13,10 +13,11 @@ pipeline:
   filter:
     mode: profiles
   output:
-    # Forwarding encodes DeliveryBatch payloads with MessagePack and sends them
-    # over Forwarder protocol. Use console or file for local profile/output validation.
+    # Forwarding maps records into DeltaZulu.Forward's ForwardLogBatch contract and
+    # sends them as a typed batch over the Forwarder protocol. Use console or file
+    # for local profile/output validation.
     mode: forward
-    encoding: messagepack
+    encoding: forward
     transport: forwarder
     # file: ./collector.ndjson
 

@@ -1,6 +1,7 @@
 using System.Reactive.Linq;
 using System.Text.Json;
 using DeltaZulu.Agent.Runtime;
+using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Core;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
@@ -88,7 +89,7 @@ public sealed class PipelineIntegrationTests
     }
 
     [TestMethod]
-    public void DeliveryRecord_JsonRoundTrip()
+    public void ForwardLogRecord_JsonRoundTrip()
     {
         var metadata = new Dictionary<string, object?> {
             ["collectorId"] = "agent-1",
@@ -97,15 +98,16 @@ public sealed class PipelineIntegrationTests
         };
         var eventData = new Dictionary<string, object?> { ["Message"] = "test message" };
         var output = new ResourceOutputRecord { Metadata = metadata, Event = eventData };
-        var original = DeliveryRecord.FromResourceOutput(output);
+        var original = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
 
         var options = NdjsonSerializerOptions.CreateDefault();
         var json = JsonSerializer.Serialize(original, options);
-        var roundTripped = JsonSerializer.Deserialize<DeliveryRecord>(json, options);
+        var roundTripped = JsonSerializer.Deserialize<ForwardLogRecord>(json, options);
 
         Assert.IsNotNull(roundTripped);
         Assert.AreEqual(original.AgentId, roundTripped.AgentId);
-        Assert.AreEqual(original.SourceId, roundTripped.SourceId);
+        Assert.AreEqual(original.SourceType, roundTripped.SourceType);
+        Assert.AreEqual(original.SourceName, roundTripped.SourceName);
         Assert.AreEqual(original.DeliveryId, roundTripped.DeliveryId);
     }
 

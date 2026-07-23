@@ -2,7 +2,6 @@ using System.Net.Sockets;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Forward;
-using DeltaZulu.Pipeline.Core.MessagePack;
 
 namespace DeltaZulu.Pipeline.Outputs.Forwarder;
 
@@ -11,7 +10,6 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
     private static readonly TimeSpan SessionCloseTimeout = TimeSpan.FromSeconds(5);
 
     private readonly ForwarderOptions _options;
-    private readonly MessagePackPayloadSerializer _serializer = new();
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
     private int _disposeStarted;
     private int _endpointIndex;
@@ -70,7 +68,7 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
         }
     }
 
-    public async ValueTask<DeliveryAck> SendAsync(DeliveryBatch batch, CancellationToken cancellationToken = default)
+    public async ValueTask<DeliveryAck> SendAsync(ForwardLogBatch batch, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposeStarted) != 0, this);
         ArgumentNullException.ThrowIfNull(batch);
@@ -83,8 +81,9 @@ public sealed class ForwarderTransport : IDeliveryTransport, IAsyncDisposable, I
             try
             {
                 var session = await GetOrOpenSessionAsync(cancellationToken).ConfigureAwait(false);
-                var payload = _serializer.Serialize(batch);
-                await session.SendRawEnvelopeAsync(payload, cancellationToken).ConfigureAwait(false);
+                var normalized = ForwardFieldValueNormalizer.Normalize(batch);
+                var payload = ForwardLogBatchCodec.Encode(normalized);
+                await session.SendTypedBatchAsync(payload, cancellationToken).ConfigureAwait(false);
 
                 return new DeliveryAck {
                     BatchId = batch.BatchId,

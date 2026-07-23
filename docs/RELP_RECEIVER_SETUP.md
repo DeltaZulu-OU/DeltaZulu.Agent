@@ -21,7 +21,7 @@ These examples are operational starting points for lab validation. Validate plai
 | Plain RELP | `2514` | `relp.useTls: false` | RELP over TCP; protect with host firewall or private network. |
 | RELP/TLS | `6514` | `relp.useTls: true` | Receiver presents a certificate trusted by system trust or the configured thumbprint allow-list. |
 
-The forwarded RELP message body is a MessagePack `DeliveryBatch` envelope, not a normalized syslog event. Keep the receiver rule simple: accept RELP, write the raw binary message unchanged, and let downstream systems decode the delivery envelope with the shared DeltaZulu MessagePack codec.
+The forwarded RELP message body is a `ForwardLogBatch` typed-batch envelope, not a normalized syslog event. It is MessagePack-encoded, but the encoding is owned by `ForwardLogBatchCodec` in the DeltaZulu.Forward package, not by this repository. Keep the receiver rule simple: accept RELP, write the raw binary message unchanged, and let downstream systems decode the envelope with `ForwardLogBatchCodec.Decode`.
 
 ## rsyslog plain RELP lab receiver
 
@@ -146,7 +146,7 @@ log {
    - `Thumbprint` for lab or pinned deployments where the receiver certificate thumbprint is explicitly allowed.
    - `Disabled` only for isolated diagnostics; do not use it for production traffic.
 4. Keep a persistent `buffer.path` on durable local storage.
-5. Run the daemon collector smoke test before using a production receiver, then run the receiver with a small host-neutral syslog fixture and confirm the output file receives MessagePack delivery batches.
+5. Run the daemon collector smoke test before using a production receiver, then run the receiver with a small host-neutral syslog fixture and confirm the output file receives `ForwardLogBatch` typed batches.
 
 ## Validation notes
 

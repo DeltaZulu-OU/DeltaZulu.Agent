@@ -7,7 +7,6 @@ using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
 using DeltaZulu.Forward;
-using DeltaZulu.Pipeline.Core.MessagePack;
 using DeltaZulu.Pipeline.Core.Ndjson;
 using DeltaZulu.Pipeline.Core.Observability;
 using DeltaZulu.Pipeline.Inputs.Forwarder;
@@ -129,6 +128,7 @@ public sealed class ForwarderTests
             {
                 return new DeliveryAck { BatchId = batch.BatchId, Accepted = false, Reason = "transient" };
             }
+
             return new DeliveryAck { BatchId = batch.BatchId, Accepted = true };
         });
 
@@ -156,7 +156,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void DeliveryRecord_FromResourceOutput_AssignsUniqueDeliveryId()
+    public void ResourceOutputRecordForwardMapper_ToForwardLogRecord_AssignsUniqueDeliveryId()
     {
         var output = new ResourceOutputRecord {
             Metadata = new Dictionary<string, object?> {
@@ -167,8 +167,8 @@ public sealed class ForwarderTests
             Event = new Dictionary<string, object?> { ["Message"] = "test" }
         };
 
-        var record1 = DeliveryRecord.FromResourceOutput(output);
-        var record2 = DeliveryRecord.FromResourceOutput(output);
+        var record1 = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
+        var record2 = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
 
         Assert.IsFalse(string.IsNullOrWhiteSpace(record1.DeliveryId));
         Assert.IsFalse(string.IsNullOrWhiteSpace(record2.DeliveryId));
@@ -177,23 +177,47 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
+    public void ResourceOutputRecordForwardMapper_ToForwardLogRecord_EnrichmentOverridesEventFieldsOnCollision()
+    {
+        var output = new ResourceOutputRecord {
+            Metadata = new Dictionary<string, object?> {
+                ["collectorId"] = "agent-01",
+                ["sourceType"] = "Syslog",
+                ["sourceName"] = "auth.log"
+            },
+            Event = new Dictionary<string, object?> {
+                ["Message"] = "raw",
+                ["Severity"] = "info"
+            },
+            Enrichment = new Dictionary<string, object?> {
+                ["Message"] = "enriched",
+                ["GeoCountry"] = "EE"
+            }
+        };
+
+        var record = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
+
+        Assert.AreEqual("enriched", record.Fields["Message"]);
+        Assert.AreEqual("info", record.Fields["Severity"]);
+        Assert.AreEqual("EE", record.Fields["GeoCountry"]);
+    }
+
+    [TestMethod]
     public void ForwarderDeliveryRecordSerializer_RoundtripsDeliveryId()
     {
-        var record = new DeliveryRecord {
+        var record = new ForwardLogRecord {
             DeliveryId = "test-delivery-id-abc123",
             AgentId = "agent-01",
-            SourceId = "Syslog:auth.log",
+            SourceType = "Syslog",
+            SourceName = "auth.log",
             RecordId = "42",
             CreatedAt = DateTimeOffset.UtcNow,
-            Record = new ResourceOutputRecord {
-                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
-                Event = new Dictionary<string, object?> { ["Message"] = "hello" }
-            }
+            Fields = new Dictionary<string, object?> { ["Message"] = "hello" }
         };
         var serializer = new ForwarderDeliveryRecordSerializer();
 
         var bytes = serializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<DeliveryRecord>(bytes.Span, TestJson.Options);
+        var deserialized = JsonSerializer.Deserialize<ForwardLogRecord>(bytes.Span, TestJson.Options);
 
         Assert.IsNotNull(deserialized);
         Assert.AreEqual("test-delivery-id-abc123", deserialized.DeliveryId);
@@ -203,23 +227,20 @@ public sealed class ForwarderTests
     public void ForwarderInput_ToSourceEvent_AddsNestedForwarderMetadata()
     {
         var createdAt = DateTimeOffset.Parse("2026-07-02T07:21:49.4311395+00:00");
-        var deliveryRecord = new DeliveryRecord {
+        var forwardRecord = new ForwardLogRecord {
             DeliveryId = "351ddc6968b94697b9369fe81bc9c14f",
             AgentId = "agent-01",
-            SourceId = "Syslog:auth.log",
+            SourceType = "Syslog",
+            SourceName = "auth.log",
             ProfileId = "linux.sshd",
             RecordId = "05f821f93196441ab90bcd64395a836e",
             CreatedAt = createdAt,
-            Record = new ResourceOutputRecord {
-                Metadata = new Dictionary<string, object?> { ["collectorId"] = "agent-01" },
-                Event = new Dictionary<string, object?> { ["Message"] = "hello" }
-            }
+            Fields = new Dictionary<string, object?> { ["Message"] = "hello" }
         };
-        var forwarderInput = new ForwarderInput(new ForwarderInputConfiguration());
 
-        var method = typeof(ForwarderInput).GetMethod("ToSourceEvent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var method = typeof(ForwarderInput).GetMethod("ToSourceEvent", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
         Assert.IsNotNull(method);
-        var sourceEvent = Assert.IsInstanceOfType<SourceEvent>(method.Invoke(forwarderInput, [deliveryRecord]));
+        var sourceEvent = Assert.IsInstanceOfType<SourceEvent>(method.Invoke(null, [forwardRecord]));
         var metadata = sourceEvent.Metadata.ToDictionary();
 
         Assert.IsFalse(metadata.ContainsKey("forwarder.deliveryId"));
@@ -293,7 +314,7 @@ public sealed class ForwarderTests
     }
 
     [TestMethod]
-    public void DeliveryRecord_FromResourceOutput_FallsBackToHostnameWhenCollectorIdMissing()
+    public void ResourceOutputRecordForwardMapper_ToForwardLogRecord_FallsBackToHostnameWhenCollectorIdMissing()
     {
         var output = new ResourceOutputRecord {
             Metadata = new Dictionary<string, object?> {
@@ -306,15 +327,16 @@ public sealed class ForwarderTests
             }
         };
 
-        var delivery = DeliveryRecord.FromResourceOutput(output);
+        var delivery = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
 
         Assert.AreEqual("webhost-01", delivery.AgentId);
-        Assert.AreEqual("LinuxAuditd:auditd", delivery.SourceId);
+        Assert.AreEqual("LinuxAuditd", delivery.SourceType);
+        Assert.AreEqual("auditd", delivery.SourceName);
         Assert.AreEqual("1710000000.123:42", delivery.RecordId);
     }
 
     [TestMethod]
-    public void DeliveryRecord_FromResourceOutput_FallsBackToMachineNameForMissingCollectorId()
+    public void ResourceOutputRecordForwardMapper_ToForwardLogRecord_FallsBackToMachineNameForMissingCollectorId()
     {
         var output = new ResourceOutputRecord {
             Metadata = new Dictionary<string, object?> {
@@ -326,16 +348,17 @@ public sealed class ForwarderTests
             }
         };
 
-        var delivery = DeliveryRecord.FromResourceOutput(output);
+        var delivery = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
 
         Assert.AreEqual(Environment.MachineName, delivery.AgentId);
-        Assert.AreEqual("Syslog:auth.log", delivery.SourceId);
+        Assert.AreEqual("Syslog", delivery.SourceType);
+        Assert.AreEqual("auth.log", delivery.SourceName);
         Assert.IsNull(delivery.ProfileId);
         Assert.IsFalse(string.IsNullOrWhiteSpace(delivery.RecordId));
     }
 
     [TestMethod]
-    public void DeliveryRecord_FromResourceOutput_PreservesAgentSourceProfileAndRecordIdentity()
+    public void ResourceOutputRecordForwardMapper_ToForwardLogRecord_PreservesAgentSourceProfileAndRecordIdentity()
     {
         var output = new ResourceOutputRecord {
             Metadata = new Dictionary<string, object?> {
@@ -350,27 +373,29 @@ public sealed class ForwarderTests
             }
         };
 
-        var delivery = DeliveryRecord.FromResourceOutput(output);
+        var delivery = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
 
         Assert.AreEqual("agent-01", delivery.AgentId);
-        Assert.AreEqual("Syslog:auth.log", delivery.SourceId);
+        Assert.AreEqual("Syslog", delivery.SourceType);
+        Assert.AreEqual("auth.log", delivery.SourceName);
         Assert.AreEqual("linux.sshd", delivery.ProfileId);
         Assert.AreEqual("42", delivery.RecordId);
-        Assert.AreSame(output, delivery.Record);
+        Assert.AreEqual("accepted publickey", delivery.Fields["Message"]);
     }
 
     [TestMethod]
     public void ForwarderDeliveryRecordSerializer_RoundtripsViaJson()
     {
-        var original = CreateTestDeliveryRecord();
+        var original = CreateTestForwardLogRecord();
         var serializer = new ForwarderDeliveryRecordSerializer();
 
         var bytes = serializer.Serialize(original);
-        var deserialized = JsonSerializer.Deserialize<DeliveryRecord>(bytes.Span, TestJson.Options);
+        var deserialized = JsonSerializer.Deserialize<ForwardLogRecord>(bytes.Span, TestJson.Options);
 
         Assert.IsNotNull(deserialized);
         Assert.AreEqual(original.AgentId, deserialized.AgentId);
-        Assert.AreEqual(original.SourceId, deserialized.SourceId);
+        Assert.AreEqual(original.SourceType, deserialized.SourceType);
+        Assert.AreEqual(original.SourceName, deserialized.SourceName);
         Assert.AreEqual(original.RecordId, deserialized.RecordId);
         Assert.AreEqual(original.ProfileId, deserialized.ProfileId);
     }
@@ -567,19 +592,20 @@ public sealed class ForwarderTests
             Port = server.Port
         });
 
-        var batch = new DeliveryBatch {
-            BatchId = "batch-01",
-            Records = [CreateTestDeliveryRecord()]
+        var batchId = Guid.NewGuid();
+        var batch = new ForwardLogBatch {
+            BatchId = batchId,
+            Records = [CreateTestForwardLogRecord()]
         };
 
         var ack = await transport.SendAsync(batch, timeout.Token).AsTask().WaitAsync(timeout.Token);
 
         Assert.IsTrue(ack.Accepted);
-        Assert.AreEqual("batch-01", ack.BatchId);
+        Assert.AreEqual(batchId, ack.BatchId);
 
         var receivedBatch = await server.GetSyslogBatchAsync(timeout.Token);
         Assert.IsNotNull(receivedBatch);
-        Assert.AreEqual("batch-01", receivedBatch.BatchId);
+        Assert.AreEqual(batchId, receivedBatch.BatchId);
         Assert.HasCount(1, receivedBatch.Records);
         Assert.AreEqual("42", receivedBatch.Records[0].RecordId);
     }
@@ -594,13 +620,14 @@ public sealed class ForwarderTests
             Port = server.Port
         });
 
-        var ack = await transport.SendAsync(new DeliveryBatch {
-            BatchId = "batch-02",
-            Records = [CreateTestDeliveryRecord()]
+        var batchId = Guid.NewGuid();
+        var ack = await transport.SendAsync(new ForwardLogBatch {
+            BatchId = batchId,
+            Records = [CreateTestForwardLogRecord()]
         }, timeout.Token).AsTask().WaitAsync(timeout.Token);
 
         Assert.IsFalse(ack.Accepted);
-        Assert.AreEqual("batch-02", ack.BatchId);
+        Assert.AreEqual(batchId, ack.BatchId);
         Assert.Contains("Forwarder send failed", ack.Reason!);
     }
 
@@ -689,13 +716,18 @@ public sealed class ForwarderTests
         Assert.AreEqual(now, record.Event["lastForwarderActivityUtc"]);
     }
 
-    private static DeliveryRecord CreateTestDeliveryRecord() => new() {
+    private static ForwardLogRecord CreateTestForwardLogRecord() => new() {
+        DeliveryId = Guid.NewGuid().ToString("N"),
         AgentId = "agent-01",
-        SourceId = "Syslog:auth.log",
+        SourceType = "Syslog",
+        SourceName = "auth.log",
         ProfileId = "linux.sshd",
         RecordId = "42",
         CreatedAt = DateTimeOffset.UtcNow,
-        Record = CreateTestOutputRecord()
+        Fields = new Dictionary<string, object?> {
+            ["RecordId"] = "42",
+            ["Message"] = "accepted publickey"
+        }
     };
 
     private static ResourceOutputRecord CreateTestOutputRecord() => new() {
@@ -718,21 +750,21 @@ public sealed class ForwarderTests
 
     private sealed class CallbackTransport : IDeliveryTransport
     {
-        private readonly Func<DeliveryBatch, DeliveryAck> _handler;
+        private readonly Func<ForwardLogBatch, DeliveryAck> _handler;
 
-        public CallbackTransport(Func<DeliveryBatch, DeliveryAck> handler)
+        public CallbackTransport(Func<ForwardLogBatch, DeliveryAck> handler)
         {
             _handler = handler;
         }
 
-        public ValueTask<DeliveryAck> SendAsync(DeliveryBatch batch, CancellationToken cancellationToken = default) => ValueTask.FromResult(_handler(batch));
+        public ValueTask<DeliveryAck> SendAsync(ForwardLogBatch batch, CancellationToken cancellationToken = default) => ValueTask.FromResult(_handler(batch));
     }
 
     private sealed class CapturingTransport : IDeliveryTransport
     {
-        public DeliveryBatch? Batch { get; private set; }
+        public ForwardLogBatch? Batch { get; private set; }
 
-        public ValueTask<DeliveryAck> SendAsync(DeliveryBatch batch, CancellationToken cancellationToken = default)
+        public ValueTask<DeliveryAck> SendAsync(ForwardLogBatch batch, CancellationToken cancellationToken = default)
         {
             Batch = batch;
             return ValueTask.FromResult(new DeliveryAck {
@@ -753,7 +785,7 @@ public sealed class ForwarderTests
             _reason = reason;
         }
 
-        public ValueTask<DeliveryAck> SendAsync(DeliveryBatch batch, CancellationToken cancellationToken = default) => ValueTask.FromResult(new DeliveryAck {
+        public ValueTask<DeliveryAck> SendAsync(ForwardLogBatch batch, CancellationToken cancellationToken = default) => ValueTask.FromResult(new DeliveryAck {
             BatchId = batch.BatchId,
             Accepted = _accepted,
             Reason = _reason
@@ -772,7 +804,7 @@ public sealed class ForwarderTests
         private readonly TcpListener _listener;
         private readonly bool _acceptSyslog;
         private readonly Task _serverTask;
-        private readonly TaskCompletionSource<DeliveryBatch?> _batchSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<ForwardLogBatch?> _batchSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly CancellationTokenSource _cts = new();
         private TcpClient? _client;
 
@@ -794,10 +826,10 @@ public sealed class ForwarderTests
             return Task.FromResult(new FakeForwarderServer(listener, acceptSyslog));
         }
 
-        public async Task<DeliveryBatch?> GetSyslogBatchAsync(CancellationToken cancellationToken)
+        public async Task<ForwardLogBatch?> GetSyslogBatchAsync(CancellationToken cancellationToken)
         {
             await using var registration = cancellationToken.UnsafeRegister(static state =>
-                ((TaskCompletionSource<DeliveryBatch?>)state!).TrySetCanceled(), _batchSource);
+                ((TaskCompletionSource<ForwardLogBatch?>)state!).TrySetCanceled(), _batchSource);
             return await _batchSource.Task.ConfigureAwait(false);
         }
 
@@ -827,12 +859,12 @@ public sealed class ForwarderTests
                 var options = new ForwardSessionOptions {
                     BatchHandler = (frameType, batchId, payload, ct) =>
                     {
-                        if (frameType is not ForwardFrameType.RawEnvelope and not ForwardFrameType.TypedBatch)
+                        if (frameType != ForwardFrameType.TypedBatch)
                         {
                             return Task.FromResult(new ForwardAckOutcome(2, $"Unsupported batch frame type {frameType}"));
                         }
 
-                        _batchSource.TrySetResult(new MessagePackPayloadSerializer().Deserialize<DeliveryBatch>(payload));
+                        _batchSource.TrySetResult(ForwardLogBatchCodec.Decode(payload));
                         return Task.FromResult(_acceptSyslog
                             ? new ForwardAckOutcome(0, null)
                             : new ForwardAckOutcome(1, "rejected"));
