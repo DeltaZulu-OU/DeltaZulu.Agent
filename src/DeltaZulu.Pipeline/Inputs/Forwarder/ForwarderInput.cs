@@ -129,7 +129,7 @@ public sealed class ForwarderInput : ISourceInput
                 options,
                 cancellationToken).ConfigureAwait(false);
 
-            await session.Completion.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await session.ReceiveLoopCompletion!.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (EndOfStreamException)
         {

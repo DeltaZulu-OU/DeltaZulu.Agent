@@ -853,7 +853,7 @@ public sealed class ForwarderTests
                     options,
                     _cts.Token).ConfigureAwait(false);
 
-                await session.Completion.WaitAsync(_cts.Token).ConfigureAwait(false);
+                await session.ReceiveLoopCompletion!.WaitAsync(_cts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (_cts.IsCancellationRequested)
             {
