@@ -42,9 +42,9 @@ without losing their current source metadata. This establishes
 the strict source boundary required before Phase 6 can add `parse.query` and
 Phase 7 can compile a unified PDAG.
 
-The following capabilities are deliberately **not** claimed as present yet; the
-current code/documentation gap inventory is maintained in
-[`IMPLEMENTATION_GAP_ANALYSIS.md`](IMPLEMENTATION_GAP_ANALYSIS.md).
+The following capabilities are deliberately **not** claimed as present yet;
+the phase table below and its "implementation notes" section are the
+current code/documentation gap inventory.
 KqlTools/RealTimeKql alignment is tracked as an intentional local-query lane in
 [`REALTIME_TABLE_STREAMING_GAP_ANALYSIS.md`](REALTIME_TABLE_STREAMING_GAP_ANALYSIS.md):
 DeltaZulu should preserve KqlTools-style queryable table aliases such as
@@ -207,6 +207,18 @@ today's FORWARDER/RawEnvelope compatibility framing once Phase 12a lands;
 see ADR 0011 for the framing, handshake, and dedup-window design and ADR
 0006 for the narrowed, transitional role FORWARDER retains.
 
+## Open questions
+
+- **Backend query-translator ownership.** ADR 0010's claim that one KQL
+  query should translate against Proton and DuckDB from a shared physical
+  type catalog has no in-repository translator implementation, and no
+  Proton/DuckDB query translator code exists anywhere in this repository's
+  source tree. Whether that translator lives in this repository, in a
+  separate DeltaZulu server/platform repository, or has not been started
+  anywhere is not currently documented. Resolve this ownership question,
+  and update this roadmap and ADR 0010 accordingly, before Phase 18/19
+  claim KQL/backend answer parity.
+
 ## Validation expectations
 
 Run the repository's relevant .NET restore/build/test commands after each phase.
@@ -224,11 +236,26 @@ payload path plus `DeltaZulu.Parse` patterns, not source-specific parser logic
 in acquisition adapters. These transitional details are not design options for
 new daemon work.
 
-## Phase 10, 12, and 13 implementation notes
+## Phase 3–4, 8, 10, 12, and 13 implementation notes
 
-Concrete anchors for the two phases that retire the current profile-per-source
-runtime, so migration work has file-level targets in addition to the
-architecture-level objective above.
+Concrete anchors so migration work has file-level targets in addition to the
+architecture-level objectives above.
+
+**Phase 3–4 — split syslog transport/framing/admission from parsing:** the
+current legacy code is `src/DeltaZulu.Pipeline/Inputs/Syslog/TcpSyslogInput.cs`,
+`FifoSyslogInput.cs`, and the file-tail syslog inputs, which instantiate
+`LightweightSyslogParser`
+(`src/DeltaZulu.Pipeline/Inputs/Syslog/LightweightSyslogParser.cs`) and parse
+directly inside the input adapter; `TcpSyslogInput` reads newline-delimited
+text and does not implement bounded RFC 6587 octet-counted framing. These
+phases split transport/framing/admission (size/PRI checks, admission
+metrics) from parsing, moving field extraction to `DeltaZulu.Parse` patterns.
+
+**Phase 8 — move auditd correlation after Parse:** the current legacy code is
+`src/DeltaZulu.Pipeline/Inputs/Auditd/AuditdFileInput.cs`, which directly uses
+`AuditdRecordParser.cs` and `AuditdEventAssembler.cs` inside the input
+adapter. This phase moves record parsing to Parse compatibility rules and
+multi-record assembly to post-materialization assembly.
 
 **Phase 10 — execution plans replace `ProfileBinding`/`ResourcePipeline`:** the
 current legacy code is `src/DeltaZulu.Agent.Runtime/AgentRuntime.cs`
