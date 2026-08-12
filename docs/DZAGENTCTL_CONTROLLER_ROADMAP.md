@@ -263,7 +263,7 @@ Output:
 - Oldest buffered record age
 - Dead-letter count
 - Backpressure state
-- Active RELP endpoint
+- Active FORWARDER endpoint
 - Last ACK
 - Retries
 - Last output error
@@ -306,7 +306,7 @@ Instrumentation points:
 - parse failure
 - KQL filter input/output/error
 - buffer enqueue/dequeue/dead-letter
-- RELP connect/send/ack/retry/failure
+- FORWARDER connect/send/ack/retry/failure
 - integrity monitor finding
 
 Rules:

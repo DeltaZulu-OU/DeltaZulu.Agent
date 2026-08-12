@@ -239,8 +239,9 @@ current legacy code is `src/DeltaZulu.Agent.Runtime/AgentRuntime.cs`
 acquisition/parser/filter plan binding.
 
 **Phase 12 — replace direct DurableBuffer forwarding:** the current
-`BufferedRelpSink` owns the DurableBuffer host, starts the forwarding worker,
-and drains it during shutdown. It is not replaced merely by adding LocalStream:
+`BufferedForwarderSink` (`src/DeltaZulu.Pipeline/Outputs/Forwarder/BufferedForwarderSink.cs`)
+owns the DurableBuffer host, starts the forwarding worker, and drains it
+during shutdown. It is not replaced merely by adding LocalStream:
 the LocalStream-backed forwarder must subscribe to `agent.output`, replay after
 restart, and commit only after a delivery acknowledgement (FORWARDER until Phase
 12a). The direct DurableBuffer project reference is removed only after those

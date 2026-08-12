@@ -106,14 +106,16 @@ The important implementation facts are:
 4. **KQL/backend parity is a target assertion without in-repo backend code.** The
    docs should avoid implying Proton/DuckDB parity is present until the catalog,
    generated DDL, and translator mappings exist and are tested.
-5. **Literal RELP's scope narrowed, not removed, by ADR 0011.** Literal RELP
-   remains relevant to older validation guidance and any future rsyslog-world
-   peer input adapter; the checked-in daemon configuration now uses FORWARDER
-   compatibility framing, and neither path is the target binary, typed
+5. **No literal-RELP client or receiver was ever built.** `docs/RELP_RECEIVER_SETUP.md`
+   documented a literal-RELP validation setup that did not correspond to any
+   code in this repository and has been removed; literal RELP's only
+   remaining relevance is as DeltaZulu.Forward's design lineage and as a
+   possible future rsyslog-world peer input adapter (ADR 0011). The
+   checked-in daemon configuration uses FORWARDER compatibility framing,
+   which is neither literal RELP nor the target binary, typed
    DeltaZulu.Forward transport (MessagePack `ForwardLogBatch`, ADR 0014).
-   Documents referencing "the RELP forwarder" as
-   target architecture should be corrected to describe the historical/current/
-   target split explicitly.
+   Documents referencing "the RELP forwarder" as target architecture should
+   be corrected to describe the historical/current/target split explicitly.
 
 ## Immediate documentation follow-up
 

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Supersedes the wire-serialization choice in [ADR 0010](0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md).
+Accepted. Supersedes the wire-serialization choice in
+[ADR 0010](0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md).
 
 ## Context
 
@@ -60,8 +61,9 @@ a schema artifact. (The Arrow projection is itself superseded by
 the projection list narrows further to three there.)
 
 The collector decodes each MessagePack `ForwardLogBatch` record once and
-validates it against the catalog. **Update ([ADR 0015](0015-no-arrow-catalog-typed-records.md)):**
-that decode step does not produce an Arrow record batch — the collector
+validates it against the catalog. **Update
+([ADR 0015](0015-no-arrow-catalog-typed-records.md)):** that decode step
+does not produce an Arrow record batch — the collector
 works directly with the catalog-typed record. This ADR's original text
 here claimed Arrow remained the collector's internal representation,
 unchanged from ADR 0010; that claim is superseded by ADR 0015.

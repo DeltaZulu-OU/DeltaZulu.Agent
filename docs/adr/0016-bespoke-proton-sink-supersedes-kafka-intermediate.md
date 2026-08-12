@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Supersedes [ADR 0012](0012-proton-ingestion-intermediate-protocol.md)'s decision in full.
+Accepted. Supersedes
+[ADR 0012](0012-proton-ingestion-intermediate-protocol.md)'s decision in
+full.
 
 ## Context
 

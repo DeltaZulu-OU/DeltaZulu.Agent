@@ -49,11 +49,12 @@ compression, and dedup-window size; first-class frame types (typed-batch,
 raw-envelope, schema-request/response, dead-letter-forward, control); explicit
 backpressure signaling via window adjustment or throttle frames.
 
-One MessagePack-encoded `ForwardLogBatch` (ADR 0014) per frame; the ack means durable acceptance of that batch;
-batches are never split across frames and frames never carry multiple
-independently committable batches. Every batch carries a UUID; the collector
-maintains a bounded, session-spanning dedup window applied before decode, so
-at-least-once delivery's guaranteed duplicates never reach a typed detection
+One MessagePack-encoded `ForwardLogBatch` (ADR 0014) per frame; the ack
+means durable acceptance of that batch; batches are never split across
+frames and frames never carry multiple independently committable batches.
+Every batch carries a UUID; the collector maintains a bounded,
+session-spanning dedup window applied before decode, so at-least-once
+delivery's guaranteed duplicates never reach a typed detection
 pipeline as double-counted events.
 
 Interop with rsyslog-world or fluentd peers is a non-goal on this channel. Raw

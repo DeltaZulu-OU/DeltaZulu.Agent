@@ -774,7 +774,7 @@ the only workstream that safely touches today's code before the LocalStream subs
 |----|---------|-----------|-----------------|-----------|------|
 | B.1 | Implement LocalStream producer/subscription core (positions, concurrent appends, subscription checkpoints/lag). | P0.1 | new `src/DeltaZulu.Pipeline/Streaming/` | Concurrent producers get monotonic positions; independent subscriber checkpoints. | High |
 | B.2 | Define `agent.parsed` and `agent.output` topics. | B.1 | `.../Streaming/` | Two named streams instantiated by the runtime. | Med |
-| B.3 | Clarify LocalStream ↔ `DeltaZulu.DurableBuffer` boundary in code paths (FORWARDER durability stays in the buffer). | B.1 | `src/DeltaZulu.Pipeline/Outputs/Relp/BufferedRelpSink.cs` | Forwarder still enqueues to DurableBuffer; no records unacknowledged outside it. | High |
+| B.3 | Clarify LocalStream ↔ `DeltaZulu.DurableBuffer` boundary in code paths (FORWARDER durability stays in the buffer). | B.1 | `src/DeltaZulu.Pipeline/Outputs/Forwarder/BufferedForwarderSink.cs` | Forwarder still enqueues to DurableBuffer; no records unacknowledged outside it. | High |
 
 ### WS-C — Acquisition fan-in / parsed publisher (Phases 2–4, 11)
 
@@ -803,7 +803,7 @@ the only workstream that safely touches today's code before the LocalStream subs
 
 | ID | Subtask | Depends on | Target boundary | Acceptance | Risk |
 |----|---------|-----------|-----------------|-----------|------|
-| F.1 | FORWARDER forwarder consumes `agent.output` as an independent LocalStream subscription (own checkpoint/lag/retry). | E.2, B.3 | `src/DeltaZulu.Pipeline/Outputs/Relp/**` | Forwarder is a subscriber; FORWARDER-send failure does not commit its `agent.output` position. | High |
+| F.1 | FORWARDER forwarder consumes `agent.output` as an independent LocalStream subscription (own checkpoint/lag/retry). | E.2, B.3 | `src/DeltaZulu.Pipeline/Outputs/Forwarder/**` | Forwarder is a subscriber; FORWARDER-send failure does not commit its `agent.output` position. | High |
 | F.2 | Diagnostic NDJSON consumer as a separate subscription (no manual multi-sink invocation). | E.2 | `src/DeltaZulu.Pipeline/Outputs/Ndjson/**` | NDJSON and FORWARDER failures are independent. | Med |
 
 ### WS-G — Execution-plan runtime → remove per-profile pipelines (Phase 9; triggers deletion)

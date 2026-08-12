@@ -80,7 +80,7 @@ The workbench schema tree now presents configured sources as `<table> (source: <
 | Schema availability | Mostly inferred from event dictionaries; low ceremony. | Stronger schema descriptors exist, but provider/source-specific table schemas are not always executable. | DeltaZulu has schema metadata but not enough binding metadata to say “this schema is runnable now.” | `schemas`/TUI should show table, aliases, columns, and executable/schema-only state. |
 | Cross-platform input model | Windows-heavy with syslog/csv support. | Cross-platform inputs exist; Windows-specific inputs are conditionally compiled; `DeltaZulu.Parse` is the planned parser-materialization path for raw/non-structured text sources. | Table naming examples are currently Windows-centric, and parser migration could accidentally collapse concrete aliases into generic family tables. | Use platform-neutral table bindings with Windows, Linux, and local raw discovery adapters. Keep KqlTools-style table aliases (`EtwTcp`, `EtwDns`, file stems, plus deliberate raw-log aliases such as `AuthLog` or `NginxAccess`) separate from Parse materialization. |
 | Query authoring | Query starts with the actual stream alias. | TUI insertion currently emits `<Table> | Source ~= "<source>"` for some profile sources. | The inserted query is more complex than KqlTools and exposes internal source filtering. | Insert only the concrete table alias when a table binding is unambiguous. |
-| Output model | Streaming output sinks are pluggable. | Agent pipeline forwards records; workbench/TUI displays tables; durable/RELP output exists for daemon paths. | Local streaming query output is not yet a pluggable sink model like KqlTools. | Define output sinks for local streaming queries: TUI table, NDJSON, MessagePack/RELP, ADX/export later. |
+| Output model | Streaming output sinks are pluggable. | Agent pipeline forwards records; workbench/TUI displays tables; durable/FORWARDER output exists for daemon paths. | Local streaming query output is not yet a pluggable sink model like KqlTools. | Define output sinks for local streaming queries: TUI table, NDJSON, MessagePack/FORWARDER, ADX/export later. |
 | Multi-resource queries | Primarily one input observable per command/query. | Current profile executor is also effectively one source stream. | Multi-table joins are not the immediate KqlTools parity target. | First match KqlTools single-stream behavior; defer multi-table joins/catalog composition. |
 
 ## Detailed gaps and actions
@@ -194,7 +194,7 @@ The service should own query validation, Rx.Kql startup, counters, cancellation,
 - NDJSON sink.
 - File sink.
 - Optional future ADX/export sink.
-- Optional bridge to existing durable/RELP delivery when a query is promoted to a profile.
+- Optional bridge to existing durable/FORWARDER delivery when a query is promoted to a profile.
 
 ### 7. Compatibility and migration
 
