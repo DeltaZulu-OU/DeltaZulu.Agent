@@ -3,6 +3,7 @@
     <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
   </Folder>
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
+  <Project Path="src/DeltaZulu.Agent.ControlPlane/DeltaZulu.Agent.ControlPlane.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
   <Project Path="src/DeltaZulu.Agent.Filter/DeltaZulu.Agent.Filter.csproj" />
   <Project Path="src/DeltaZulu.Agent.ProfileWorkbench/DeltaZulu.Agent.ProfileWorkbench.csproj" />

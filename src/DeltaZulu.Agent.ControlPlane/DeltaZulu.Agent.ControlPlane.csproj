@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>DeltaZulu.Agent.ControlPlane</RootNamespace>
+    <AssemblyName>DeltaZulu.Agent.ControlPlane</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="DeltaZulu.Agent.Tests" />
+  </ItemGroup>
+</Project>
