@@ -116,3 +116,7 @@ unchanged from ADR 0010; that claim is superseded by ADR 0015.
 - Reopens (does not resolve) the payload-format assumption in
   [ADR 0012](0012-proton-ingestion-intermediate-protocol.md)'s
   Kafka-API-compatible intermediate.
+- §10 of
+  [`FORWARD_PROTOCOL_SPECIFICATION.md`](../FORWARD_PROTOCOL_SPECIFICATION.md)
+  is the detailed byte-level `TypedBatch` payload contract this ADR's
+  decision produces.

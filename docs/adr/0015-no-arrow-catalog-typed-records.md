@@ -88,3 +88,8 @@ projection, in addition to no Avro wire schema projection (ADR 0014).
   that Arrow remains the collector's internal representation.
 - Removes the Arrow assumption underlying the Proton ingestion mechanism
   superseded by [ADR 0016](0016-bespoke-proton-sink-supersedes-kafka-intermediate.md).
+- §10.2 of
+  [`FORWARD_PROTOCOL_SPECIFICATION.md`](../FORWARD_PROTOCOL_SPECIFICATION.md)
+  documents the per-record identity fields the collector uses to resolve
+  the governing catalog entry without a wire-carried schema, which is why
+  this ADR's no-Arrow design works.

@@ -102,3 +102,11 @@ built — no such adapter exists in this repository today.
 None recorded yet; add here if fleet roaming/middlebox requirements make QUIC
 attractive, or if measured Forward overhead versus plain RELP-derived text framing proves
 material.
+
+## Related decisions
+
+- [`FORWARD_PROTOCOL_SPECIFICATION.md`](../FORWARD_PROTOCOL_SPECIFICATION.md)
+  is the standalone wire-protocol specification (`FWD-CONTRACT-v1`) this
+  ADR's design rationale is written up as: frame format, handshake,
+  reliability semantics, and the `TypedBatch` payload contract, extracted
+  from the reference `DeltaZulu.Forward` implementation.
