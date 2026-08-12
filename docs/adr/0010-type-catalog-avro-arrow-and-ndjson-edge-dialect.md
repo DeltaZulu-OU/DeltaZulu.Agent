@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted
+Accepted for the type-contract catalog (KQL scalars, logical annotations,
+nullability, units, per-backend physical mappings) and the Arrow/Proton
+DDL/DuckDB DDL/parser-contract projections. **Superseded for the wire
+format** by [ADR 0014](0014-messagepack-wire-supersedes-avro.md): the
+agent-to-collector wire is MessagePack, not Avro, and there is no generated
+Avro wire schema projection. Historical decision retained for context;
+read ADR 0014 for the current wire-format decision.
 
 ## Context
 

@@ -4,6 +4,13 @@
 
 Accepted. Target design; not yet implemented (see ROADMAP.md Phase 12a).
 
+> **Wire-format note ([ADR 0014](0014-messagepack-wire-supersedes-avro.md)):**
+> this ADR's typed-batch payload is MessagePack (a `ForwardLogBatch`,
+> matching `DeltaZulu.Forward`'s own implementation), not Avro. Below,
+> "Avro" describes this ADR's now-superseded original assumption; read
+> ADR 0014 for the current decision. The framing, handshake, windowing, and
+> dedup design in this ADR is otherwise unaffected.
+
 ## Context
 
 The agent-to-collector transport previously had no ratified name and no
@@ -15,11 +22,11 @@ naming, which the upstream rename now matches.) ADR 0006 assigns
 `DeltaZulu.Relp` ownership of RELP framing, sessions, transactions, and
 acknowledgements for a prospective literal-RELP local-validation path, but
 no literal-RELP client or receiver was ever built against that decision, and
-it does not decide what the long-term, Avro-carrying, agent-to-collector
-transport is or what it is called. Reusing literal RELP long-term would
-carry legacy constraints (text command verbs, syslog payload assumptions,
-librelp/rsyslog wire compatibility) that the Avro payload (ADR 0010) already
-forfeits the interop those constraints exist for.
+it does not decide what the long-term, typed, agent-to-collector transport
+is or what it is called. Reusing literal RELP long-term would carry legacy
+constraints (text command verbs, syslog payload assumptions, librelp/rsyslog
+wire compatibility) that the typed payload (ADR 0010/0014) already forfeits
+the interop those constraints exist for.
 
 ## Decision
 
@@ -42,7 +49,7 @@ compression, and dedup-window size; first-class frame types (typed-batch,
 raw-envelope, schema-request/response, dead-letter-forward, control); explicit
 backpressure signaling via window adjustment or throttle frames.
 
-One Avro batch per frame; the ack means durable acceptance of that batch;
+One MessagePack-encoded `ForwardLogBatch` (ADR 0014) per frame; the ack means durable acceptance of that batch;
 batches are never split across frames and frames never carry multiple
 independently committable batches. Every batch carries a UUID; the collector
 maintains a bounded, session-spanning dedup window applied before decode, so
@@ -56,17 +63,22 @@ built — no such adapter exists in this repository today.
 
 ## Alternatives rejected
 
-- **Pure FORWARDER via a librelp wrapper**: carries legacy constraints the Avro
-  payload already forfeits the interop those constraints exist for.
+- **Pure FORWARDER via a librelp wrapper**: carries legacy constraints the
+  typed payload already forfeits the interop those constraints exist for.
 - **gRPC streaming**: rejected for agent dependency weight, opaque
   flow-control tuning, and no native ack-on-commit semantics.
 - **QUIC via `System.Net.Quic`**: deferred on enterprise middlebox traversal
   and operational maturity; reconsider if roaming-endpoint requirements
   emerge.
-- **fluentd Forward protocol itself**: the naming inspiration, but its
-  MessagePack payload model reintroduces the type floor ADR 0010 exists to
-  avoid; adopting its wire format without its payload format would be
-  compatibility theater.
+- **fluentd Forward protocol itself**: the naming inspiration, but not
+  adopted wholesale — its wire framing (a MessagePack-RPC-based event
+  stream) does not provide the ack-on-durable-commit, negotiated windowing,
+  or dedup-window semantics harvested from RELP; adopting its framing
+  without those semantics would be compatibility theater. (Its choice of
+  MessagePack for the payload is not the distinguishing factor —
+  DeltaZulu.Forward independently uses MessagePack too, per ADR 0014; the
+  two protocols differ in framing and session semantics, not payload
+  serialization.)
 
 ## Consequences
 
@@ -74,9 +86,10 @@ built — no such adapter exists in this repository today.
   possible future legacy/rsyslog-world peer input adapter; no literal-RELP
   client or receiver was ever built. Current checked-in daemon configuration
   uses `forwarder:`/`transport: forwarder` compatibility framing over
-  DeltaZulu.Forward while the target binary Avro DeltaZulu.Forward protocol
-  remains Phase 12a work. ADR 0006 remains accepted for any future
-  literal-RELP peer input path.
+  DeltaZulu.Forward while the target binary, typed DeltaZulu.Forward
+  protocol (MessagePack-encoded `ForwardLogBatch` batches, ADR 0014) remains
+  Phase 12a work. ADR 0006 remains accepted for any future literal-RELP peer
+  input path.
 - The protocol state machine (retransmit-after-reconnect races, cross-session
   duplicates, txnr wraparound, half-open detection, window exhaustion,
   shutdown with unacked frames) is a separately testable component with its

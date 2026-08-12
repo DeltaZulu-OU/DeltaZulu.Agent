@@ -137,13 +137,14 @@ The `schemas` command always lists built-in input resource schemas, so it works 
 - **Architecture migration status (2026-07-19):** Phases 0-1 are complete and
   Phase 2 is active. Current work introduces text and structured input
   contracts with metadata-preserving adapters; it does not yet add Parse
-  parsing, LocalStream runtime behavior, the target binary/Avro
-  DeltaZulu.Forward state machine, or the execution-plan daemon.
+  parsing, LocalStream runtime behavior, the target binary, typed
+  DeltaZulu.Forward state machine (MessagePack `ForwardLogBatch`, ADR 0014),
+  or the execution-plan daemon.
 - `DeltaZulu.Pipeline` is the single reusable, multi-targeted pipeline assembly. Its internal `Core`, `Inputs`, `Parsing`, `Assembly`, `Streaming`, `Dispatch`, `Enrichment`, `Outputs`, and `Tunnel` boundaries are folders and namespaces, not separate projects.
 - The target has distinct text and structured input contracts. Inputs acquire, frame, decode, or map; `DeltaZulu.Parse` (renamed from `DeltaZulu.Normalize`, [ADR 0013](docs/adr/0013-parse-naming.md)) will be the only plaintext structural parser, while deterministic/native structured inputs bypass it.
 - The current daemon remains transitional: it still executes profile-centric pipelines, uses direct `DeltaZulu.DurableBuffer` forwarding, and serializes legacy concurrent output with `ChannelOutputMultiplexer`.
 - The target daemon uses one LocalStream host with `agent.parsed` (materialization-to-filter) and `agent.output` (filter-to-forwarder). LocalStream is a primitive in-agent stream substrate; it is not a DurableBuffer wrapper. Logical topics are parsed-envelope values; they are not physical streams.
-- DeltaZulu.Forward ([ADR 0011](docs/adr/0011-deltazulu-forward-transport.md)) is the target transport. The current FORWARDER compatibility path is still MessagePack `DeliveryBatch` over the repository's RELP-derived text framing; the binary Avro-carrying Forward state machine remains Phase 12a work. Output commits occur only after a forwarding acknowledgement either way.
+- DeltaZulu.Forward ([ADR 0011](docs/adr/0011-deltazulu-forward-transport.md)) is the target transport. The current FORWARDER compatibility path is still MessagePack `DeliveryBatch` over the repository's RELP-derived text framing; the binary, typed Forward state machine (MessagePack-encoded `ForwardLogBatch` batches, [ADR 0014](docs/adr/0014-messagepack-wire-supersedes-avro.md)) remains Phase 12a work. Output commits occur only after a forwarding acknowledgement either way.
 - `parse.query` will be an optional restricted Parse-rule contract; `filter.query` remains Rx.Kql-owned. Profiles do not configure streams, offsets, partitions, parser generations, or multiplexer behavior.
 - Unrecognized plaintext is preserved and coverage distinguishes admission rejection, parser no-match, filter no-candidate, filter no-match, and operational errors.
 - Agent output preserves source-native field names; server-side DeltaZulu components perform canonical semantic normalization. The type-contract catalog ([ADR 0010](docs/adr/0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md)) governs representation, not this semantic layer.
@@ -186,7 +187,7 @@ placeholder.
 
 - [Architecture](docs/ARCHITECTURE.md) is the authoritative target topology and dependency boundary.
 - [Roadmap](docs/ROADMAP.md) tracks the staged migration and current transitional baseline.
-- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](docs/adr/0011-deltazulu-forward-transport.md) and [Proton ingestion via an intermediate protocol](docs/adr/0012-proton-ingestion-intermediate-protocol.md).
+- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](docs/adr/0011-deltazulu-forward-transport.md), [Proton ingestion via an intermediate protocol](docs/adr/0012-proton-ingestion-intermediate-protocol.md), and [MessagePack as the wire format, superseding Avro](docs/adr/0014-messagepack-wire-supersedes-avro.md).
 
 ## License
 

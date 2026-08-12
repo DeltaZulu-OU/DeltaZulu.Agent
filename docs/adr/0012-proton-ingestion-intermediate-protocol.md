@@ -5,6 +5,16 @@
 Accepted — 2026-07-19. Target design; not yet implemented (see ROADMAP.md
 Phase 3b).
 
+> **Reopened by [ADR 0014](0014-messagepack-wire-supersedes-avro.md):** the
+> "no re-encoding" claim below assumed the agent-to-collector wire format
+> was Avro, matching Proton's Kafka-API Avro ingestion. ADR 0014 makes the
+> wire format MessagePack instead. Whether the Kafka-API-compatible
+> intermediate still needs an Avro (or other) re-encoding step between the
+> collector's Arrow batches and the Kafka topic — and whether that brings
+> back a narrowly-scoped Avro-schema-generation projection for this leg
+> only — is unresolved; treat it as part of this ADR's Phase 3b
+> integration-testing verification, not a decided detail.
+
 ## Context
 
 ADR 0010 left the Proton leg with an open verification (native Avro ingest

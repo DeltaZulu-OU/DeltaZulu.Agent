@@ -28,8 +28,9 @@ are transitional implementation details, not target architecture. Existing
 syslog and auditd parsing is also transitional until Parse parity is
 established. Agent-to-collector forwarding still speaks FORWARDER
 compatibility framing (MessagePack `DeliveryBatch` carried as a
-DeltaZulu.Forward RawEnvelope batch); the typed, Avro-carrying
-DeltaZulu.Forward transport (ADR 0011) is not yet implemented.
+DeltaZulu.Forward RawEnvelope batch); the typed DeltaZulu.Forward transport
+(MessagePack-encoded `ForwardLogBatch` batches, ADR 0011/0014) is not yet
+implemented.
 
 ## Current delivery status (2026-07-17)
 
@@ -58,14 +59,16 @@ using `DeltaZulu.Parse` for pattern-based extraction behind raw table bindings.
 - The daemon is not yet an execution-plan runtime and still uses per-profile
   `ResourcePipeline` instances, direct DurableBuffer forwarding, and
   `ChannelOutputMultiplexer`.
-- The type-contract catalog, Avro wire schemas, Arrow record batches, generated
-  Proton/DuckDB DDL, and translator type tables are accepted target design only;
-  no implementation exists in this repository yet.
-- The typed, Avro-carrying DeltaZulu.Forward transport (ADR 0011) and the
-  Proton Kafka-API-compatible intermediate (ADR 0012) are accepted target
-  design only; current forwarding still speaks FORWARDER compatibility
-  framing (MessagePack `DeliveryBatch` over DeltaZulu.Forward's RawEnvelope
-  path) and no Proton-leg publishing code exists.
+- The type-contract catalog, Arrow record batches, generated Proton/DuckDB
+  DDL, and translator type tables are accepted target design only; no
+  implementation exists in this repository yet. The wire format is
+  MessagePack, not Avro (ADR 0014); there is no Avro wire schema projection.
+- The typed DeltaZulu.Forward transport (MessagePack-encoded
+  `ForwardLogBatch` batches, ADR 0011/0014) and the Proton Kafka-API-
+  compatible intermediate (ADR 0012) are accepted target design only;
+  current forwarding still speaks FORWARDER compatibility framing
+  (MessagePack `DeliveryBatch` over DeltaZulu.Forward's RawEnvelope path)
+  and no Proton-leg publishing code exists.
 
 Phase 2 work must preserve the legacy behavior through compatibility adapters;
 it must not prematurely move structured sources through Parse or replace
@@ -76,8 +79,9 @@ becomes fields, not the KQL table identity users type. Local streaming queries
 should still prefer explicit, KqlTools-style table aliases (`EtwTcp`, `EtwDns`,
 `AuthLog`, `NginxAccess`, file stems) over generic family tables plus `Source`
 predicates when a binding is unambiguous. The
-type-contract-catalog/Avro/Arrow architecture recorded in ADR 0010 is accepted
-target design, but it is not implemented in the current
+type-contract-catalog/Arrow architecture recorded in ADR 0010 (wire format
+per ADR 0014, not Avro) is accepted target design, but it is not implemented
+in the current
 baseline and must not be implied by Phase 2 input records alone. Parse is
 the first production migration priority after the typed input boundary: it
 establishes the parsed-event contract that LocalStream will persist. LocalStream
@@ -98,17 +102,17 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | 6 | Planned | Add restricted `parse.query` and a Parse compatibility materializer. | Existing `filter.query` profiles continue receiving compatible `SourceEvent` shapes; profile-scoped diagnostics validate topic-tagged parser rules; raw text and parser provenance are retained. |
 | 7 | Planned | Build unified Parse PDAG generations. | Parser domains group compatible rules deterministically; each plaintext record traverses one PDAG; recognized, unrecognized, and error outcomes remain explicit. |
 | 8 | Planned | Move auditd correlation after Parse. | The assembler consumes parsed fields, maintains bounded incomplete-group state, and retires the hardcoded audit parser in the acquisition adapter. |
-| 9 | Planned | Define parsed envelopes, type-contract catalog entries, and implement the LocalStream host. | `ParsedEventEnvelope` has stable identity, materialization state, and catalog-backed logical type metadata; Avro wire schemas, Arrow server schemas, generated sink DDL, and translator type tables are derived from one catalog generation. One LocalStream host provides append/read/commit/replay for `agent.parsed` and `agent.output`, but legacy DurableBuffer remains the active forwarder until dispatch and ACK semantics are proven. |
+| 9 | Planned | Define parsed envelopes, type-contract catalog entries, and implement the LocalStream host. | `ParsedEventEnvelope` has stable identity, materialization state, and catalog-backed logical type metadata; Arrow server schemas, generated sink DDL, and translator type tables are derived from one catalog generation (no Avro wire schema; the wire format is MessagePack per ADR 0014). One LocalStream host provides append/read/commit/replay for `agent.parsed` and `agent.output`, but legacy DurableBuffer remains the active forwarder until dispatch and ACK semantics are proven. |
 | 10 | Planned | Replace profile-centric execution with execution plans. | The planner opens each physical resource once per acquisition key and binds acquisition to parser/materialization/stream plans deterministically; `ProfileBinding` no longer defines a pipeline instance. |
 | 11 | Planned | Add coordinated filter dispatch. | Every candidate runs in deterministic order; output append precedes parsed commit; no-candidate, no-match, filter error, and output error remain distinct. |
 | 12 | Planned | Migrate forwarding to LocalStream `agent.output` and retire direct DurableBuffer ownership. | The forwarder is an ACK-gated LocalStream subscription with replay; no forwarder-created DurableBuffer host remains Agent-visible. This phase may land with the transitional FORWARDER transport before DeltaZulu.Forward (Phase 12a) replaces it. |
-| 12a | Planned | Implement DeltaZulu.Forward (ADR 0011) as the target agent-to-collector transport. | Binary framing (type, txnr, length, flags), typed offer/capability handshake (catalog version, schema fingerprints, compression, dedup-window size), one Avro batch per frame with ack-on-durable-commit, batch UUIDs, collector-side bounded dedup window, and backpressure/window-adjustment frames all exist as an independently tested state machine (retransmit-after-reconnect races, cross-session duplicates, txnr wraparound, half-open detection, window exhaustion, shutdown with unacked frames) per its own harness budget. Today's FORWARDER/RawEnvelope compatibility framing is retired as the primary transport once the typed DeltaZulu.Forward batch protocol is proven; literal RELP may still be added later as a separate rsyslog-world peer input adapter. |
+| 12a | Planned | Implement DeltaZulu.Forward (ADR 0011) as the target agent-to-collector transport. | Binary framing (type, txnr, length, flags), typed offer/capability handshake (catalog version, schema fingerprints, compression, dedup-window size), one MessagePack-encoded `ForwardLogBatch` per frame with ack-on-durable-commit, batch UUIDs, collector-side bounded dedup window, and backpressure/window-adjustment frames all exist as an independently tested state machine (retransmit-after-reconnect races, cross-session duplicates, txnr wraparound, half-open detection, window exhaustion, shutdown with unacked frames) per its own harness budget. Today's FORWARDER/RawEnvelope compatibility framing is retired as the primary transport once the typed DeltaZulu.Forward batch protocol is proven; literal RELP may still be added later as a separate rsyslog-world peer input adapter. |
 | 13 | Planned | Remove daemon multiplexer. | The daemon does not instantiate `ChannelOutputMultiplexer`; lifecycle uses plan-owned tasks, stream drain policy, and only private publisher serialization where required. |
 | 14 | Planned | Remove compatibility plaintext parsers. | Parse-only plaintext parsing has syslog, journal/FIFO, and auditd parity corpora; no transport adapter invokes an application-specific parser. |
 | 15 | Planned | Add blindness and end-to-end observability. | Admission, parser, filter, complete-blindness, streams, forwarding, and bounded unknown diagnostics are observable. |
 | 16 | Planned | Harden reload and operations. | Parser and filter generations replace atomically; checkpoints, poison policy, retention/storage pressure, graceful drain, and failure injection are covered. |
 | 17 | Planned | Archive conflicting operational guidance. | All active examples and commands validate; historical documents are marked superseded. |
-| 18 | Planned | Verify sink ingest and replay assumptions. | Proton's Kafka-API-compatible external-stream ingestion is wired per ADR 0012 (Redpanda/embedded Kafka-protocol broker primary path, Python external-stream fallback) and its logical-type handling is verified against the targeted OSS version — the availability question is closed affirmatively (ADR 0012); only the logical-type declaration form remains open. Arrow-to-DuckDB appender performance is benchmarked against NDJSON at realistic event rates; agent Avro spooling/replay ordering and schema-version pinning are specified and tested; broker-hop latency is measured against the NRT budget (ADR 0012 revisit trigger). |
+| 18 | Planned | Verify sink ingest and replay assumptions. | Proton's Kafka-API-compatible external-stream ingestion is wired per ADR 0012 (Redpanda/embedded Kafka-protocol broker primary path, Python external-stream fallback) and its logical-type handling is verified against the targeted OSS version — the availability question is closed affirmatively (ADR 0012); only the logical-type declaration form remains open. Arrow-to-DuckDB appender performance is benchmarked against NDJSON at realistic event rates; agent MessagePack spooling/replay ordering and dedup-window sizing are specified and tested; broker-hop latency is measured against the NRT budget (ADR 0012 revisit trigger); whether the Proton/Kafka leg needs its own re-encoding step is resolved per ADR 0014's reopened question. |
 | 19 | Planned | Optimize only with benchmarks. | Before/after evidence preserves parsing, commit, queue, and blindness invariants. |
 
 Phases 2–5 establish the strict source boundary. Phase 2a is the companion
@@ -145,12 +149,13 @@ final architecture until completed.
 - One LocalStream host owns `agent.parsed` and `agent.output`, initially with one
   partition each and bounded retention.
 - The type-contract catalog is the sole type authority for parsed fields and
-  generates Avro schemas, Arrow schemas, Proton/DuckDB DDL, translator type
-  mappings, and governed JSON projections.
-- Internal type-bearing transport is Avro to the collector (over
-  DeltaZulu.Forward per ADR 0011 once implemented) and Arrow in collector
-  memory; NDJSON is limited to third-party ingress/egress, debug taps, and
-  dead-letter/error envelopes.
+  generates Arrow schemas, Proton/DuckDB DDL, translator type mappings, and
+  governed JSON projections. There is no generated Avro wire schema (ADR
+  0014).
+- Internal type-bearing transport is MessagePack (a `ForwardLogBatch`, ADR
+  0014) to the collector (over DeltaZulu.Forward per ADR 0011 once
+  implemented) and Arrow in collector memory; NDJSON is limited to
+  third-party ingress/egress, debug taps, and dead-letter/error envelopes.
 - Parsed positions commit only after all output appends succeed or a recorded
   successful zero-output disposition; output positions commit only after a
   forwarding acknowledgement (FORWARDER today; a DeltaZulu.Forward batch ack once
@@ -182,20 +187,23 @@ all converge on the same catalog. This prevents a later retrofit where field
 types are implicitly tied to Parse rules.
 
 NDJSON remains useful as an edge dialect, but it is no longer the target
-internal type-bearing transport. Agents cache schemas and spool Avro; they fail
-visibly on schema rejection instead of falling back to NDJSON. The collector
-decodes Avro once into Arrow record batches, then fans out to DuckDB
-zero-copy and to Proton through a Kafka-API-compatible intermediate protocol
-per ADR 0012 — not a bespoke sink. Proton's Kafka-API external-stream support
-is verified as available in the target OSS version (ADR 0012); whether its
-Avro handling honors catalog logical types directly or needs explicit column
-declaration is a Phase 3b/18 integration-testing question.
+internal type-bearing transport. Agents spool MessagePack `ForwardLogBatch`
+records (ADR 0014); they fail visibly on rejection instead of falling back
+to NDJSON. The collector decodes the MessagePack batch once into Arrow
+record batches, then fans out to DuckDB zero-copy and to Proton through a
+Kafka-API-compatible intermediate protocol per ADR 0012 — not a bespoke
+sink. Proton's Kafka-API external-stream support is verified as available in
+the target OSS version (ADR 0012); whether that leg needs its own
+re-encoding step (to Avro or another format) between the collector's Arrow
+batches and the Kafka topic, and how any such format handles catalog
+logical types, is reopened by ADR 0014 and is a Phase 3b/18
+integration-testing question.
 
-DeltaZulu.Forward (ADR 0011) is the target Avro-carrying transport between
-agent and collector, replacing today's FORWARDER/RawEnvelope compatibility
-framing once Phase 12a lands; see ADR 0011 for the framing, handshake, and
-dedup-window design and ADR 0006 for the narrowed, transitional role
-FORWARDER retains.
+DeltaZulu.Forward (ADR 0011) is the target transport (MessagePack-encoded
+`ForwardLogBatch` batches, ADR 0014) between agent and collector, replacing
+today's FORWARDER/RawEnvelope compatibility framing once Phase 12a lands;
+see ADR 0011 for the framing, handshake, and dedup-window design and ADR
+0006 for the narrowed, transitional role FORWARDER retains.
 
 ## Validation expectations
 

@@ -101,6 +101,7 @@ MAC, enum, nested object, variant, or geospatial carrier.
 
 The TUI may initially discover fields from parser contracts or endpoint
 inventory, but it should not infer physical sink types independently. Query
-authoring hints, backend DDL, Avro wire schemas, Arrow server schemas, and JSON
-edge projections all derive from the same catalog entry so Proton and DuckDB do
-not drift into incompatible interpretations of the same field.
+authoring hints, backend DDL, Arrow server schemas, and JSON edge projections
+all derive from the same catalog entry (wire format is MessagePack, not
+Avro; ADR 0014) so Proton and DuckDB do not drift into incompatible
+interpretations of the same field.

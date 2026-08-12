@@ -21,13 +21,15 @@ Implementation sequencing and current migration status are in
 - Native or deterministic structured sources bypass Parse.
 - A producer-agnostic type-contract catalog (ADR 0010) is the single authority
   for parsed field KQL scalars, logical annotations, nullability, units,
-  timestamp precision, and per-backend physical mappings. It generates Avro
-  wire schemas, Arrow server schemas, sink DDL, query-translator type tables,
-  and governed JSON projections.
+  timestamp precision, and per-backend physical mappings. It generates Arrow
+  server schemas, sink DDL, query-translator type tables, and governed JSON
+  projections. The agent-to-collector wire format is MessagePack, not Avro
+  (ADR 0014); there is no generated Avro wire schema.
 - The target agent-to-collector transport is **DeltaZulu.Forward** (ADR 0011):
   a proprietary, RELP-derived but non-wire-compatible reliable framing
   protocol implemented in `DeltaZulu.Pipeline` itself. Until Phase 12a lands
-  the target binary/Avro state machine, the checked-in daemon configuration uses
+  the target binary, typed-batch state machine (MessagePack-encoded
+  `ForwardLogBatch`, ADR 0014), the checked-in daemon configuration uses
   FORWARDER compatibility framing with MessagePack `DeliveryBatch` payloads.
   No literal-RELP client or receiver has been built; the name is retained
   only as the design lineage for DeltaZulu.Forward and for a possible future
@@ -58,7 +60,7 @@ flowchart TD
     M --> AS[Optional post-materialization assembly]
     AS --> SC[Type-contract catalog validation
 KQL scalars + logical annotations + nullability + units]
-    SC --> AV[Avro transport envelope]
+    SC --> AV[MessagePack ForwardLogBatch envelope]
     AV --> AR[Collector decode to Arrow record batches]
     AR --> PE[ParsedEventEnvelope]
     PE --> PS[(LocalStream: agent.parsed)]
@@ -67,7 +69,7 @@ KQL scalars + logical annotations + nullability + units]
     FD -->|no rows| D[Record coverage disposition and commit]
     OS --> RF[Forwarder subscription]
     RF --> B[DeliveryBatch]
-    B --> FWD[DeltaZulu.Forward -- RawEnvelope compatibility framing today; typed Avro batch is Phase 12a target]
+    B --> FWD[DeltaZulu.Forward -- RawEnvelope compatibility framing today; MessagePack ForwardLogBatch is Phase 12a target]
     FWD --> ACK[Remote acknowledgement]
     ACK --> C[Commit agent.output position]
     AR --> DDB[DuckDB: zero-copy Arrow ingest]
@@ -85,7 +87,7 @@ non-thread-safe LocalStream producer is private to the publisher adapter.
 
 ```text
 src/DeltaZulu.Pipeline/
-  Core/             Acquisition, delivery, events, MessagePack, Avro/Arrow
+  Core/             Acquisition, delivery, events, MessagePack, Arrow
                     schema projections, governed NDJSON edges, observability,
                     and profiles
   Inputs/           Files, network, pipes, syslog, RELP, Windows, framing,
@@ -135,12 +137,16 @@ keyed by canonical field contracts, not by a particular producer or parser;
 structured XML, CSV, JSON, Windows, and future native sources must therefore
 meet the same logical type checkpoint when they are enabled.
 
-The internal type-bearing transport is Avro generated from that catalog,
-carried over DeltaZulu.Forward once Phase 12a lands (RELP-derived FORWARDER
-compatibility framing is the current transitional carrier). The collector decodes Avro once into Arrow record
-batches. DuckDB ingests from Arrow zero-copy; the Proton leg is fed by a
-Kafka-API-compatible intermediate protocol reading from the same Avro/Arrow
-representation (ADR 0012) rather than a bespoke sink. NDJSON is not an internal
+The internal type-bearing transport is MessagePack (a `ForwardLogBatch`,
+ADR 0014), field values normalized against that catalog, carried over
+DeltaZulu.Forward once Phase 12a lands (RELP-derived FORWARDER compatibility
+framing is the current transitional carrier). The collector decodes the
+MessagePack batch once into Arrow record batches. DuckDB ingests from Arrow
+zero-copy; the Proton leg is fed by a Kafka-API-compatible intermediate
+protocol reading from that Arrow representation (ADR 0012 — whether it
+requires re-encoding to Avro or another format for the Kafka topic is
+reopened by ADR 0014 and unresolved) rather than a bespoke sink. NDJSON is
+not an internal
 type-bearing wire format; it is retained only for governed third-party
 ingress/egress projections, operator debug taps, and dead-letter/error
 envelopes.
