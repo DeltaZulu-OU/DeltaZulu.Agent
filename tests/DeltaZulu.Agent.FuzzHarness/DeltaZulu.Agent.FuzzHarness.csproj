@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>DeltaZulu.Agent.FuzzHarness</RootNamespace>
+    <AssemblyName>DeltaZulu.Agent.FuzzHarness</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SharpFuzz" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DeltaZulu.Pipeline\DeltaZulu.Pipeline.csproj" />
+  </ItemGroup>
+</Project>

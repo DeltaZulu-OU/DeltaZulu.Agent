@@ -1,40 +1,21 @@
 using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Inputs.Auditd;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SharpFuzz;
 
 namespace DeltaZulu.Agent.FuzzTests;
 
 [TestClass]
 public sealed class ParserFuzzTests
 {
-    private const string FuzzTargetVariable = "DELTAZULU_FUZZ_TARGET";
-
     [TestMethod]
     public void AuditdRecordParser_DoesNotCrashOnUntrustedInput()
     {
-        if (IsFuzzing("Auditd"))
-        {
-            Fuzzer.Run(FuzzAuditd);
-            return;
-        }
-
         FuzzAuditd("type=PATH msg=audit(1710000000.123:42): item=0 name=\"/bin/bash\"");
     }
 
     [TestMethod]
     public void ForwardLogBatchCodec_DoesNotCrashOnUntrustedInput()
     {
-        if (IsFuzzing("Forward"))
-        {
-            Fuzzer.Run(stream => {
-                using var buffer = new MemoryStream();
-                stream.CopyTo(buffer);
-                FuzzForwardBatch(buffer.ToArray());
-            });
-            return;
-        }
-
         FuzzForwardBatch(CreateForwardSeed());
     }
 
@@ -84,7 +65,4 @@ public sealed class ParserFuzzTests
             // Invalid wire payloads are expected; unexpected exception types remain fuzzing failures.
         }
     }
-
-    private static bool IsFuzzing(string target) =>
-                    string.Equals(Environment.GetEnvironmentVariable(FuzzTargetVariable), target, StringComparison.Ordinal);
 }

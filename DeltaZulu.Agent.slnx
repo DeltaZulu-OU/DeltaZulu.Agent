@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Tests/">
+    <Project Path="tests/DeltaZulu.Agent.FuzzHarness/DeltaZulu.Agent.FuzzHarness.csproj" />
     <Project Path="tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj" />
     <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
   </Folder>

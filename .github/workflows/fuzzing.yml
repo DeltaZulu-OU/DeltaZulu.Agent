@@ -10,6 +10,7 @@ on:
       - 'src/DeltaZulu.Pipeline/Inputs/Auditd/**'
       - 'src/DeltaZulu.Pipeline/Inputs/Forwarder/**'
       - 'tests/DeltaZulu.Agent.FuzzTests/**'
+      - 'tests/DeltaZulu.Agent.FuzzHarness/**'
   push:
     branches: [ main, master ]
     paths:
@@ -20,6 +21,7 @@ on:
       - 'src/DeltaZulu.Pipeline/Inputs/Auditd/**'
       - 'src/DeltaZulu.Pipeline/Inputs/Forwarder/**'
       - 'tests/DeltaZulu.Agent.FuzzTests/**'
+      - 'tests/DeltaZulu.Agent.FuzzHarness/**'
   workflow_dispatch:
 
 permissions:
@@ -49,10 +51,8 @@ jobs:
       matrix:
         include:
           - name: Auditd
-            test: AuditdRecordParser_DoesNotCrashOnUntrustedInput
             seeds: tests/DeltaZulu.Agent.FuzzTests/seeds/auditd
           - name: Forward
-            test: ForwardLogBatchCodec_DoesNotCrashOnUntrustedInput
             seeds: tests/DeltaZulu.Agent.FuzzTests/seeds/forward
 
     steps:
@@ -74,23 +74,25 @@ jobs:
           --password ${{ secrets.GITHUB_TOKEN }}
           --store-password-in-clear-text
 
-      - name: Restore fuzz tests
-        run: dotnet restore tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj
-
+      - name: Restore fuzz projects
+        run: |
+          dotnet restore tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj
+          dotnet restore tests/DeltaZulu.Agent.FuzzHarness/DeltaZulu.Agent.FuzzHarness.csproj
+ 
       - name: Generate Forward seed corpus
         if: matrix.name == 'Forward'
         env:
-          DELTAZULU_FUZZ_SEED_PATH: ${{ matrix.seeds }}/valid-batch.bin
+          DELTAZULU_FUZZ_SEED_PATH: ${{ github.workspace }}/${{ matrix.seeds }}/valid-batch.bin
         run: |
           dotnet test tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj \
             --configuration Release --no-restore \
             --filter FullyQualifiedName=DeltaZulu.Agent.FuzzTests.ParserFuzzTests.GenerateForwardSeedCorpus
-          test -s "${{ matrix.seeds }}/valid-batch.bin"
+          test -s "${{ github.workspace }}/${{ matrix.seeds }}/valid-batch.bin"
 
-      - name: Publish fuzz tests
+      - name: Publish fuzz harness
         run: >-
-          dotnet publish tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj
-          --configuration Release --no-restore --output ./publish
+          dotnet publish tests/DeltaZulu.Agent.FuzzHarness/DeltaZulu.Agent.FuzzHarness.csproj
+           --configuration Release --no-restore --output ./publish
 
       - name: Install SharpFuzz command line
         run: |
@@ -99,19 +101,16 @@ jobs:
 
       - name: Instrument fuzz target
         run: |
-          sharpfuzz ./publish/DeltaZulu.Agent.FuzzTests.dll
+          sharpfuzz ./publish/DeltaZulu.Agent.FuzzHarness.dll
           sharpfuzz ./publish/DeltaZulu.Pipeline.dll
           if [ "${{ matrix.name }}" = "Forward" ]; then
             sharpfuzz ./publish/DeltaZulu.Forward.dll
           fi
 
       - name: Run AFL++ smoke test
-        env:
-          DELTAZULU_FUZZ_TARGET: ${{ matrix.name }}
         run: >-
           afl-fuzz -i ${{ matrix.seeds }} -o ./findings -V 60 --
-          dotnet test ./publish/DeltaZulu.Agent.FuzzTests.dll
-          --filter Name=${{ matrix.test }}
+          dotnet ./publish/DeltaZulu.Agent.FuzzHarness.dll ${{ matrix.name }}
 
       - name: Upload crash findings
         if: failure()
