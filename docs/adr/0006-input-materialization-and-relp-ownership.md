@@ -15,12 +15,14 @@ below use the current name.
 
 > **Scope note (ADR 0011):** the long-term agent-to-collector transport is
 > DeltaZulu.Forward, a RELP-derived but non-wire-compatible protocol owned by
-> `DeltaZulu.Pipeline` itself, not `DeltaZulu.Relp`. This ADR's RELP-ownership
-> decision remains accepted for the older literal-RELP local-validation path
-> (`docs/RELP_RECEIVER_SETUP.md`) and for any future rsyslog-world peer input
-> adapter. The checked-in daemon sample now uses `forwarder:` /
-> `transport: forwarder` compatibility framing, and this ADR no longer
-> describes the target production transport.
+> `DeltaZulu.Pipeline` itself. (`DeltaZulu.Relp`, the separately-named
+> protocol library this ADR originally contrasted against, was renamed to
+> `DeltaZulu.Forward` upstream and no longer exists as a distinct package.)
+> This ADR's RELP-ownership decision remains accepted for the older
+> literal-RELP local-validation path (`docs/RELP_RECEIVER_SETUP.md`) and for
+> any future rsyslog-world peer input adapter. The checked-in daemon sample
+> now uses `forwarder:` / `transport: forwarder` compatibility framing, and
+> this ADR no longer describes the target production transport.
 
 ## Decision
 

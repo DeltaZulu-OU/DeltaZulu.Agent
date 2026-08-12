@@ -8,14 +8,18 @@ Accepted. Target design; not yet implemented (see ROADMAP.md Phase 12a).
 
 The agent-to-collector transport previously had no ratified name and no
 decision record distinguishing it from the RELP protocol literally spoken by
-`DeltaZulu.Relp` today. ADR 0006 assigns `DeltaZulu.Relp` ownership of RELP
-framing, sessions, transactions, and acknowledgements for the current,
-transitional local-validation path (see `docs/RELP_RECEIVER_SETUP.md`), but
-does not decide what the long-term, Avro-carrying, agent-to-collector
-transport is or what it is called. Reusing literal RELP long-term would carry
-legacy constraints (text command verbs, syslog payload assumptions, librelp/
-rsyslog wire compatibility) that the Avro payload (ADR 0010) already forfeits
-the interop those constraints exist for.
+`DeltaZulu.Relp` at the time this ADR was written. (`DeltaZulu.Relp` was
+subsequently renamed to `DeltaZulu.Forward` upstream and no longer exists as
+a distinct package; see the Decision below for this ADR's own transport
+naming, which the upstream rename now matches.) ADR 0006 assigns
+`DeltaZulu.Relp` ownership of RELP framing, sessions, transactions, and
+acknowledgements for the current, transitional local-validation path (see
+`docs/RELP_RECEIVER_SETUP.md`), but does not decide what the long-term,
+Avro-carrying, agent-to-collector transport is or what it is called. Reusing
+literal RELP long-term would carry legacy constraints (text command verbs,
+syslog payload assumptions, librelp/rsyslog wire compatibility) that the
+Avro payload (ADR 0010) already forfeits the interop those constraints exist
+for.
 
 ## Decision
 

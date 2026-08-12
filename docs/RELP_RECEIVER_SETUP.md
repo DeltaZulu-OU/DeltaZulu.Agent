@@ -4,11 +4,14 @@
 > literal RELP, as set up below, is the *current* agent-to-collector
 > transport used for local validation and lab receivers. The target
 > production transport is **DeltaZulu.Forward**, a RELP-derived but
-> non-wire-compatible protocol implemented in `DeltaZulu.Pipeline` — not
-> `DeltaZulu.Relp` — and it is not wire-compatible with rsyslog/librelp
-> receivers. This document remains accurate for today's code and for any
-> future rsyslog-world peer input adapter, but it does not describe the
-> target transport once ROADMAP.md Phase 12a lands.
+> non-wire-compatible protocol implemented in `DeltaZulu.Pipeline` — it is
+> not wire-compatible with rsyslog/librelp receivers. (The upstream
+> `DeltaZulu.Relp` library this note used to contrast against was renamed to
+> `DeltaZulu.Forward` and no longer exists as a distinct package; nothing on
+> this literal-RELP local-validation path ever depended on it.) This
+> document remains accurate for today's code and for any future
+> rsyslog-world peer input adapter, but it does not describe the target
+> transport once ROADMAP.md Phase 12a lands.
 
 DeltaZulu.Agent currently forwards filtered resource records through a transitional direct `DeltaZulu.DurableBuffer` path and a TCP tunnel. The target architecture moves this boundary to LocalStream `agent.output`; RELP forwarding behavior remains the same: positions commit only after acknowledgement. The agent is a RELP client/forwarder; it is not a syslog daemon or production receiver. Use a dedicated receiver such as rsyslog or syslog-ng at the network edge and route accepted payloads into the downstream collector pipeline.
 
