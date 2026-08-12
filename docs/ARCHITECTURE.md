@@ -37,12 +37,13 @@ Implementation sequencing and current migration status are in
   only as the design lineage for DeltaZulu.Forward and for a possible future
   rsyslog-world peer input adapter.
 - `DeltaZulu.LocalStream` is the Pipeline-visible durability and replay
-  boundary: a primitive, non-distributed Kafka alternative for in-agent topics,
-  positions, subscriptions, checkpoints, and bounded retention. It is not a
-  wrapper around `DeltaZulu.DurableBuffer`; the direct DurableBuffer forwarding
-  path is a transitional transport spool and is not an Agent-visible pipeline
-  dependency after migration. LocalStream is consumed as a pinned
-  `DeltaZulu.LocalStream` NuGet package before it owns daemon persistence.
+  boundary (ADR 0008): a primitive, non-distributed Kafka alternative for
+  in-agent topics, positions, subscriptions, checkpoints, and bounded
+  retention. It is not a wrapper around `DeltaZulu.DurableBuffer`; the direct
+  DurableBuffer forwarding path is a transitional transport spool and is not
+  an Agent-visible pipeline dependency after migration. LocalStream is
+  consumed as a pinned `DeltaZulu.LocalStream` NuGet package before it owns
+  daemon persistence.
 - Canonical semantic normalization belongs to DeltaZulu.Platform, not the edge
   agent.
 - The Proton leg is served by a bespoke native Proton sink (ADR 0016); there
@@ -82,7 +83,7 @@ KQL scalars + logical annotations + nullability + units]
 There is one LocalStream host and two internal physical topics: `agent.parsed`
 and `agent.output`. Logical classes such as `sshd`, `sudo`, `sssd`, `pam`, and
 `auditd` are envelope topics, not LocalStream topics. The daemon has no
-general-purpose output multiplexer; any serialization required by a
+general-purpose output multiplexer (ADR 0008); any serialization required by a
 non-thread-safe LocalStream producer is private to the publisher adapter.
 
 ## Assembly boundaries

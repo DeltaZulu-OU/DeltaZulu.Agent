@@ -148,8 +148,8 @@ final architecture until completed.
 
 ### Durability and dispatch
 
-- One LocalStream host owns `agent.parsed` and `agent.output`, initially with one
-  partition each and bounded retention.
+- One LocalStream host owns `agent.parsed` and `agent.output` (ADR 0008),
+  initially with one partition each and bounded retention.
 - The type-contract catalog is the sole type authority for parsed fields and
   generates Proton/DuckDB DDL, translator type mappings, and governed JSON
   projections. There is no generated Avro wire schema (ADR 0014) and no
@@ -164,7 +164,7 @@ final architecture until completed.
   forwarding acknowledgement (FORWARDER today; a DeltaZulu.Forward batch ack once
   Phase 12a lands).
 - Logical topics remain envelope properties. No `parsed.sshd`-style streams and
-  no general-purpose daemon multiplexer are introduced.
+  no general-purpose daemon multiplexer are introduced (ADR 0008).
 
 ### Runtime and coverage
 
@@ -262,8 +262,9 @@ current legacy code is `src/DeltaZulu.Agent.Runtime/AgentRuntime.cs`
 (`RunSingle`/`RunMultiple`/`RunBinding`), `ProfileBinding.cs`, and
 `src/DeltaZulu.Pipeline/Core/ResourcePipeline.cs`. `AgentRuntime.RunMultiple`
 (`AgentRuntime.cs:109`) is the exact place that currently starts one
-`ResourcePipeline` per `ProfileBinding`; this phase replaces that with
-acquisition/parser/filter plan binding.
+`ResourcePipeline` per `ProfileBinding`, built from bindings that
+`src/DeltaZulu.Agent.Daemon/Program.cs`'s `CreateBindings` constructs; this
+phase replaces that with acquisition/parser/filter plan binding.
 
 **Phase 12 — replace direct DurableBuffer forwarding:** the current
 `BufferedForwarderSink` (`src/DeltaZulu.Pipeline/Outputs/Forwarder/BufferedForwarderSink.cs`)
