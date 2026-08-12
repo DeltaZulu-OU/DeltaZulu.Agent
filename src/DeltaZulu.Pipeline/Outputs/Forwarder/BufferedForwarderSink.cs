@@ -1,5 +1,6 @@
 using DeltaZulu.DurableBuffer;
 using DeltaZulu.DurableBuffer.Configuration;
+using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using DeltaZulu.Pipeline.Core.Events;
@@ -12,7 +13,7 @@ public sealed class BufferedForwarderSink : IOutputWriter
     private static readonly TimeSpan WorkerDrainTimeout = TimeSpan.FromSeconds(30);
 
     private readonly CancellationToken _cancellationToken;
-    private readonly DurableBufferHost<DeliveryRecord> _host;
+    private readonly DurableBufferHost<ForwardLogRecord> _host;
     private readonly IDeliveryTransport _transport;
     private readonly ForwarderOutputWorker _worker;
     private readonly CancellationTokenSource _workerCts;
@@ -29,7 +30,7 @@ public sealed class BufferedForwarderSink : IOutputWriter
     {
         _cancellationToken = cancellationToken;
         _transport = transport;
-        _host = new DurableBufferHost<DeliveryRecord>(
+        _host = new DurableBufferHost<ForwardLogRecord>(
             options,
             new ForwarderDeliveryRecordSerializer());
         _worker = new ForwarderOutputWorker(
@@ -97,7 +98,7 @@ public sealed class BufferedForwarderSink : IOutputWriter
         }
 
         var result = _host.Writer.WriteAsync(
-            DeliveryRecord.FromResourceOutput(value),
+            ResourceOutputRecordForwardMapper.ToForwardLogRecord(value),
             _cancellationToken).AsTask().GetAwaiter().GetResult();
 
         if (!result.IsAccepted)

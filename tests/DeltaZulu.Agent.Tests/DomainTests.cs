@@ -29,8 +29,7 @@ public sealed class DomainTests
         Assert.AreEqual(domainAssemblyName, typeof(ResourceInputContract).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(ResourceOutputContract).Assembly.GetName().Name);
 
-        Assert.AreEqual(domainAssemblyName, typeof(DeliveryRecord).Assembly.GetName().Name);
-        Assert.AreEqual(domainAssemblyName, typeof(DeliveryBatch).Assembly.GetName().Name);
+        Assert.AreEqual(domainAssemblyName, typeof(ResourceOutputRecordForwardMapper).Assembly.GetName().Name);
         Assert.AreEqual(domainAssemblyName, typeof(DeliveryAck).Assembly.GetName().Name);
 
         Assert.AreEqual(domainAssemblyName, typeof(CollectorObservationMetadata).Assembly.GetName().Name);
@@ -74,7 +73,7 @@ public sealed class DomainTests
     }
 
     [TestMethod]
-    public void DeliveryRecord_FromResourceOutput_Creates_Valid_Record()
+    public void ResourceOutputRecordForwardMapper_ToForwardLogRecord_Creates_Valid_Record()
     {
         var metadata = new Dictionary<string, object?> {
             ["collectorId"] = "agent-1",
@@ -84,10 +83,11 @@ public sealed class DomainTests
         var eventData = new Dictionary<string, object?> { ["Message"] = "test" };
         var output = new ResourceOutputRecord { Metadata = metadata, Event = eventData };
 
-        var delivery = DeliveryRecord.FromResourceOutput(output);
+        var delivery = ResourceOutputRecordForwardMapper.ToForwardLogRecord(output);
 
         Assert.AreEqual("agent-1", delivery.AgentId);
-        Assert.AreEqual("syslog:auth.log", delivery.SourceId);
-        Assert.IsNotNull(delivery.DeliveryId);
+        Assert.AreEqual("syslog", delivery.SourceType);
+        Assert.AreEqual("auth.log", delivery.SourceName);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(delivery.DeliveryId));
     }
 }

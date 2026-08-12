@@ -27,10 +27,10 @@ uses `ChannelOutputMultiplexer` to serialize concurrent legacy output. Those
 are transitional implementation details, not target architecture. Existing
 syslog and auditd parsing is also transitional until Parse parity is
 established. Agent-to-collector forwarding still speaks FORWARDER
-compatibility framing (MessagePack `DeliveryBatch` carried as a
-DeltaZulu.Forward RawEnvelope batch); the typed DeltaZulu.Forward transport
-(MessagePack-encoded `ForwardLogBatch` batches, ADR 0011/0014) is not yet
-implemented.
+compatibility framing (a `ForwardLogBatch` typed batch, `ForwardLogBatchCodec`-
+encoded and carried as a DeltaZulu.Forward RawEnvelope batch); the typed
+DeltaZulu.Forward transport's binary framing, handshake, and dedup-window
+state machine (ADR 0011/0014, ROADMAP.md Phase 12a) is not yet implemented.
 
 ## Current delivery status (2026-07-17)
 
@@ -65,12 +65,13 @@ using `DeltaZulu.Parse` for pattern-based extraction behind raw table bindings.
   the collector's internal representation is the catalog-typed record
   itself, not Arrow (ADR 0015). There is no Avro wire schema projection and
   no Arrow in-memory schema projection.
-- The typed DeltaZulu.Forward transport (MessagePack-encoded
-  `ForwardLogBatch` batches, ADR 0011/0014) and the bespoke native Proton
-  sink (ADR 0016; no Kafka-API-compatible intermediate) are accepted target
-  design only; current forwarding still speaks FORWARDER compatibility
-  framing (MessagePack `DeliveryBatch` over DeltaZulu.Forward's RawEnvelope
-  path) and no Proton-leg publishing code exists.
+- The typed DeltaZulu.Forward transport's binary framing, handshake, and
+  dedup-window state machine (ADR 0011/0014, Phase 12a) and the bespoke
+  native Proton sink (ADR 0016; no Kafka-API-compatible intermediate) are
+  accepted target design only; current forwarding still speaks FORWARDER
+  compatibility framing (a `ForwardLogBatch` typed batch, `ForwardLogBatchCodec`-
+  encoded, over DeltaZulu.Forward's RawEnvelope path) and no Proton-leg
+  publishing code exists.
 
 Phase 2 work must preserve the legacy behavior through compatibility adapters;
 it must not prematurely move structured sources through Parse or replace
@@ -100,7 +101,7 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | 2a | Planned | Align local streaming KQL authoring with RealTimeKql table naming. | A platform-neutral table-binding catalog maps concrete aliases such as `EtwTcp`, `EtwDns`, `AuthLog`, `NginxAccess`, and file-stem tables to acquisition plans, schemas, and openable inputs; raw/non-structured bindings carry a `raw` payload type and `DeltaZulu.Parse` patterns produce extracted fields; the local query path passes the resolved alias to Rx.Kql instead of rewriting it to `Source`; `Source` remains only a compatibility alias for legacy profiles. |
 | 3 | Planned | Generalize acquisition, framing, and decoding through protocol-specific adapters. | `file`, `fifo`, `syslog-tcp`, `syslog-udp`, and `syslog-relp` adapters emit either structured records or a common `raw` text record with bounded framing and no application parser dependency. FIFO creation/reopen is explicit configuration, not a syslog behavior. |
 | 4 | Planned | Add raw-text admission presets. | Syslog, auth.log, audit logs, web-server logs, and arbitrary file/FIFO text inputs share the `raw` payload path; transport-specific validation, decoding, size checks, and rejection metrics run before Parse, while field extraction is owned by `DeltaZulu.Parse` patterns. Valid unknown raw text reaches Parse. |
-| 5 | Planned | Move structured sources and FORWARDER payload adapters to structured contracts. | CSV, Windows, and MessagePack `DeliveryBatch` sources bypass Parse; RELP protocol handling remains framing/session work and payload type selects text versus structured materialization. |
+| 5 | Planned | Move structured sources and FORWARDER payload adapters to structured contracts. | CSV, Windows, and `ForwardLogBatch` sources bypass Parse; RELP protocol handling remains framing/session work and payload type selects text versus structured materialization. |
 | 6 | Planned | Add restricted `parse.query` and a Parse compatibility materializer. | Existing `filter.query` profiles continue receiving compatible `SourceEvent` shapes; profile-scoped diagnostics validate topic-tagged parser rules; raw text and parser provenance are retained. |
 | 7 | Planned | Build unified Parse PDAG generations. | Parser domains group compatible rules deterministically; each plaintext record traverses one PDAG; recognized, unrecognized, and error outcomes remain explicit. |
 | 8 | Planned | Move auditd correlation after Parse. | The assembler consumes parsed fields, maintains bounded incomplete-group state, and retires the hardcoded audit parser in the acquisition adapter. |

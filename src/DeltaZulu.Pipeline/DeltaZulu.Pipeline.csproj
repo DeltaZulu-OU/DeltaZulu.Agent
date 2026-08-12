@@ -18,7 +18,6 @@
         <PackageReference Include="DeltaZulu.Forward" />
         <PackageReference Include="DeltaZulu.LocalStream" />
         <PackageReference Include="DeltaZulu.Parse" />
-        <PackageReference Include="MessagePack" />
         <PackageReference Include="Polly.Core" />
         <PackageReference Include="System.Reactive" />
         <PackageReference Include="YamlDotNet" />

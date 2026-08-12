@@ -700,11 +700,12 @@ this protocol.** `FWD-CONTRACT-v1` deliberately does not define its
 contents; the payload format is a private agreement between the specific
 forwarder and collector implementations using it, negotiated entirely
 outside this specification. This repository's own `ForwarderTransport`/
-`ForwarderInput`, for example, currently send a MessagePack-encoded
-`DeliveryBatch`/`DeliveryRecord` (this repository's own transitional
-domain type, described in ADR 0011's "FORWARDER compatibility framing"
-and unrelated to `ForwardLogBatch`) as a `RawEnvelope` payload — that is
-this repository's private choice, not part of `FWD-CONTRACT-v1`. A
+`ForwarderInput` do not use `RawEnvelope` today: they map records into
+`ForwardLogBatch`/`ForwardLogRecord` (§10) and send them as a `TypedBatch`
+frame, encoded and decoded exclusively through `ForwardLogBatchCodec`. A
+future source parsed and typed only at the collector tier is the intended
+user of `RawEnvelope` (see below); it is not this repository's current
+FORWARDER compatibility framing. A
 `RawEnvelope` batch still participates fully in this protocol's batch
 identity, acknowledgement, credit-window, and deduplication mechanics
 (§7-8); only the payload bytes inside the envelope are outside this

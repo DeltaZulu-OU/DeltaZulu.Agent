@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Text.Json;
 using DeltaZulu.DurableBuffer.Abstractions;
 using DeltaZulu.DurableBuffer.Chunks;
+using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Core.Abstractions;
 using DeltaZulu.Pipeline.Core.Delivery;
 using Polly;
@@ -83,7 +84,7 @@ internal sealed class ForwarderOutputWorker
         }
     }
 
-    private static async Task<List<DeliveryRecord>> ReadRecordsAsync(
+    private static async Task<List<ForwardLogRecord>> ReadRecordsAsync(
         StoredChunk chunk,
         CancellationToken cancellationToken)
     {
@@ -96,10 +97,10 @@ internal sealed class ForwarderOutputWorker
                 4096, FileOptions.SequentialScan);
             await stream.ReadExactlyAsync(chunkBytes.AsMemory(0, fileLength), cancellationToken).ConfigureAwait(false);
 
-            var records = new List<DeliveryRecord>();
+            var records = new List<ForwardLogRecord>();
             foreach (var recordBytes in ChunkFormat.ReadRecords(chunkBytes.AsMemory(0, fileLength)))
             {
-                var record = JsonSerializer.Deserialize<DeliveryRecord>(recordBytes.Span, ForwarderOutputJson.Options);
+                var record = JsonSerializer.Deserialize<ForwardLogRecord>(recordBytes.Span, ForwarderOutputJson.Options);
                 if (record is not null)
                 {
                     records.Add(record);
@@ -114,9 +115,11 @@ internal sealed class ForwarderOutputWorker
         }
     }
 
+    private static Guid DeriveBatchId(string chunkIdValue) => Guid.Parse(chunkIdValue);
+
     private async Task ProcessChunkAsync(StoredChunk chunk, CancellationToken cancellationToken)
     {
-        DeliveryBatch batch;
+        ForwardLogBatch batch;
         try
         {
             var records = await ReadRecordsAsync(chunk, cancellationToken);
@@ -132,8 +135,8 @@ internal sealed class ForwarderOutputWorker
                 return;
             }
 
-            batch = new DeliveryBatch {
-                BatchId = chunk.Id.Value,
+            batch = new ForwardLogBatch {
+                BatchId = DeriveBatchId(chunk.Id.Value),
                 CreatedAt = chunk.Metadata.SealedUtc ?? chunk.Metadata.CreatedUtc,
                 Records = records
             };
