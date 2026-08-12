@@ -101,15 +101,23 @@ jobs:
 
       - name: Instrument fuzz target
         run: |
-          sharpfuzz ./publish/DeltaZulu.Agent.FuzzHarness.dll
+          # SharpFuzz's own fuzz.ps1 excludes the fuzzing project assembly and
+          # instruments its dependencies. Instrumenting this harness would add trace
+          # callbacks before Fuzzer.Run has initialized the shared-memory trace map.
           sharpfuzz ./publish/DeltaZulu.Pipeline.dll
           if [ "${{ matrix.name }}" = "Forward" ]; then
             sharpfuzz ./publish/DeltaZulu.Forward.dll
           fi
 
+      - name: Verify instrumented target startup
+        run: |
+          seed="$(find "${{ matrix.seeds }}" -maxdepth 1 -type f -print -quit)"
+          test -n "$seed"
+          dotnet ./publish/DeltaZulu.Agent.FuzzHarness.dll ${{ matrix.name }} < "$seed"
+
       - name: Run AFL++ smoke test
         run: |
-          afl-fuzz -i ${{ matrix.seeds }} -o ./findings -V 60 -- \
+          afl-fuzz -i ${{ matrix.seeds }} -o ./findings -V 60 -m none -t 10000 -- \
           dotnet ./publish/DeltaZulu.Agent.FuzzHarness.dll ${{ matrix.name }}
 
       - name: Upload crash findings
