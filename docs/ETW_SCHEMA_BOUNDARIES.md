@@ -375,6 +375,19 @@ event ID, opcode, version, and keywords before payload reads. The
 TraceEvent payload materializer supports selected payload field names so profile
 selection can avoid full dynamic payload expansion.
 
+`TraceEventPayloadMaterializer` reads payload fields by index
+(`TraceEvent.PayloadValue(int)`) instead of by name (`TraceEvent.PayloadByName`).
+`PayloadByName` re-walks the full `PayloadNames` array with a string comparison on
+every call, so calling it once per field turns an n-field event into an O(n²)
+materialization; TraceEvent's own docs call it unsuitable for hot paths. Because
+`PayloadNames` is already enumerated to build the field dictionary, indexed
+access keeps the whole payload read at O(n). `TraceEventSourceEventMapper` caches
+the `PropertyInfo` lookups behind optional envelope fields (`RelatedActivityId`,
+`Channel`, `ProcessorId`, `TimestampRaw`, `PayloadLength`) by `(Type, name)`
+instead of re-reflecting on every event; TraceEvent hands back one concrete type
+per provider/event/version template, so the cache is bounded by the number of
+distinct templates in a session, not by event volume.
+
 ## Kernel-File pointer-sized semantic decoding
 
 `Microsoft-Windows-Kernel-File` manifest fields such as `Irp`, `FileObject`,

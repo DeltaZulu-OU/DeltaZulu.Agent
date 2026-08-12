@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using DeltaZulu.Pipeline.Inputs.Etw;
 using Microsoft.Diagnostics.Tracing;
@@ -21,22 +22,23 @@ internal static class TraceEventSourceEventMapper
         out EtwPayloadMaterializationResult payloadMaterialization)
     {
         var envelope = ToEnvelope(data);
-        var fields = new Dictionary<string, object?>(EstimateFieldCapacity(data, selectedPayloadFields), StringComparer.OrdinalIgnoreCase);
+        var payloadNames = SafePayloadNames(data);
+        var fields = new Dictionary<string, object?>(EstimateFieldCapacity(payloadNames, selectedPayloadFields), StringComparer.OrdinalIgnoreCase);
         envelope.AddTo(fields);
         fields["EventName"] = data.EventName;
 
-        payloadMaterialization = PayloadMaterializer.AddSelected(data, selectedPayloadFields, fields);
+        payloadMaterialization = PayloadMaterializer.AddSelected(data, payloadNames, selectedPayloadFields, fields);
         EtwSourceContractNormalizer.AddTraceEventProvenance(fields);
 
         return fields;
     }
 
-    private static int EstimateFieldCapacity(TraceEvent data, IReadOnlySet<string>? selectedPayloadFields)
+    private static int EstimateFieldCapacity(string[] payloadNames, IReadOnlySet<string>? selectedPayloadFields)
     {
         const int EnvelopeFieldCount = 21;
         var payloadFieldCount = selectedPayloadFields is { Count: > 0 }
             ? selectedPayloadFields.Count
-            : SafePayloadNames(data).Length;
+            : payloadNames.Length;
 
         return EnvelopeFieldCount + payloadFieldCount;
     }
@@ -77,11 +79,20 @@ internal static class TraceEventSourceEventMapper
         }
     }
 
+    // TraceEvent hands back one of a small, session-bounded set of concrete runtime
+    // types (one per distinct provider/event/version template), so caching PropertyInfo
+    // by (Type, name) turns what would otherwise be a reflection metadata scan on every
+    // single event into a one-time lookup per distinct event template.
+    private static readonly ConcurrentDictionary<(Type Type, string PropertyName), PropertyInfo?> OptionalPropertyCache = new();
+
     private static T? GetOptional<T>(TraceEvent data, params string[] propertyNames)
     {
+        var type = data.GetType();
         foreach (var propertyName in propertyNames)
         {
-            var property = data.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+            var property = OptionalPropertyCache.GetOrAdd(
+                (type, propertyName),
+                static key => key.Type.GetProperty(key.PropertyName, BindingFlags.Instance | BindingFlags.Public));
             if (property is null)
             {
                 continue;
