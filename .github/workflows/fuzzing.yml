@@ -78,7 +78,7 @@ jobs:
         run: |
           dotnet restore tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj
           dotnet restore tests/DeltaZulu.Agent.FuzzHarness/DeltaZulu.Agent.FuzzHarness.csproj
- 
+
       - name: Generate Forward seed corpus
         if: matrix.name == 'Forward'
         env:
@@ -90,9 +90,9 @@ jobs:
           test -s "${{ github.workspace }}/${{ matrix.seeds }}/valid-batch.bin"
 
       - name: Publish fuzz harness
-        run: >-
-          dotnet publish tests/DeltaZulu.Agent.FuzzHarness/DeltaZulu.Agent.FuzzHarness.csproj
-           --configuration Release --no-restore --output ./publish
+        run: |
+          dotnet publish tests/DeltaZulu.Agent.FuzzHarness/DeltaZulu.Agent.FuzzHarness.csproj \
+            --configuration Release --no-restore --output ./publish
 
       - name: Install SharpFuzz command line
         run: |
@@ -108,8 +108,8 @@ jobs:
           fi
 
       - name: Run AFL++ smoke test
-        run: >-
-          afl-fuzz -i ${{ matrix.seeds }} -o ./findings -V 60 --
+        run: |
+          afl-fuzz -i ${{ matrix.seeds }} -o ./findings -V 60 -- \
           dotnet ./publish/DeltaZulu.Agent.FuzzHarness.dll ${{ matrix.name }}
 
       - name: Upload crash findings
