@@ -26,10 +26,11 @@ This ADR does not dispute ADR 0012's description of the bespoke-sink costs
 DeltaZulu writes a bespoke Proton output sink against Proton's native
 (ClickHouse-lineage) ingestion protocol. There is no Kafka-API-compatible
 broker in the deployment path (no Redpanda, no embedded Kafka-protocol
-endpoint) and no Python external-stream fallback plugin. The collector's
-Proton-side code publishes catalog-typed records (ADR 0010's type
-authority, ADR 0015's no-Arrow internal representation) directly to Proton
-through this sink.
+endpoint) and no Python external-stream fallback plugin. The sink includes
+the Proton adapter named in [ADR 0015](0015-no-arrow-catalog-typed-records.md):
+a direct conversion from the catalog-typed record (ADR 0010's type
+authority, ADR 0015's no-Arrow internal representation) to the payload
+this sink publishes to Proton.
 
 The catalog's Proton-DDL projection (ADR 0010) remains the type authority
 for the sink's target schema, now consumed directly by the bespoke sink

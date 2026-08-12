@@ -25,31 +25,41 @@ this project has decided it needs.
 
 ## Decision
 
-The collector has no columnar/Arrow in-memory representation. It decodes
-each MessagePack `ForwardLogBatch` record, validates and types its fields
-against the type-contract catalog (KQL scalar, logical annotation,
-nullability, unit — ADR 0010's catalog authority, unchanged), and works
-directly with that catalog-typed record for every downstream consumer:
-the Proton sink (ADR 0012/0016) and the DuckDB leg both ingest from
-catalog-typed records, not from an Arrow `RecordBatch`.
+The collector has no columnar/Arrow in-memory representation and no shared
+intermediate format between sinks. It decodes each MessagePack
+`ForwardLogBatch` record, validates and types its fields against the
+type-contract catalog (KQL scalar, logical annotation, nullability, unit —
+ADR 0010's catalog authority, unchanged), and hands that single
+catalog-typed record to a **dedicated per-backend adapter** for each sink:
+
+- A **DuckDB adapter** converts the catalog-typed record into calls against
+  DuckDB's Appender API (or equivalent bulk-insert primitive), operating on
+  application-level values rather than a zero-copy Arrow handoff.
+- A **Proton adapter** converts the catalog-typed record into the payload
+  the bespoke native Proton sink (ADR 0016) publishes.
+
+Each adapter is a direct, owned conversion from the catalog-typed record to
+that backend's native ingestion primitive — there is no generic/Arrow-like
+layer either adapter reads from. The catalog's DuckDB DDL and Proton DDL
+projections (ADR 0010) remain each adapter's schema authority.
 
 The catalog's generated-projection list narrows again: Proton DDL, DuckDB
 DDL, and parser contracts. There is no generated Arrow in-memory schema
 projection, in addition to no Avro wire schema projection (ADR 0014).
 
-DuckDB ingestion is an explicit per-batch conversion from catalog-typed
-records (for example, via DuckDB's Appender API operating on application-
-level values) rather than a zero-copy Arrow handoff. This is a deliberate,
-accepted cost — see Consequences.
-
 ## Consequences
 
-- Loses Arrow's zero-copy DuckDB ingest path and Arrow-native handling on
-  any future Proton leg that might have read Arrow directly. DuckDB
-  ingestion becomes an explicit conversion step; its throughput against
-  catalog-typed records must be benchmarked against the NRT and
-  retrospective-hunting budgets rather than assumed from Arrow's zero-copy
-  reputation.
+- Loses Arrow's zero-copy DuckDB ingest path. DuckDB ingestion is an
+  explicit adapter conversion step instead; its throughput against
+  catalog-typed records is benchmarked against the NRT and
+  retrospective-hunting budgets (ROADMAP.md Phase 3b/18) rather than
+  assumed from Arrow's zero-copy reputation — the mechanism (a DuckDB
+  adapter) is decided here, only its measured performance is deferred.
+- Two owned adapters (DuckDB, Proton) now exist where a single shared Arrow
+  representation would have served both; each needs its own conversion
+  correctness tests against the catalog's KQL-scalar/logical-annotation
+  model, in addition to the bespoke Proton sink's own protocol-compatibility
+  testing (ADR 0016).
 - ADR 0010's type-contract-catalog authority (KQL scalars, logical
   annotations, nullability, units, per-backend physical mappings) is
   unaffected and remains the single type authority; only the Arrow
