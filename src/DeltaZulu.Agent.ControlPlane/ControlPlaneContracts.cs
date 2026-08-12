@@ -10,7 +10,8 @@ public sealed record EnrollRequest(
     string Hostname,
     string Platform,
     string? AgentVersion,
-    IReadOnlyList<string>? Tags);
+    IReadOnlyList<string>? Tags,
+    string? PreviousAgentSecret = null);
 
 public sealed record EnrollResponse(
     string AgentId,

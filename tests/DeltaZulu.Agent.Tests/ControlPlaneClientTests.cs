@@ -69,6 +69,17 @@ public sealed class ControlPlaneClientTests
         Assert.Contains("bundle.unknown", exception.Message);
     }
 
+    [TestMethod]
+    public void Constructor_RejectsNonHttpsBaseAddress()
+    {
+        var handler = new RecordingHandler((request, ct) => new HttpResponseMessage(HttpStatusCode.OK));
+
+        var exception = Assert.ThrowsExactly<ArgumentException>(() =>
+            new ControlPlaneClient(new HttpClient(handler) { BaseAddress = new Uri("http://control-plane.example") }));
+
+        Assert.Contains("https", exception.Message);
+    }
+
     private sealed class RecordingHandler(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>

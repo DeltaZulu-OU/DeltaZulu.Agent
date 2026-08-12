@@ -16,6 +16,14 @@ public sealed class ControlPlaneClient
 
     public ControlPlaneClient(HttpClient httpClient)
     {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        if (httpClient.BaseAddress is { Scheme: not "https" } baseAddress)
+        {
+            throw new ArgumentException(
+                $"ControlPlaneClient requires an https base address to avoid sending the agent secret " +
+                $"and heartbeat content in cleartext; got '{baseAddress}'.", nameof(httpClient));
+        }
+
         _http = httpClient;
     }
 
