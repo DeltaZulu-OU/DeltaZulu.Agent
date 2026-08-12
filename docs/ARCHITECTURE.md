@@ -21,10 +21,12 @@ Implementation sequencing and current migration status are in
 - Native or deterministic structured sources bypass Parse.
 - A producer-agnostic type-contract catalog (ADR 0010) is the single authority
   for parsed field KQL scalars, logical annotations, nullability, units,
-  timestamp precision, and per-backend physical mappings. It generates Arrow
-  server schemas, sink DDL, query-translator type tables, and governed JSON
-  projections. The agent-to-collector wire format is MessagePack, not Avro
-  (ADR 0014); there is no generated Avro wire schema.
+  timestamp precision, and per-backend physical mappings. It generates sink
+  DDL, query-translator type tables, and governed JSON projections. The
+  agent-to-collector wire format is MessagePack, not Avro (ADR 0014); the
+  collector's internal representation is the catalog-typed record itself,
+  not Arrow (ADR 0015). There is no generated Avro wire schema and no
+  generated Arrow in-memory schema.
 - The target agent-to-collector transport is **DeltaZulu.Forward** (ADR 0011):
   a proprietary, RELP-derived but non-wire-compatible reliable framing
   protocol implemented in `DeltaZulu.Pipeline` itself. Until Phase 12a lands
@@ -43,8 +45,9 @@ Implementation sequencing and current migration status are in
   `DeltaZulu.LocalStream` NuGet package before it owns daemon persistence.
 - Canonical semantic normalization belongs to DeltaZulu.Platform, not the edge
   agent.
-- The Proton leg is served through a Kafka-API-compatible intermediate
-  protocol (ADR 0012); DeltaZulu writes no bespoke Proton output sink.
+- The Proton leg is served by a bespoke native Proton sink (ADR 0016); there
+  is no Kafka-API-compatible intermediate and no broker in the deployment
+  path.
 
 ## Runtime topology
 
@@ -61,7 +64,7 @@ flowchart TD
     AS --> SC[Type-contract catalog validation
 KQL scalars + logical annotations + nullability + units]
     SC --> AV[MessagePack ForwardLogBatch envelope]
-    AV --> AR[Collector decode to Arrow record batches]
+    AV --> AR[Collector decode to catalog-typed records]
     AR --> PE[ParsedEventEnvelope]
     PE --> PS[(LocalStream: agent.parsed)]
     PS --> FD[Coordinated filter dispatcher]
@@ -72,9 +75,8 @@ KQL scalars + logical annotations + nullability + units]
     B --> FWD[DeltaZulu.Forward -- RawEnvelope compatibility framing today; MessagePack ForwardLogBatch is Phase 12a target]
     FWD --> ACK[Remote acknowledgement]
     ACK --> C[Commit agent.output position]
-    AR --> DDB[DuckDB: zero-copy Arrow ingest]
-    AR --> KI[Kafka-API-compatible intermediate]
-    KI --> PROTON[Proton: external-stream ingest]
+    AR --> DDB[DuckDB: ingest from catalog-typed records]
+    AR --> PROTON[Bespoke native Proton sink]
 ```
 
 There is one LocalStream host and two internal physical topics: `agent.parsed`
@@ -87,7 +89,7 @@ non-thread-safe LocalStream producer is private to the publisher adapter.
 
 ```text
 src/DeltaZulu.Pipeline/
-  Core/             Acquisition, delivery, events, MessagePack, Arrow
+  Core/             Acquisition, delivery, events, MessagePack, catalog
                     schema projections, governed NDJSON edges, observability,
                     and profiles
   Inputs/           Files, network, pipes, syslog, RELP, Windows, framing,
@@ -141,12 +143,11 @@ The internal type-bearing transport is MessagePack (a `ForwardLogBatch`,
 ADR 0014), field values normalized against that catalog, carried over
 DeltaZulu.Forward once Phase 12a lands (RELP-derived FORWARDER compatibility
 framing is the current transitional carrier). The collector decodes the
-MessagePack batch once into Arrow record batches. DuckDB ingests from Arrow
-zero-copy; the Proton leg is fed by a Kafka-API-compatible intermediate
-protocol reading from that Arrow representation (ADR 0012 — whether it
-requires re-encoding to Avro or another format for the Kafka topic is
-reopened by ADR 0014 and unresolved) rather than a bespoke sink. NDJSON is
-not an internal
+MessagePack batch once and works directly with the resulting catalog-typed
+record — there is no Arrow layer (ADR 0015). DuckDB ingests from
+catalog-typed records; the Proton leg is fed by a bespoke native Proton
+sink reading from the same catalog-typed records (ADR 0016), not a
+Kafka-API-compatible intermediate. NDJSON is not an internal
 type-bearing wire format; it is retained only for governed third-party
 ingress/egress projections, operator debug taps, and dead-letter/error
 envelopes.

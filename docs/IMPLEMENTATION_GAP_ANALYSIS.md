@@ -1,7 +1,7 @@
 # Implementation gap analysis
 
 This document compares the current codebase to the accepted target architecture
-in `ARCHITECTURE.md`, `ROADMAP.md`, and ADRs 0005-0014. It is intentionally not a
+in `ARCHITECTURE.md`, `ROADMAP.md`, and ADRs 0005-0016. It is intentionally not a
 new target design. It is the working inventory of places where the code still
 differs from the documents, so migration work can fix real conflicts before the
 next architecture phase claims completion.
@@ -34,9 +34,9 @@ rg "DeltaZulu\.(Parse|LocalStream)|ProjectReference" Directory.Packages.props De
 The code matches the documented **Phase 1 scaffold** but not the target runtime.
 The largest current conflict is not that the code is incomplete; the roadmap
 already says that. The risk is that several documents describe target-state
-nouns (`ParsedEventEnvelope`, the type-contract catalog, Arrow, unified
+nouns (`ParsedEventEnvelope`, the type-contract catalog, unified
 PDAG, LocalStream host, the typed DeltaZulu.Forward MessagePack batch
-protocol (ADR 0014), the Proton Kafka-API intermediate)
+protocol (ADR 0014), the bespoke native Proton sink (ADR 0016))
 that do not yet have corresponding production code. Phase 2 has introduced
 strict input-record and acquisition-plan scaffolds, but current ingestion is
 still profile-centric, `SourceEvent`-based, and output-sink oriented until
@@ -54,11 +54,11 @@ The important implementation facts are:
 - Syslog and auditd adapters still parse application-specific plaintext inside
   input adapters.
 - Current external and diagnostic output remains NDJSON or MessagePack
-  `DeliveryBatch` over FORWARDER compatibility framing; there is no Arrow,
+  `DeliveryBatch` over FORWARDER compatibility framing; there is no
   type-contract catalog, generated DDL, target DeltaZulu.Forward
   binary/typed-batch framing (MessagePack `ForwardLogBatch`, ADR 0014),
-  Proton Kafka-API intermediate, or DuckDB backend mapping code (ADR
-  0010/0011/0012/0014 remain target design only).
+  bespoke native Proton sink (ADR 0016), or DuckDB backend mapping code
+  (ADR 0010/0011/0014/0015/0016 remain target design only).
 - `TextInputRecord`, `StructuredInputRecord`, and `ExecutionPlanCompiler` now
   exist as Phase 2 scaffolds, but current inputs have not been adapted to emit
   them yet.
@@ -83,9 +83,9 @@ The important implementation facts are:
 | Forwarding durability | Forwarder subscribes to `agent.output` and commits only after ACK; LocalStream is the primitive stream substrate, not a DurableBuffer facade. | `BufferedForwarderSink` owns a `DurableBufferHost<DeliveryRecord>` directly and starts a `ForwarderOutputWorker`. | Intentional transition. | Replace direct forwarding-spool ownership with an ACK-gated LocalStream subscription, then remove Pipeline's direct DurableBuffer reference (ROADMAP.md Phase 12). Do not treat DurableBuffer as the required low-level foundation for LocalStream. |
 | Forward transport | DeltaZulu.Forward (ADR 0011): a proprietary, RELP-derived but non-wire-compatible framing protocol carries MessagePack-encoded `ForwardLogBatch` batches (ADR 0014) with ack-on-commit, a typed handshake, and a collector-side dedup window. | Current forwarding uses repository FORWARDER compatibility framing with MessagePack `DeliveryBatch` payloads, not the target binary `ForwardLogBatch` protocol. | Partial scaffold / target gap. | Implement binary framing, typed handshake, MessagePack `ForwardLogBatch` frames, dedup window, and the protocol state machine (ROADMAP.md Phase 12a) with its own test harness before claiming target Forward transport. |
 | Typed envelopes | Parsed events carry stable identity, materialization state, catalog logical type metadata, topic, raw message, and provenance. | Current row model is `SourceEvent` and `ResourceOutputRecord`; `SourceEvent.ToKqlRow()` returns a dictionary plus `_metadata`. | Gap. | Add `ParsedEventEnvelope` and materialization outcome model, then adapt existing filters through compatibility projection. |
-| Type-contract catalog and type fidelity | Catalog generates Arrow, sink DDL, translator type tables, and governed JSON projections; no Avro wire schema (ADR 0014). | No catalog, Arrow, Proton, DuckDB, generated DDL, or translator mapping implementation was found. | Gap introduced by ADR 0010; target only. | Define catalog model/generation lifecycle, schema projections, validation failure handling, and per-backend mappings before claiming sink parity. |
-| Internal wire format | MessagePack (`ForwardLogBatch`, ADR 0014) on the agent-to-collector wire (carried by DeltaZulu.Forward), decoded once to Arrow batches on the collector. | Current daemon output choices are console/file NDJSON and FORWARDER compatibility framing; forwarding sends MessagePack `DeliveryBatch`. | Gap; existing docs must call NDJSON/MessagePack transitional where used internally. | Keep NDJSON/MessagePack/FORWARDER compatibility paths as current mechanisms until the typed DeltaZulu.Forward MessagePack batch protocol and Arrow collector batches exist; do not describe them as target type-bearing transport. |
-| Proton ingestion mechanism | No bespoke Proton sink; the collector publishes typed batches to a Kafka-API-compatible intermediate (Redpanda/embedded broker), with a Python external-stream plugin as fallback (ADR 0012). Whether that leg needs its own re-encoding step (historically assumed Avro) is reopened by ADR 0014 and unresolved. | No Proton-leg publishing code, Kafka producer wiring, or Python fallback plugin exists in this repository. | Gap introduced by ADR 0012; target only. | Add collector-side Kafka producer wiring, catalog→topic/schema mapping, Proton external-stream DDL projection, and the Python fallback plugin (ROADMAP.md Phase 3b/18); resolve ADR 0014's reopened Kafka-leg format question. |
+| Type-contract catalog and type fidelity | Catalog generates sink DDL, translator type tables, and governed JSON projections; no Avro wire schema and no Arrow in-memory schema (ADR 0014/0015). | No catalog, Proton, DuckDB, generated DDL, or translator mapping implementation was found. | Gap introduced by ADR 0010; target only. | Define catalog model/generation lifecycle, schema projections, validation failure handling, and per-backend mappings before claiming sink parity. |
+| Internal wire format | MessagePack (`ForwardLogBatch`, ADR 0014) on the agent-to-collector wire (carried by DeltaZulu.Forward), decoded once into a catalog-typed record on the collector — no Arrow layer (ADR 0015). | Current daemon output choices are console/file NDJSON and FORWARDER compatibility framing; forwarding sends MessagePack `DeliveryBatch`. | Gap; existing docs must call NDJSON/MessagePack transitional where used internally. | Keep NDJSON/MessagePack/FORWARDER compatibility paths as current mechanisms until the typed DeltaZulu.Forward MessagePack batch protocol exists; do not describe them as target type-bearing transport. |
+| Proton ingestion mechanism | A bespoke native Proton sink (ADR 0016) publishes catalog-typed records directly to Proton's native ingestion protocol; no Kafka-API-compatible intermediate, no broker, no Python external-stream plugin. | No Proton-leg publishing code or sink implementation exists in this repository. | Gap introduced by ADR 0016; target only. | Implement and test the bespoke Proton sink against tracked Proton native-protocol releases, with its own test harness for the NRT-path failure modes ADR 0016 accepts (ROADMAP.md Phase 3b/18). |
 | KQL execution parity | One KQL query should translate against Proton and DuckDB from a shared physical type catalog. | Current filter execution is Rx.Kql over in-memory dictionaries. No Proton/DuckDB query translator code was found in this repository path. | Gap / possibly out-of-repo. | Document ownership if backend translator lives elsewhere; otherwise add type-catalog-driven translator work to the server roadmap before asserting parity. |
 | Observability/blindness | Admission, parser, filter, LocalStream, forwarding, and unknown-event diagnostics are separately observable. | Observation classes and accumulators exist, but there is no Parse/LocalStream path to emit the full target taxonomy. | Partial. | Add bounded labels and separate metrics at each new boundary as the boundaries are implemented. |
 
@@ -96,9 +96,9 @@ The important implementation facts are:
    do not reintroduce placeholder projects just to satisfy solution shape.
 2. **Architecture diagrams show target nouns without enough current-state guard.**
    `ARCHITECTURE.md` is intentionally target-state, but nearby roadmap language
-   must continue to state that the type-contract catalog, Arrow,
-   DeltaZulu.Forward, the Proton Kafka-API intermediate, LocalStream host,
-   parsed envelopes, and execution plans are not implemented yet.
+   must continue to state that the type-contract catalog,
+   DeltaZulu.Forward, the bespoke native Proton sink (ADR 0016), LocalStream
+   host, parsed envelopes, and execution plans are not implemented yet.
 3. **NDJSON appears in both target-edge and current-internal roles.** The current
    code still uses NDJSON sinks and MessagePack FORWARDER batches. Documents should
    consistently label these as current/transitional internal mechanisms or
@@ -122,8 +122,9 @@ to this gap analysis. Future PRs should update this document when they close a
 gap, add a new accepted deviation, or discover that backend work lives outside
 this repository. The next known Phase 2 fix is adapting concrete inputs to emit
 strict records through compatibility shims while the legacy `SourceEvent` runtime
-continues to run. DeltaZulu.Forward (Phase 12a) and the Proton Kafka-API
-intermediate (Phase 3b/18) are newly tracked gaps from ADR 0011/0012 and have no
-implementation yet; do not begin coding them speculatively ahead of their
+continues to run. DeltaZulu.Forward (Phase 12a) and the bespoke native
+Proton sink (Phase 3b/18) are newly tracked gaps from ADR 0011/0016 and have
+no implementation yet; do not begin coding them speculatively ahead of their
 prerequisite phases (LocalStream package boundary and host for 12a; the
-type-contract catalog and its wire format, MessagePack per ADR 0014, for 3b).
+type-contract catalog and its wire format, MessagePack per ADR 0014, for
+3b).

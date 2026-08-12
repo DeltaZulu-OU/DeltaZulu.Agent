@@ -3,12 +3,16 @@
 ## Status
 
 Accepted for the type-contract catalog (KQL scalars, logical annotations,
-nullability, units, per-backend physical mappings) and the Arrow/Proton
+nullability, units, per-backend physical mappings) and the Proton
 DDL/DuckDB DDL/parser-contract projections. **Superseded for the wire
 format** by [ADR 0014](0014-messagepack-wire-supersedes-avro.md): the
 agent-to-collector wire is MessagePack, not Avro, and there is no generated
-Avro wire schema projection. Historical decision retained for context;
-read ADR 0014 for the current wire-format decision.
+Avro wire schema projection. **Superseded for the internal representation**
+by [ADR 0015](0015-no-arrow-catalog-typed-records.md): there is no Arrow
+layer either; the collector works directly with catalog-typed records, and
+there is no generated Arrow in-memory schema projection. Historical
+decision retained for context; read ADR 0014 and ADR 0015 for the current
+wire-format and internal-representation decisions.
 
 ## Context
 
@@ -115,7 +119,9 @@ question, not a documentation read.
 
 ## Related decisions
 
-- ADR 0011 names and designs the Avro-carrying transport (DeltaZulu.Forward).
-- ADR 0012 resolves the Proton ingestion mechanism (Kafka-API-compatible
-  intermediate; no bespoke sink), replacing this ADR's original "native
-  protocol or another verified OSS-supported path" language.
+- ADR 0011 names and designs the transport (DeltaZulu.Forward); ADR 0014
+  corrects its payload from Avro to MessagePack.
+- ADR 0016 resolves the Proton ingestion mechanism (a bespoke native
+  Proton sink), superseding ADR 0012's Kafka-API-compatible intermediate
+  and replacing this ADR's original "native protocol or another verified
+  OSS-supported path" language with an owned-implementation decision.

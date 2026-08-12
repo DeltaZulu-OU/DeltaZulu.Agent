@@ -2,18 +2,14 @@
 
 ## Status
 
-Accepted — 2026-07-19. Target design; not yet implemented (see ROADMAP.md
-Phase 3b).
-
-> **Reopened by [ADR 0014](0014-messagepack-wire-supersedes-avro.md):** the
-> "no re-encoding" claim below assumed the agent-to-collector wire format
-> was Avro, matching Proton's Kafka-API Avro ingestion. ADR 0014 makes the
-> wire format MessagePack instead. Whether the Kafka-API-compatible
-> intermediate still needs an Avro (or other) re-encoding step between the
-> collector's Arrow batches and the Kafka topic — and whether that brings
-> back a narrowly-scoped Avro-schema-generation projection for this leg
-> only — is unresolved; treat it as part of this ADR's Phase 3b
-> integration-testing verification, not a decided detail.
+**Superseded in full by [ADR 0016](0016-bespoke-proton-sink-supersedes-kafka-intermediate.md):**
+DeltaZulu writes a bespoke native Proton sink; there is no Kafka-API-
+compatible intermediate and no Python external-stream fallback. Historical
+decision retained for context below, including the maintenance-cost
+analysis of the bespoke-sink alternative this ADR originally rejected and
+ADR 0016 now accepts, and including ADR 0014's now-moot reopening of the
+"no re-encoding" claim (moot because the Kafka intermediate this ADR
+decided on no longer exists at all, per ADR 0016).
 
 ## Context
 

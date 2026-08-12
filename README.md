@@ -187,7 +187,7 @@ placeholder.
 
 - [Architecture](docs/ARCHITECTURE.md) is the authoritative target topology and dependency boundary.
 - [Roadmap](docs/ROADMAP.md) tracks the staged migration and current transitional baseline.
-- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](docs/adr/0011-deltazulu-forward-transport.md), [Proton ingestion via an intermediate protocol](docs/adr/0012-proton-ingestion-intermediate-protocol.md), and [MessagePack as the wire format, superseding Avro](docs/adr/0014-messagepack-wire-supersedes-avro.md).
+- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](docs/adr/0011-deltazulu-forward-transport.md), [MessagePack as the wire format, superseding Avro](docs/adr/0014-messagepack-wire-supersedes-avro.md), [no Arrow — catalog-typed records](docs/adr/0015-no-arrow-catalog-typed-records.md), and [a bespoke native Proton sink, superseding the Kafka-API intermediate](docs/adr/0016-bespoke-proton-sink-supersedes-kafka-intermediate.md).
 
 ## License
 

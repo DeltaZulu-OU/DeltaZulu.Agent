@@ -55,12 +55,16 @@ in-memory schema, Proton DDL, DuckDB DDL, and parser contracts. There is no
 generated Avro wire schema projection; MessagePack's self-describing map
 encoding does not need one, and the catalog validates decoded records
 directly against its KQL-scalar/logical-annotation model instead of against
-a schema artifact.
+a schema artifact. (The Arrow projection is itself superseded by
+[ADR 0015](0015-no-arrow-catalog-typed-records.md), decided after this ADR;
+the projection list narrows further to three there.)
 
-The collector still decodes exactly once into Arrow record batches — from
-MessagePack `ForwardLogBatch` records instead of from Avro. Arrow remains
-the collector's internal typed batch representation, unchanged from ADR
-0010.
+The collector decodes each MessagePack `ForwardLogBatch` record once and
+validates it against the catalog. **Update ([ADR 0015](0015-no-arrow-catalog-typed-records.md)):**
+that decode step does not produce an Arrow record batch — the collector
+works directly with the catalog-typed record. This ADR's original text
+here claimed Arrow remained the collector's internal representation,
+unchanged from ADR 0010; that claim is superseded by ADR 0015.
 
 ## Consequences
 
@@ -72,16 +76,15 @@ the collector's internal typed batch representation, unchanged from ADR
   MessagePack-encoded `ForwardLogBatch` per frame" — this is a documentation
   correction to match what `DeltaZulu.Forward` already does, not a transport
   redesign; framing, handshake, windowing, and dedup are unaffected.
-- **Reopened, not resolved:** ADR 0012 justified the Kafka-API-compatible
+- **Reopened, then mooted:** ADR 0012 justified the Kafka-API-compatible
   Proton intermediate partly on "Avro is a first-class payload format on
   Kafka-protocol infrastructure, so the wire format and the Proton
   intermediate speak the same serialization without re-encoding." That
-  no longer holds once the wire format is MessagePack. Whether the
-  Proton/Kafka leg still needs an Avro (or other) re-encoding step between
-  the collector's Arrow batches and the Kafka topic, and whether that
-  reintroduces the catalog's Avro-schema-generation projection scoped
-  narrowly to that one leg, is an open question for ADR 0012 to resolve
-  during its own Phase 3b integration testing — it is not decided here.
+  no longer held once the wire format became MessagePack, which this ADR
+  originally left as an open question for ADR 0012's Phase 3b testing.
+  [ADR 0016](0016-bespoke-proton-sink-supersedes-kafka-intermediate.md)
+  has since dropped the Kafka-API intermediate entirely in favor of a
+  bespoke Proton sink, which moots the question rather than answering it.
 - No source code in this repository referenced Avro at the time of this
   ADR (verified by search); this is a pre-implementation documentation
   correction, not a migration.
