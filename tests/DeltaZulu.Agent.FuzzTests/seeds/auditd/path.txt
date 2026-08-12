@@ -1,0 +1,1 @@
+type=PATH msg=audit(1710000000.123:42): item=0 name="/bin/bash"

@@ -1,0 +1,1 @@
+type=EXECVE msg=audit(1710000000.123:42): argc=2 a0=2F62696E2F7368 a1=2D63 uid=1000 exe="/bin/bash" missing=(null) arch=c000003e

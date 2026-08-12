@@ -27,6 +27,8 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="MSTest.TestAdapter" Version="4.3.3" />
     <PackageVersion Include="MSTest.TestFramework" Version="4.3.3" />
+    <!-- Fuzzing -->
+    <PackageVersion Include="SharpFuzz" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup>
     <!--

@@ -1,0 +1,1 @@
+type=SYSCALL msg=audit(1710000000.123:42): comm="cmd\"with quote" cwd="/tmp/a\\b"
