@@ -10,10 +10,10 @@ if (args.Length != 1)
 switch (args[0])
 {
     case "Auditd":
-        Fuzzer.Run(FuzzAuditd);
+        Fuzzer.OutOfProcess.Run(FuzzAuditd);
         break;
     case "Forward":
-        Fuzzer.Run(stream =>
+        Fuzzer.OutOfProcess.Run(stream =>
         {
             using var buffer = new MemoryStream();
             stream.CopyTo(buffer);
