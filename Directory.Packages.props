@@ -27,10 +27,20 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="MSTest.TestAdapter" Version="4.3.2" />
     <PackageVersion Include="MSTest.TestFramework" Version="4.3.2" />
-    <!-- SQLite transitive dependency overrides -->
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
-    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.3" />
-    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
-    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      SQLite transitive dependency overrides. These are GlobalPackageReference,
+      not PackageVersion: none of the four is ever a direct PackageReference in
+      any project, so a plain PackageVersion entry is silently ignored by Central
+      Package Management and the transitive version wins instead - which is how
+      SQLitePCLRaw.lib.e_sqlite3 2.1.11 (GHSA-2m69-gcr7-jv3q, known high severity)
+      shipped despite this file appearing to pin 2.1.12. GlobalPackageReference
+      forces the reference (and therefore the version) onto every project.
+    -->
+    <GlobalPackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <GlobalPackageReference Include="SQLitePCLRaw.core" Version="3.0.3" />
+    <GlobalPackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <GlobalPackageReference Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.3" />
   </ItemGroup>
 </Project>
