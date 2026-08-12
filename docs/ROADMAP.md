@@ -26,9 +26,10 @@ The daemon still runs separate `ProfileBinding`/`ResourcePipeline` work and
 uses `ChannelOutputMultiplexer` to serialize concurrent legacy output. Those
 are transitional implementation details, not target architecture. Existing
 syslog and auditd parsing is also transitional until Parse parity is
-established. Agent-to-collector forwarding still speaks literal RELP
-(`DeltaZulu.Forward`); DeltaZulu.Forward (ADR 0011), the target transport, is not
-yet implemented.
+established. Agent-to-collector forwarding still speaks FORWARDER
+compatibility framing (MessagePack `DeliveryBatch` carried as a
+DeltaZulu.Forward RawEnvelope batch); the typed, Avro-carrying
+DeltaZulu.Forward transport (ADR 0011) is not yet implemented.
 
 ## Current delivery status (2026-07-17)
 
@@ -60,9 +61,11 @@ using `DeltaZulu.Parse` for pattern-based extraction behind raw table bindings.
 - The type-contract catalog, Avro wire schemas, Arrow record batches, generated
   Proton/DuckDB DDL, and translator type tables are accepted target design only;
   no implementation exists in this repository yet.
-- DeltaZulu.Forward (ADR 0011) and the Proton Kafka-API-compatible intermediate
-  (ADR 0012) are accepted target design only; current forwarding still speaks
-  literal RELP and no Proton-leg publishing code exists.
+- The typed, Avro-carrying DeltaZulu.Forward transport (ADR 0011) and the
+  Proton Kafka-API-compatible intermediate (ADR 0012) are accepted target
+  design only; current forwarding still speaks FORWARDER compatibility
+  framing (MessagePack `DeliveryBatch` over DeltaZulu.Forward's RawEnvelope
+  path) and no Proton-leg publishing code exists.
 
 Phase 2 work must preserve the legacy behavior through compatibility adapters;
 it must not prematurely move structured sources through Parse or replace
@@ -99,7 +102,7 @@ authoritative for legacy profile-specific `SourceEvent` records.
 | 10 | Planned | Replace profile-centric execution with execution plans. | The planner opens each physical resource once per acquisition key and binds acquisition to parser/materialization/stream plans deterministically; `ProfileBinding` no longer defines a pipeline instance. |
 | 11 | Planned | Add coordinated filter dispatch. | Every candidate runs in deterministic order; output append precedes parsed commit; no-candidate, no-match, filter error, and output error remain distinct. |
 | 12 | Planned | Migrate forwarding to LocalStream `agent.output` and retire direct DurableBuffer ownership. | The forwarder is an ACK-gated LocalStream subscription with replay; no forwarder-created DurableBuffer host remains Agent-visible. This phase may land with the transitional FORWARDER transport before DeltaZulu.Forward (Phase 12a) replaces it. |
-| 12a | Planned | Implement DeltaZulu.Forward (ADR 0011) as the target agent-to-collector transport. | Binary framing (type, txnr, length, flags), typed offer/capability handshake (catalog version, schema fingerprints, compression, dedup-window size), one Avro batch per frame with ack-on-durable-commit, batch UUIDs, collector-side bounded dedup window, and backpressure/window-adjustment frames all exist as an independently tested state machine (retransmit-after-reconnect races, cross-session duplicates, txnr wraparound, half-open detection, window exhaustion, shutdown with unacked frames) per its own harness budget. `DeltaZulu.Forward`/literal RELP is retired as the primary transport once Forward is proven; it may remain for a separate rsyslog-world peer input adapter. |
+| 12a | Planned | Implement DeltaZulu.Forward (ADR 0011) as the target agent-to-collector transport. | Binary framing (type, txnr, length, flags), typed offer/capability handshake (catalog version, schema fingerprints, compression, dedup-window size), one Avro batch per frame with ack-on-durable-commit, batch UUIDs, collector-side bounded dedup window, and backpressure/window-adjustment frames all exist as an independently tested state machine (retransmit-after-reconnect races, cross-session duplicates, txnr wraparound, half-open detection, window exhaustion, shutdown with unacked frames) per its own harness budget. Today's FORWARDER/RawEnvelope compatibility framing is retired as the primary transport once the typed DeltaZulu.Forward batch protocol is proven; literal RELP may still be added later as a separate rsyslog-world peer input adapter. |
 | 13 | Planned | Remove daemon multiplexer. | The daemon does not instantiate `ChannelOutputMultiplexer`; lifecycle uses plan-owned tasks, stream drain policy, and only private publisher serialization where required. |
 | 14 | Planned | Remove compatibility plaintext parsers. | Parse-only plaintext parsing has syslog, journal/FIFO, and auditd parity corpora; no transport adapter invokes an application-specific parser. |
 | 15 | Planned | Add blindness and end-to-end observability. | Admission, parser, filter, complete-blindness, streams, forwarding, and bounded unknown diagnostics are observable. |
@@ -189,9 +192,10 @@ Avro handling honors catalog logical types directly or needs explicit column
 declaration is a Phase 3b/18 integration-testing question.
 
 DeltaZulu.Forward (ADR 0011) is the target Avro-carrying transport between
-agent and collector, replacing literal RELP once Phase 12a lands; see ADR
-0011 for the framing, handshake, and dedup-window design and ADR 0006 for the
-narrowed, transitional role FORWARDER retains.
+agent and collector, replacing today's FORWARDER/RawEnvelope compatibility
+framing once Phase 12a lands; see ADR 0011 for the framing, handshake, and
+dedup-window design and ADR 0006 for the narrowed, transitional role
+FORWARDER retains.
 
 ## Validation expectations
 

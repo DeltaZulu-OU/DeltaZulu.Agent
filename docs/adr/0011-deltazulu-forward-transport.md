@@ -13,13 +13,13 @@ subsequently renamed to `DeltaZulu.Forward` upstream and no longer exists as
 a distinct package; see the Decision below for this ADR's own transport
 naming, which the upstream rename now matches.) ADR 0006 assigns
 `DeltaZulu.Relp` ownership of RELP framing, sessions, transactions, and
-acknowledgements for the current, transitional local-validation path (see
-`docs/RELP_RECEIVER_SETUP.md`), but does not decide what the long-term,
-Avro-carrying, agent-to-collector transport is or what it is called. Reusing
-literal RELP long-term would carry legacy constraints (text command verbs,
-syslog payload assumptions, librelp/rsyslog wire compatibility) that the
-Avro payload (ADR 0010) already forfeits the interop those constraints exist
-for.
+acknowledgements for a prospective literal-RELP local-validation path, but
+no literal-RELP client or receiver was ever built against that decision, and
+it does not decide what the long-term, Avro-carrying, agent-to-collector
+transport is or what it is called. Reusing literal RELP long-term would
+carry legacy constraints (text command verbs, syslog payload assumptions,
+librelp/rsyslog wire compatibility) that the Avro payload (ADR 0010) already
+forfeits the interop those constraints exist for.
 
 ## Decision
 
@@ -51,8 +51,8 @@ pipeline as double-counted events.
 
 Interop with rsyslog-world or fluentd peers is a non-goal on this channel. Raw
 ingestion from such sources is a separate input adapter feeding Parse, and may
-continue to use literal RELP (`DeltaZulu.Forward`) as a receiving protocol for
-that adapter.
+use literal RELP as a receiving protocol for that adapter, if and when it is
+built — no such adapter exists in this repository today.
 
 ## Alternatives rejected
 
@@ -70,12 +70,13 @@ that adapter.
 
 ## Consequences
 
-- Literal RELP narrows from "the agent-to-collector transport" to "a
-  legacy/rsyslog-world peer input adapter and older local-validation transport"
-  (`docs/RELP_RECEIVER_SETUP.md`). Current checked-in daemon configuration uses
-  `forwarder:`/`transport: forwarder` compatibility framing while the target
-  binary Avro DeltaZulu.Forward protocol remains Phase 12a work. ADR 0006
-  remains accepted for any literal-RELP peer input path.
+- Literal RELP narrows from "the agent-to-collector transport" to, at most, a
+  possible future legacy/rsyslog-world peer input adapter; no literal-RELP
+  client or receiver was ever built. Current checked-in daemon configuration
+  uses `forwarder:`/`transport: forwarder` compatibility framing over
+  DeltaZulu.Forward while the target binary Avro DeltaZulu.Forward protocol
+  remains Phase 12a work. ADR 0006 remains accepted for any future
+  literal-RELP peer input path.
 - The protocol state machine (retransmit-after-reconnect races, cross-session
   duplicates, txnr wraparound, half-open detection, window exhaustion,
   shutdown with unacked frames) is a separately testable component with its

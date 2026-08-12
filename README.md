@@ -187,7 +187,6 @@ placeholder.
 - [Architecture](docs/ARCHITECTURE.md) is the authoritative target topology and dependency boundary.
 - [Roadmap](docs/ROADMAP.md) tracks the staged migration and current transitional baseline.
 - [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](docs/adr/0011-deltazulu-forward-transport.md) and [Proton ingestion via an intermediate protocol](docs/adr/0012-proton-ingestion-intermediate-protocol.md).
-- [RELP receiver setup](docs/RELP_RECEIVER_SETUP.md) is historical guidance for the older literal RELP validation path; the checked-in sample daemon configs now use the FORWARDER validation path.
 
 ## License
 

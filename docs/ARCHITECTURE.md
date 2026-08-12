@@ -29,7 +29,8 @@ Implementation sequencing and current migration status are in
   protocol implemented in `DeltaZulu.Pipeline` itself. Until Phase 12a lands
   the target binary/Avro state machine, the checked-in daemon configuration uses
   FORWARDER compatibility framing with MessagePack `DeliveryBatch` payloads.
-  Literal RELP is retained only for older validation notes and any future
+  No literal-RELP client or receiver has been built; the name is retained
+  only as the design lineage for DeltaZulu.Forward and for a possible future
   rsyslog-world peer input adapter.
 - `DeltaZulu.LocalStream` is the Pipeline-visible durability and replay
   boundary: a primitive, non-distributed Kafka alternative for in-agent topics,
@@ -66,7 +67,7 @@ KQL scalars + logical annotations + nullability + units]
     FD -->|no rows| D[Record coverage disposition and commit]
     OS --> RF[Forwarder subscription]
     RF --> B[DeliveryBatch]
-    B --> FWD[DeltaZulu.Forward -- target; literal RELP -- current transitional]
+    B --> FWD[DeltaZulu.Forward -- RawEnvelope compatibility framing today; typed Avro batch is Phase 12a target]
     FWD --> ACK[Remote acknowledgement]
     ACK --> C[Commit agent.output position]
     AR --> DDB[DuckDB: zero-copy Arrow ingest]
@@ -95,7 +96,7 @@ src/DeltaZulu.Pipeline/
   Streaming/        envelopes, publishers, stream runtime, and metrics
   Dispatch/         immutable filter registry and coordinated dispatcher
   Enrichment/       ETW, RPC, and Windows enrichment
-  Outputs/          NDJSON and thin RELP/Forward adapters
+  Outputs/          NDJSON and thin Forwarder (DeltaZulu.Forward) adapters
   Forward/          DeltaZulu.Forward framing, handshake, dedup window, and
                     state machine (ADR 0011; ROADMAP.md Phase 12a; not yet
                     implemented)
