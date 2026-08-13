@@ -1,5 +1,6 @@
 using DeltaZulu.Forward;
 using DeltaZulu.Pipeline.Inputs.Auditd;
+using MessagePack;
 using SharpFuzz;
 
 if (args.Length != 1)
@@ -30,9 +31,9 @@ static void FuzzAuditd(string line)
     {
         _ = new AuditdRecordParser().Parse(line);
     }
-    catch (FormatException)
+    catch (FormatException exception)
     {
-        // Invalid audit records are an expected parser outcome.
+        Console.Error.WriteLine($"Expected Auditd format rejection: {exception.Message}");
     }
 }
 
@@ -42,8 +43,10 @@ static void FuzzForwardBatch(ReadOnlyMemory<byte> payload)
     {
         _ = ForwardLogBatchCodec.Decode(payload);
     }
-    catch (Exception exception) when (exception is InvalidDataException or FormatException)
+    catch (Exception exception) when (
+        exception is InvalidDataException or FormatException or MessagePackSerializationException)
     {
-        // Invalid wire payloads are expected; unexpected exception types remain fuzzing failures.
+        Console.Error.WriteLine(
+            $"Expected Forward format rejection ({exception.GetType().Name}): {exception.Message}");
     }
 }
