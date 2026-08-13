@@ -39,6 +39,53 @@ public sealed class SyslogTests
     }
 
     [TestMethod]
+    public void Parse_Rfc3164MessageWithPriority_DecodesEnvelopeAndPriority()
+    {
+        const string raw = "<134>Jun  2 00:41:47 sensor snort[427]: [1:19559:5] SERVER-OTHER sample alert";
+
+        var evt = new LightweightSyslogParser().Parse(raw, "syslog-udp");
+
+        Assert.AreEqual(134, evt.Fields["Priority"]);
+        Assert.AreEqual("local0", evt.Fields["Facility"]);
+        Assert.AreEqual("info", evt.Fields["Severity"]);
+        Assert.AreEqual("sensor", evt.Fields["Hostname"]);
+        Assert.AreEqual("snort", evt.Fields["AppName"]);
+        Assert.AreEqual(427, evt.Fields["ProcessId"]);
+        Assert.AreEqual(" [1:19559:5] SERVER-OTHER sample alert", evt.Fields["Message"]);
+        Assert.AreEqual(raw, evt.Fields["RawMessage"]);
+    }
+
+    [TestMethod]
+    public void Parse_Rfc3164MessageWithoutPriority_DecodesEnvelopeWithoutPriorityFields()
+    {
+        const string raw = "Jun  2 00:41:47 sensor snort[427]: [1:19559:5] SERVER-OTHER sample alert";
+
+        var evt = new LightweightSyslogParser().Parse(raw, "syslog-file");
+
+        Assert.IsFalse(evt.Fields.ContainsKey("Priority"));
+        Assert.IsFalse(evt.Fields.ContainsKey("Facility"));
+        Assert.IsFalse(evt.Fields.ContainsKey("Severity"));
+        Assert.AreEqual("sensor", evt.Fields["Hostname"]);
+        Assert.AreEqual("snort", evt.Fields["AppName"]);
+        Assert.AreEqual(427, evt.Fields["ProcessId"]);
+        Assert.AreEqual(" [1:19559:5] SERVER-OTHER sample alert", evt.Fields["Message"]);
+        Assert.AreEqual(raw, evt.Fields["RawMessage"]);
+    }
+
+    [TestMethod]
+    public void Parse_Rfc3164SnortMessage_PreservesPdagMessageBody()
+    {
+        const string raw = "Jun  2 00:41:47 demo snort: [1:19559:5] SERVER-OTHER sample alert";
+
+        var evt = new LightweightSyslogParser().Parse(raw, "syslog-tcp");
+
+        Assert.AreEqual("demo", evt.Fields["Hostname"]);
+        Assert.AreEqual("snort", evt.Fields["AppName"]);
+        Assert.AreEqual(" [1:19559:5] SERVER-OTHER sample alert", evt.Fields["Message"]);
+        Assert.AreEqual(raw, evt.Fields["RawMessage"]);
+    }
+
+    [TestMethod]
     public void Parse_Rfc5424Message_PreservesStructuredDataWithQuotedBrackets()
     {
         const string raw = "<165>1 2024-03-09T10:11:12.123456Z router app 999 ID47 [exampleSDID@32473 note=\"contains ] bracket\" path=\"/tmp/a b\"] Configuration reload";
@@ -48,6 +95,21 @@ public sealed class SyslogTests
         Assert.AreEqual("2024-03-09T10:11:12.1234560+00:00", ((DateTimeOffset)evt.Fields["Timestamp"]!).ToString("O"));
         Assert.AreEqual("[exampleSDID@32473 note=\"contains ] bracket\" path=\"/tmp/a b\"]", evt.Fields["StructuredData"]);
         Assert.AreEqual("Configuration reload", evt.Fields["Message"]);
+    }
+
+    [TestMethod]
+    public void Parse_Rfc5424ShapeWithoutPriority_IsNotMistakenForSyslogEnvelope()
+    {
+        const string raw = "1 2024-03-09T10:11:12Z host1 snort 123 ID47 - payload";
+
+        var evt = new LightweightSyslogParser().Parse(raw, "stdin");
+
+        Assert.AreEqual(raw, evt.Fields["Message"]);
+        Assert.AreEqual(raw, evt.Fields["RawMessage"]);
+        Assert.IsFalse(evt.Fields.ContainsKey("Priority"));
+        Assert.IsFalse(evt.Fields.ContainsKey("Hostname"));
+        Assert.IsFalse(evt.Fields.ContainsKey("AppName"));
+        Assert.IsFalse(evt.Fields.ContainsKey("SyslogVersion"));
     }
 
     [TestMethod]
@@ -72,7 +134,7 @@ public sealed class SyslogTests
         await WaitUntilAsync(() => {
             lock (seen)
             {
-                return seen.Contains("first=true");
+                return seen.Contains(" first=true");
             }
         }, cts.Token);
 
@@ -80,7 +142,7 @@ public sealed class SyslogTests
         await WaitUntilAsync(() => {
             lock (seen)
             {
-                return seen.Contains("after_truncate=true");
+                return seen.Contains(" after_truncate=true");
             }
         }, cts.Token);
 
