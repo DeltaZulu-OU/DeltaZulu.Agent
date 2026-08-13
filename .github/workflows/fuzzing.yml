@@ -81,13 +81,13 @@ jobs:
 
       - name: Generate Forward seed corpus
         if: matrix.name == 'Forward'
-        env:
-          DELTAZULU_FUZZ_SEED_PATH: ${{ matrix.seeds }}/valid-batch.bin
         run: |
-          dotnet test tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj \
+          seed="$PWD/${{ matrix.seeds }}/valid-batch.bin"
+          DELTAZULU_FUZZ_SEED_PATH="$seed" \
+            dotnet test tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj \
             --configuration Release --no-restore \
             --filter FullyQualifiedName=DeltaZulu.Agent.FuzzTests.ParserFuzzTests.GenerateForwardSeedCorpus
-          test -s "${{ matrix.seeds }}/valid-batch.bin"
+          test -s "$seed"
 
       - name: Publish fuzz harness
         run: |
