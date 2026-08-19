@@ -3,10 +3,12 @@
     <Project Path="tests/DeltaZulu.Agent.FuzzHarness/DeltaZulu.Agent.FuzzHarness.csproj" />
     <Project Path="tests/DeltaZulu.Agent.FuzzTests/DeltaZulu.Agent.FuzzTests.csproj" />
     <Project Path="tests/DeltaZulu.Agent.Tests/DeltaZulu.Agent.Tests.csproj" />
+    <Project Path="tests/DeltaZulu.Agent.DoomDisplay.Tests/DeltaZulu.Agent.DoomDisplay.Tests.csproj" />
   </Folder>
   <Project Path="src/DeltaZulu.Agent.Cli/DeltaZulu.Agent.Cli.csproj" />
   <Project Path="src/DeltaZulu.Agent.ControlPlane/DeltaZulu.Agent.ControlPlane.csproj" />
   <Project Path="src/DeltaZulu.Agent.Daemon/DeltaZulu.Agent.Daemon.csproj" />
+  <Project Path="src/DeltaZulu.Agent.DoomDisplay/DeltaZulu.Agent.DoomDisplay.csproj" />
   <Project Path="src/DeltaZulu.Agent.Filter/DeltaZulu.Agent.Filter.csproj" />
   <Project Path="src/DeltaZulu.Agent.ProfileWorkbench/DeltaZulu.Agent.ProfileWorkbench.csproj" />
   <Project Path="src/DeltaZulu.Agent.Runtime/DeltaZulu.Agent.Runtime.csproj" />
