@@ -10,12 +10,14 @@ public sealed class DoomReliabilityTelemetry
     private long acknowledgedFrames;
     private long failedSends;
     private long reconnects;
+    private long sessionFaults;
     private long collectorAcceptedFrames;
     private long collectorRejectedFrames;
     private long sequenceGaps;
     private long outOfOrderFrames;
     private long lastCollectorSequence = -1;
-    private long lastCapturedAtUnixTimeMilliseconds;
+    private long lastCaptureAgeMilliseconds = -1;
+    private long maximumCaptureAgeMilliseconds;
     private long acknowledgmentLatencyTicks;
     private long maximumAcknowledgmentLatencyTicks;
     private long maximumInFlight;
@@ -44,6 +46,12 @@ public sealed class DoomReliabilityTelemetry
 
     public void RecordReconnect() => Interlocked.Increment(ref reconnects);
 
+    /// <summary>
+    /// Records a session that ended on a transport failure rather than on a controlled turnover.
+    /// The reconnection that follows is counted separately by <see cref="RecordReconnect" />.
+    /// </summary>
+    public void RecordSessionFault() => Interlocked.Increment(ref sessionFaults);
+
     public void RecordCollectorAccepted(DoomFramePacket packet)
     {
         ArgumentNullException.ThrowIfNull(packet);
@@ -60,7 +68,13 @@ public sealed class DoomReliabilityTelemetry
             }
         }
 
-        Interlocked.Exchange(ref lastCapturedAtUnixTimeMilliseconds, packet.CapturedAtUnixTimeMilliseconds);
+        if (packet.CapturedAtUnixTimeMilliseconds > 0)
+        {
+            var age = Math.Max(0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - packet.CapturedAtUnixTimeMilliseconds);
+            Interlocked.Exchange(ref lastCaptureAgeMilliseconds, age);
+            UpdateMaximum(ref maximumCaptureAgeMilliseconds, age);
+        }
+
         Interlocked.Increment(ref collectorAcceptedFrames);
     }
 
@@ -70,16 +84,14 @@ public sealed class DoomReliabilityTelemetry
     {
         var acknowledgements = Interlocked.Read(ref acknowledgedFrames);
         var totalAcknowledgmentTicks = Interlocked.Read(ref acknowledgmentLatencyTicks);
-        var captureTimestamp = Interlocked.Read(ref lastCapturedAtUnixTimeMilliseconds);
-        var captureAge = captureTimestamp <= 0
-            ? (long?)null
-            : Math.Max(0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - captureTimestamp);
+        var captureAge = Interlocked.Read(ref lastCaptureAgeMilliseconds);
 
         return new DoomReliabilityMetrics(
             SendAttempts: Interlocked.Read(ref sendAttempts),
             AcknowledgedFrames: acknowledgements,
             FailedSends: Interlocked.Read(ref failedSends),
             Reconnects: Interlocked.Read(ref reconnects),
+            SessionFaults: Interlocked.Read(ref sessionFaults),
             CollectorAcceptedFrames: Interlocked.Read(ref collectorAcceptedFrames),
             CollectorRejectedFrames: Interlocked.Read(ref collectorRejectedFrames),
             SequenceGaps: Interlocked.Read(ref sequenceGaps),
@@ -91,7 +103,8 @@ public sealed class DoomReliabilityTelemetry
                 Interlocked.Read(ref maximumAcknowledgmentLatencyTicks)).TotalMilliseconds,
             CurrentInFlight: Math.Max(0, Interlocked.Read(ref currentInFlight)),
             MaximumInFlight: Interlocked.Read(ref maximumInFlight),
-            LastCaptureAgeMilliseconds: captureAge);
+            LastCaptureAgeMilliseconds: captureAge < 0 ? null : captureAge,
+            MaximumCaptureAgeMilliseconds: Interlocked.Read(ref maximumCaptureAgeMilliseconds));
     }
 
     private static void UpdateMaximum(ref long location, long value)
@@ -114,6 +127,7 @@ public readonly record struct DoomReliabilityMetrics(
     long AcknowledgedFrames,
     long FailedSends,
     long Reconnects,
+    long SessionFaults,
     long CollectorAcceptedFrames,
     long CollectorRejectedFrames,
     long SequenceGaps,
@@ -122,4 +136,5 @@ public readonly record struct DoomReliabilityMetrics(
     double MaximumAcknowledgmentLatencyMilliseconds,
     long CurrentInFlight,
     long MaximumInFlight,
-    long? LastCaptureAgeMilliseconds);
+    long? LastCaptureAgeMilliseconds,
+    long MaximumCaptureAgeMilliseconds);

@@ -29,8 +29,9 @@ The executable includes a procedural Doom-style scene solely to exercise the str
 | 3 | `height` | signed 32-bit integer | 1 through 200 |
 | 4 | `pixelFormat` | byte enum | `Bgr24` only (`1`) |
 | 5 | `pixels` | MessagePack binary | Exactly `width × height × 3` bytes |
+| 6 | `capturedAtUnixTimeMilliseconds` | signed 64-bit integer | Source capture instant; `0` when the source does not stamp one |
 
-A 160×100 BGR24 frame contains 48,000 raw pixel bytes; a 320×200 frame contains 192,000 bytes. The codec rejects empty payloads, unsupported format or contract versions, out-of-range dimensions, and incorrect byte counts before rendering. The collector also constrains the outer transport frame to the maximum legal frame plus a small MessagePack/transport allowance.
+A 160×100 BGR24 frame contains 48,000 raw pixel bytes; a 320×200 frame contains 192,000 bytes. Key 6 carries only the end-to-end freshness measurement; it is not validated, and a source that leaves it at `0` simply reports no capture age. The codec rejects empty payloads, unsupported format or contract versions, out-of-range dimensions, and incorrect byte counts before rendering. The collector also constrains the outer transport frame to the maximum legal frame plus a small MessagePack/transport allowance.
 
 ## Running the demonstration
 
