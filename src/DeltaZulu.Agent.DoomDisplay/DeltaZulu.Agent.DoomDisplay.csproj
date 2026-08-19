@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="DeltaZulu.Forward" Condition="'$(DeltaZuluForwardProject)' == ''" />
     <PackageReference Include="MessagePack" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
   <ItemGroup Condition="'$(DeltaZuluForwardProject)' != ''">
     <ProjectReference Include="$(DeltaZuluForwardProject)" />

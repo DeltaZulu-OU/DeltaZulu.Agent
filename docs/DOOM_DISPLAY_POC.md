@@ -16,6 +16,10 @@ The executable includes a procedural Doom-style scene solely to exercise the str
 | Doom input decoder | Convert a RawEnvelope payload into a validated frame or controlled decode rejection | `DoomInputDecoder` |
 | Doom output sink | Copy frames into the back slot, retain only the newest pending frame, and own the render loop | `DoomOutputSink` plus `LatestFrameDoubleBuffer` |
 | Renderer | Present the front-slot frame without a GUI dependency | ANSI true-colour half-block renderer with receive/render/discard counters |
+| Agent health source | Read the agent daemon's published health | `SqliteAgentHealthSource`, read-only over the daemon's SQLite metrics state; replaceable through `IAgentHealthSource` |
+| Agent health contract | Carry health on the protocol's own typed contract | `AgentHealthCodec`, encoding a `collector.forwarder.health` `ForwardLogBatch` |
+| Agent health decoder | Turn a TypedBatch payload into a validated reading or a controlled rejection | `AgentHealthInputDecoder` |
+| Agent health panel | Present the newest reading beneath the video | `AgentHealthDisplayState` plus the renderer's health panel |
 
 ## MessagePack payload contract
 
@@ -48,6 +52,24 @@ dotnet run --project src/DeltaZulu.Agent.DoomDisplay -- forwarder \
 
 Press `Ctrl+C` in either terminal to stop it. On terminals without ANSI true-colour support, the display can be malformed; a production Windows renderer should instead copy the same validated BGR24 buffer to a `WriteableBitmap` on its UI thread.
 
+## Agent health on the same session
+
+The demonstration multiplexes two payload contracts over one `ForwardSession`. Display frames stay
+`RawEnvelope` with the private `doom-frame-v1` payload. Agent health travels as `TypedBatch`
+carrying a real `ForwardLogBatch`, using the same `collector.forwarder.health` field names the
+agent's own pipeline publishes, so a production collector could route it onward unchanged. The
+collector's `BatchHandler` dispatches on frame type and acknowledges each contract independently
+under the session's shared credit window.
+
+The forwarder reads the agent daemon's published SQLite metrics state read-only — the same
+`forwarder_health` row `dzagentctl metrics` reads — and requires it: `--metrics-db` is mandatory
+and the forwarder exits if the daemon has not published health yet. Nothing on the health panel is
+synthesised. If the daemon later stops publishing, the reading is transmitted as explicitly
+unavailable with its reason rather than freezing at the last good values.
+
+Health publishes on its own cadence (`--health-interval-ms`, default one second), independent of
+the frame rate, and follows the same latest-wins display policy as the pixels.
+
 ## Reliability demonstrator
 
 The proof of concept now supports a bounded forwarder benchmark, acknowledgement-latency reporting, collector continuity checks, controlled session turnover, and JSON metrics reports. Run commands and interpretation criteria are documented in [DOOM_FORWARD_RELIABILITY_DEMONSTRATOR.md](DOOM_FORWARD_RELIABILITY_DEMONSTRATOR.md).
@@ -62,7 +84,7 @@ The collector binds to `127.0.0.1` and should remain local. If the listener is i
 
 ## Integration guidance
 
-A source-port adapter should hold a reusable BGR24 buffer, copy or expose a completed frame only at a render-frame boundary, and construct a packet with the source frame number. It should not route frames through `ForwardLogBatch`, JSON, the resource-event durable buffer, or the Windows Event Log. Those are typed security-event paths with different schemas, retention requirements, and operational priorities.
+A source-port adapter should hold a reusable BGR24 buffer, copy or expose a completed frame only at a render-frame boundary, and construct a packet with the source frame number. It should not route *frames* through `ForwardLogBatch`, JSON, the resource-event durable buffer, or the Windows Event Log. Those are typed security-event paths with different schemas, retention requirements, and operational priorities.
 
 A production GUI collector can replace only the renderer supplied to `DoomOutputSink`; the `DoomInputDecoder`, `DoomFramePacket`, buffer policy, and Forward session boundary remain unchanged. A WPF implementation should marshal the sink’s front-slot frame to the dispatcher and use one reusable BGR24 `WriteableBitmap`. The sink’s status line exposes receive FPS, rendered FPS, discarded pending-frame count, and last presented sequence, making pressure observable without retaining a backlog.
 

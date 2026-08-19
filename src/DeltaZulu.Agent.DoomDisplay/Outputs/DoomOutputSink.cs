@@ -8,6 +8,9 @@ public interface IDoomOutputSink
 
     void Write(DoomFramePacket packet);
 
+    /// <summary>Accepts an agent health reading for display alongside the video.</summary>
+    void WriteHealth(AgentHealthSnapshot snapshot);
+
     Task RenderUntilCanceledAsync(CancellationToken cancellationToken);
 }
 
@@ -18,6 +21,7 @@ public interface IDoomOutputSink
 public sealed class DoomOutputSink : IDoomOutputSink, IDisposable
 {
     private readonly LatestFrameDoubleBuffer frameBuffer = new();
+    private readonly AgentHealthDisplayState healthState = new();
     private readonly AnsiDoomRenderer renderer;
     private readonly DoomReliabilityTelemetry telemetry;
     private readonly TimeSpan refreshInterval;
@@ -47,6 +51,9 @@ public sealed class DoomOutputSink : IDoomOutputSink, IDisposable
 
     public DoomReliabilityMetrics ReliabilityMetrics => telemetry.Snapshot();
 
+    /// <summary>The newest agent health reading, or <see langword="null" /> before the first one.</summary>
+    public AgentHealthView? Health => healthState.View();
+
     /// <summary>
     /// Copies the completed input frame into the back slot. A newer input replaces an older pending frame.
     /// </summary>
@@ -55,6 +62,17 @@ public sealed class DoomOutputSink : IDoomOutputSink, IDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         frameBuffer.Submit(packet);
         telemetry.RecordCollectorAccepted(packet);
+    }
+
+    /// <summary>
+    /// Replaces the displayed agent health. Health follows the same latest-wins policy as the
+    /// pixel stream, so a slow renderer can never build a backlog of stale readings.
+    /// </summary>
+    public void WriteHealth(AgentHealthSnapshot snapshot)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
+        healthState.Update(snapshot);
+        telemetry.RecordCollectorHealthAccepted();
     }
 
     public async Task RenderUntilCanceledAsync(CancellationToken cancellationToken)
@@ -68,17 +86,26 @@ public sealed class DoomOutputSink : IDoomOutputSink, IDisposable
         try
         {
             using var refreshTimer = new PeriodicTimer(refreshInterval);
+            DoomFramePacket? presented = null;
+            var presentedHealthRevision = -1L;
             while (await refreshTimer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
-                if (!frameBuffer.TrySwapForRender(out var packet))
+                var healthRevision = healthState.Revision;
+                if (frameBuffer.TrySwapForRender(out var packet))
                 {
+                    presented = packet ?? throw new InvalidOperationException(
+                        "The double buffer reported a successful swap without a renderable frame.");
+                    _ = frameBuffer.RecordRendered(presented.Sequence);
+                }
+                else if (presented is null || healthRevision == presentedHealthRevision)
+                {
+                    // Nothing new to show: no frame swapped in and health has not changed.
                     continue;
                 }
 
-                var frame = packet ?? throw new InvalidOperationException(
-                    "The double buffer reported a successful swap without a renderable frame.");
-                _ = frameBuffer.RecordRendered(frame.Sequence);
-                renderer.Render(frame, frameBuffer.GetMetrics(), telemetry.Snapshot());
+                // The front slot is only swapped by this loop, so the retained packet stays valid.
+                presentedHealthRevision = healthRevision;
+                renderer.Render(presented, frameBuffer.GetMetrics(), telemetry.Snapshot(), healthState.View());
             }
         }
         finally
