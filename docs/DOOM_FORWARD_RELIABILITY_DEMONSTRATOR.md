@@ -41,11 +41,17 @@ dotnet run --project src/DeltaZulu.Agent.DoomDisplay -- forwarder \
 | Bounded sender pressure | `RequestedWindowSize` and session credit acquisition | `CurrentInFlight` and `MaximumInFlight` in sender JSON. |
 | Application acknowledgements | `SendRawEnvelopeAsync` waits for committed acknowledgment | `AcknowledgedFrames`, mean acknowledgment latency, and maximum latency. |
 | Deliberate recovery | Sender disposes a completed session and opens a new one | `Reconnects` and continuous sequence numbers. |
-| Collector validation | `DoomInputDecoder` validates MessagePack and BGR24 contract | `CollectorRejectedFrames`, with invalid data receiving non-success outcome. |
+| Collector validation | `DoomInputDecoder` validates MessagePack and BGR24 contract | `CollectorRejectedFrames`, with invalid data receiving non-success outcome. The forwarder never emits an invalid frame, so producing this evidence requires a separate peer that sends a malformed `RawEnvelope` payload. |
 | Bounded presentation | Two reusable frame slots with newest-frame replacement | `ReplacedPendingFrames`, rendered rate, and sequence progression. |
 | End-to-end freshness | Capture timestamp is retained through the buffer | `LastCaptureAgeMilliseconds` in collector metrics and terminal status. |
 
 ## Metrics
+
+Both roles emit the same record shape, so each report also carries the other role's fields at
+zero. The forwarder owns `SendAttempts`, `AcknowledgedFrames`, `FailedSends`, `Reconnects`,
+`SessionFaults`, the acknowledgment latencies, and the in-flight gauges; the collector owns the
+`Collector*` counters, `SequenceGaps`, `OutOfOrderFrames`, the capture ages, and the `FrameBuffer`
+block. Read only the owning role's fields.
 
 | Metric | Interpretation |
 |---|---|
@@ -53,6 +59,7 @@ dotnet run --project src/DeltaZulu.Agent.DoomDisplay -- forwarder \
 | `AcknowledgedFrames` | Number of frame sends for which the collector returned a successful session outcome. |
 | `FailedSends` | Send operations that faulted before a successful acknowledgment. |
 | `Reconnects` | New Forward sessions established after the first one. Controlled disruption produces this intentionally. |
+| `SessionFaults` | Sessions that ended on a transport failure instead of a controlled turnover. The reconnection that follows is counted once under `Reconnects`, so a single interruption reports one fault and one reconnect. |
 | `MeanAcknowledgmentLatencyMilliseconds` | Mean wall-clock time from sender entering `SendRawEnvelopeAsync` until successful completion. It includes transport, session, collector decode, and in-memory copy time. |
 | `MaximumAcknowledgmentLatencyMilliseconds` | Highest observed acknowledgment latency. Use it to identify spikes, not as a durable-delivery measure. |
 | `CurrentInFlight` / `MaximumInFlight` | Demonstrator-level sends currently awaiting outcome and their observed maximum. This remains bounded by `--max-in-flight`; the Forward credit window may impose a tighter bound. |
@@ -61,7 +68,13 @@ dotnet run --project src/DeltaZulu.Agent.DoomDisplay -- forwarder \
 | `SequenceGaps` | Missing source sequence values observed by the collector. A nonzero value demonstrates a frame did not reach the collector; it is expected only when a failure was intentionally induced or a live stream was configured to drop stale frames upstream. |
 | `OutOfOrderFrames` | Source sequence values not strictly greater than the last accepted sequence. A nonzero value indicates duplicates or out-of-order delivery at this application boundary. |
 | `ReplacedPendingFrames` | Latest-frame-wins display discards. This is acceptable for a live viewer and indicates renderer pressure, not a Forward delivery failure. |
-| `LastCaptureAgeMilliseconds` | Approximate age from source capture to the current collector snapshot. |
+| `LastCaptureAgeMilliseconds` | Age from source capture to collector acceptance, measured **when the last accepted frame was accepted**. It does not grow while the stream is idle, so it stays meaningful in a report written at shutdown. `null` when no frame carried a capture timestamp. |
+| `MaximumCaptureAgeMilliseconds` | Highest accept-time capture age observed. This is the end-to-end freshness worst case for the run. |
+
+The `FrameBuffer` block's `ReceiveFramesPerSecond` and `RenderedFramesPerSecond` are live gauges
+over a rolling one-second window, intended for the terminal status line. In a report written after
+the stream has stopped they reflect the idle window, not the run — judge throughput from
+`ReceivedFrames`, `RenderedFrames`, and the run's wall-clock duration instead.
 
 ## Controlled disruption versus fault injection
 
@@ -71,7 +84,7 @@ It does not replace hostile-network or crash testing. An abrupt collector kill, 
 
 ## Interpretation and acceptance criteria
 
-For the bounded command above, the expected forwarder report has `SendAttempts = 24`, `AcknowledgedFrames = 24`, `FailedSends = 0`, `Reconnects = 2`, and an in-flight maximum no greater than the `--max-in-flight` value. The collector report should have `CollectorAcceptedFrames = 24`, `CollectorRejectedFrames = 0`, `SequenceGaps = 0`, and `OutOfOrderFrames = 0`.
+For the bounded command above, the expected forwarder report has `SendAttempts = 24`, `AcknowledgedFrames = 24`, `FailedSends = 0`, `Reconnects = 2`, `SessionFaults = 0`, and an in-flight maximum no greater than the `--max-in-flight` value. The collector report should have `CollectorAcceptedFrames = 24`, `CollectorRejectedFrames = 0`, `SequenceGaps = 0`, and `OutOfOrderFrames = 0`.
 
 The collector may report `ReplacedPendingFrames > 0` and fewer `RenderedFrames` than received frames. That is the intended latest-frame-wins policy: it proves the renderer cannot cause an unbounded queue. Treat persistent drops at a desired viewing rate as a capacity signal to lower the source FPS or increase presentation capacity.
 

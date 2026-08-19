@@ -48,6 +48,49 @@ public sealed class DoomReliabilityTelemetryTests
     }
 
     [TestMethod]
+    public void SessionFaults_AreCountedSeparatelyFromTheReconnectThatFollows()
+    {
+        var telemetry = new DoomReliabilityTelemetry();
+
+        telemetry.RecordSessionFault();
+        telemetry.RecordReconnect();
+
+        var metrics = telemetry.Snapshot();
+
+        Assert.AreEqual(1L, metrics.SessionFaults);
+        Assert.AreEqual(1L, metrics.Reconnects);
+    }
+
+    [TestMethod]
+    public void CaptureAge_IsMeasuredAtAcceptanceAndDoesNotGrowWhileIdle()
+    {
+        var telemetry = new DoomReliabilityTelemetry();
+        telemetry.RecordCollectorAccepted(
+            CreatePacket(1, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 250));
+
+        var first = telemetry.Snapshot().LastCaptureAgeMilliseconds;
+        Thread.Sleep(120);
+        var second = telemetry.Snapshot().LastCaptureAgeMilliseconds;
+
+        Assert.IsNotNull(first);
+        Assert.IsTrue(first >= 250, $"Expected at least the injected 250 ms of age, observed {first}.");
+        Assert.AreEqual(first, second, "The accepted frame's age must not grow while the stream is idle.");
+        Assert.AreEqual(first, telemetry.Snapshot().MaximumCaptureAgeMilliseconds);
+    }
+
+    [TestMethod]
+    public void CaptureAge_IsAbsentWhenTheSourceStampsNoTimestamp()
+    {
+        var telemetry = new DoomReliabilityTelemetry();
+        telemetry.RecordCollectorAccepted(CreatePacket(1, capturedAt: 0));
+
+        var metrics = telemetry.Snapshot();
+
+        Assert.IsNull(metrics.LastCaptureAgeMilliseconds);
+        Assert.AreEqual(1L, metrics.CollectorAcceptedFrames);
+    }
+
+    [TestMethod]
     public void DoubleBuffer_PreservesCaptureTimestampAcrossSlotSwap()
     {
         var buffer = new LatestFrameDoubleBuffer();

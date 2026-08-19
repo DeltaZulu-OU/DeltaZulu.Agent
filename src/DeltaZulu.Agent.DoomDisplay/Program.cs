@@ -223,7 +223,9 @@ internal static class Program
                 }
                 catch (Exception exception) when (IsRecoverableTransportFailure(exception, cancellationToken))
                 {
-                    telemetry.RecordReconnect();
+                    // Count the fault only. The reconnection itself is counted once the next
+                    // session opens, so incrementing Reconnects here would double-count it.
+                    telemetry.RecordSessionFault();
                     Console.Error.WriteLine(
                         $"Forward session interrupted after {framesStarted} started frames: {exception.Message}. " +
                         $"Retrying in {options.RetryDelayMilliseconds} ms.");
