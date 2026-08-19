@@ -11,6 +11,10 @@ public sealed class DoomReliabilityTelemetry
     private long failedSends;
     private long reconnects;
     private long sessionFaults;
+    private long healthUpdatesSent;
+    private long healthUpdatesFailed;
+    private long collectorHealthUpdatesAccepted;
+    private long collectorHealthUpdatesRejected;
     private long collectorAcceptedFrames;
     private long collectorRejectedFrames;
     private long sequenceGaps;
@@ -80,6 +84,16 @@ public sealed class DoomReliabilityTelemetry
 
     public void RecordCollectorRejected() => Interlocked.Increment(ref collectorRejectedFrames);
 
+    /// <summary>Records an agent-health TypedBatch the collector acknowledged as committed.</summary>
+    public void RecordHealthUpdateSent() => Interlocked.Increment(ref healthUpdatesSent);
+
+    /// <summary>Records an agent-health TypedBatch that faulted before a successful acknowledgment.</summary>
+    public void RecordHealthUpdateFailed() => Interlocked.Increment(ref healthUpdatesFailed);
+
+    public void RecordCollectorHealthAccepted() => Interlocked.Increment(ref collectorHealthUpdatesAccepted);
+
+    public void RecordCollectorHealthRejected() => Interlocked.Increment(ref collectorHealthUpdatesRejected);
+
     public DoomReliabilityMetrics Snapshot()
     {
         var acknowledgements = Interlocked.Read(ref acknowledgedFrames);
@@ -92,6 +106,10 @@ public sealed class DoomReliabilityTelemetry
             FailedSends: Interlocked.Read(ref failedSends),
             Reconnects: Interlocked.Read(ref reconnects),
             SessionFaults: Interlocked.Read(ref sessionFaults),
+            HealthUpdatesSent: Interlocked.Read(ref healthUpdatesSent),
+            HealthUpdatesFailed: Interlocked.Read(ref healthUpdatesFailed),
+            CollectorHealthUpdatesAccepted: Interlocked.Read(ref collectorHealthUpdatesAccepted),
+            CollectorHealthUpdatesRejected: Interlocked.Read(ref collectorHealthUpdatesRejected),
             CollectorAcceptedFrames: Interlocked.Read(ref collectorAcceptedFrames),
             CollectorRejectedFrames: Interlocked.Read(ref collectorRejectedFrames),
             SequenceGaps: Interlocked.Read(ref sequenceGaps),
@@ -128,6 +146,10 @@ public readonly record struct DoomReliabilityMetrics(
     long FailedSends,
     long Reconnects,
     long SessionFaults,
+    long HealthUpdatesSent,
+    long HealthUpdatesFailed,
+    long CollectorHealthUpdatesAccepted,
+    long CollectorHealthUpdatesRejected,
     long CollectorAcceptedFrames,
     long CollectorRejectedFrames,
     long SequenceGaps,

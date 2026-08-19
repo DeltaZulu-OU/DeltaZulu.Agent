@@ -55,6 +55,7 @@ internal static class Program
         using var collectorCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var collectorToken = collectorCancellation.Token;
         var inputDecoder = new DoomInputDecoder();
+        var healthDecoder = new AgentHealthInputDecoder();
         var renderLoop = outputSink.RenderUntilCanceledAsync(collectorToken);
 
         try
@@ -62,7 +63,8 @@ internal static class Program
             while (!collectorToken.IsCancellationRequested)
             {
                 using var client = await listener.AcceptTcpClientAsync(collectorToken).ConfigureAwait(false);
-                await HandleCollectorClientAsync(client, inputDecoder, outputSink, telemetry, collectorToken)
+                await HandleCollectorClientAsync(
+                    client, inputDecoder, healthDecoder, outputSink, telemetry, collectorToken)
                     .ConfigureAwait(false);
             }
         }
@@ -88,6 +90,7 @@ internal static class Program
     private static async Task HandleCollectorClientAsync(
         TcpClient client,
         IDoomInputDecoder inputDecoder,
+        IAgentHealthInputDecoder healthDecoder,
         IDoomOutputSink outputSink,
         DoomReliabilityTelemetry telemetry,
         CancellationToken cancellationToken)
@@ -99,7 +102,7 @@ internal static class Program
             DedupWindowSize = 128,
             MaxFrameLength = DoomFrameCodec.MaximumPixelBytes + 8192,
             BatchHandler = (frameType, _, payload, _) =>
-                Task.FromResult(HandleFrame(frameType, payload, inputDecoder, outputSink, telemetry))
+                Task.FromResult(HandleFrame(frameType, payload, inputDecoder, healthDecoder, outputSink, telemetry))
         };
 
         await using var session = await ForwardSession.AcceptAsync(
@@ -122,19 +125,29 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// Dispatches the two payload contracts the demonstration multiplexes over one Forward
+    /// session: opaque display frames as RawEnvelope, and typed agent health as TypedBatch.
+    /// Each is acknowledged independently under the session's shared credit window.
+    /// </summary>
     private static ForwardAckOutcome HandleFrame(
         ForwardFrameType frameType,
+        byte[] payload,
+        IDoomInputDecoder inputDecoder,
+        IAgentHealthInputDecoder healthDecoder,
+        IDoomOutputSink outputSink,
+        DoomReliabilityTelemetry telemetry) => frameType switch {
+            ForwardFrameType.RawEnvelope => HandleDisplayFrame(payload, inputDecoder, outputSink, telemetry),
+            ForwardFrameType.TypedBatch => HandleHealthBatch(payload, healthDecoder, outputSink, telemetry),
+            _ => RejectFrameType(frameType, telemetry)
+        };
+
+    private static ForwardAckOutcome HandleDisplayFrame(
         byte[] payload,
         IDoomInputDecoder inputDecoder,
         IDoomOutputSink outputSink,
         DoomReliabilityTelemetry telemetry)
     {
-        if (frameType != ForwardFrameType.RawEnvelope)
-        {
-            telemetry.RecordCollectorRejected();
-            return new ForwardAckOutcome(2, $"Expected RawEnvelope, received {frameType}.");
-        }
-
         try
         {
             outputSink.Write(inputDecoder.Decode(payload));
@@ -147,8 +160,49 @@ internal static class Program
         }
     }
 
+    private static ForwardAckOutcome HandleHealthBatch(
+        byte[] payload,
+        IAgentHealthInputDecoder healthDecoder,
+        IDoomOutputSink outputSink,
+        DoomReliabilityTelemetry telemetry)
+    {
+        try
+        {
+            outputSink.WriteHealth(healthDecoder.Decode(payload));
+            return new ForwardAckOutcome(0, null);
+        }
+        catch (AgentHealthDecodeException exception)
+        {
+            telemetry.RecordCollectorHealthRejected();
+            return new ForwardAckOutcome(1, exception.Message);
+        }
+    }
+
+    private static ForwardAckOutcome RejectFrameType(ForwardFrameType frameType, DoomReliabilityTelemetry telemetry)
+    {
+        telemetry.RecordCollectorRejected();
+        return new ForwardAckOutcome(2, $"Expected RawEnvelope or TypedBatch, received {frameType}.");
+    }
+
     private static async Task<int> RunForwarderAsync(CommandLineOptions options, CancellationToken cancellationToken)
     {
+        var healthSource = new SqliteAgentHealthSource(
+            options.MetricsDatabasePath ?? throw new ArgumentException(
+                "--metrics-db is required: the forwarder reports the agent daemon's real published health."));
+        var initialHealth = healthSource.Read();
+        if (!initialHealth.Available)
+        {
+            Console.Error.WriteLine(
+                $"Agent health is unavailable at {healthSource.DatabasePath}: {initialHealth.UnavailableReason}");
+            Console.Error.WriteLine(
+                "Start the agent daemon so it publishes SQLite metrics state, then run the forwarder again.");
+            return 1;
+        }
+
+        Console.Error.WriteLine(
+            $"Agent health source ready: {initialHealth.AgentId ?? "unknown-agent"} @ " +
+            $"{initialHealth.HostId ?? "unknown-host"}, observed {initialHealth.ObservedAtUtc:O}.");
+
         var source = new SyntheticDoomFrameSource(options.Width, options.Height);
         var telemetry = new DoomReliabilityTelemetry();
         var frameInterval = TimeSpan.FromSeconds(1d / options.FramesPerSecond);
@@ -183,6 +237,11 @@ internal static class Program
                         $"{options.Width}x{options.Height} at {options.FramesPerSecond} FPS, " +
                         $"maximum in-flight {options.MaximumInFlight}.");
 
+                    using var sessionCancellation =
+                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    var healthLoop = PublishHealthUntilCanceledAsync(
+                        session, healthSource, options, telemetry, sessionCancellation.Token);
+
                     var pending = new List<Task>(options.MaximumInFlight);
                     long framesInCurrentConnection = 0;
                     while (!cancellationToken.IsCancellationRequested &&
@@ -209,6 +268,10 @@ internal static class Program
                         }
                     }
 
+                    // Stop publishing health before the session is torn down, so a health send
+                    // cannot race session disposal and surface as a spurious transport fault.
+                    await sessionCancellation.CancelAsync().ConfigureAwait(false);
+                    await healthLoop.ConfigureAwait(false);
                     await Task.WhenAll(pending).ConfigureAwait(false);
                     if (options.FrameCount != 0 && framesStarted >= options.FrameCount)
                     {
@@ -238,6 +301,46 @@ internal static class Program
         finally
         {
             WriteReliabilityReport("forwarder", options, telemetry.Snapshot(), null);
+        }
+    }
+
+    /// <summary>
+    /// Publishes the agent daemon's real health over the same Forward session that carries the
+    /// display frames, as a typed <c>collector.forwarder.health</c> batch. It runs on its own
+    /// cadence and competes with the pixel stream for the session's credit window, which is the
+    /// point: one session, two payload contracts, one shared backpressure budget.
+    /// </summary>
+    private static async Task PublishHealthUntilCanceledAsync(
+        ForwardSession session,
+        IAgentHealthSource healthSource,
+        CommandLineOptions options,
+        DoomReliabilityTelemetry telemetry,
+        CancellationToken cancellationToken)
+    {
+        var agentId = Environment.MachineName;
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(options.HealthIntervalMilliseconds));
+            do
+            {
+                var batch = AgentHealthCodec.ToBatch(healthSource.Read(), agentId, Environment.MachineName);
+                try
+                {
+                    _ = await session.SendTypedBatchAsync(
+                        ForwardLogBatchCodec.Encode(batch), cancellationToken).ConfigureAwait(false);
+                    telemetry.RecordHealthUpdateSent();
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // A failed health publish must not take the display stream down with it.
+                    telemetry.RecordHealthUpdateFailed();
+                }
+            }
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false));
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the session ends or the demonstrator shuts down.
         }
     }
 
@@ -296,12 +399,18 @@ internal static class Program
         Console.Error.WriteLine(
             "Usage:\n" +
             "  collector [--port 46000] [--metrics-json collector.json]\n" +
-            "  forwarder [--host 127.0.0.1] [--port 46000] [--width 160] [--height 100] [--fps 15]\n" +
+            "  forwarder --metrics-db ./state/dzagent-metrics.sqlite\n" +
+            "            [--host 127.0.0.1] [--port 46000] [--width 160] [--height 100] [--fps 15]\n" +
             "            [--frames 0] [--max-in-flight 4] [--disconnect-every 0]\n" +
-            "            [--retry-delay-ms 1000] [--metrics-json forwarder.json]\n\n" +
+            "            [--retry-delay-ms 1000] [--health-interval-ms 1000]\n" +
+            "            [--metrics-json forwarder.json]\n\n" +
             "--frames creates a bounded benchmark. --disconnect-every deliberately closes and reopens\n" +
             "the Forward session after that many acknowledged frames. The sender reports application-level\n" +
-            "ack latency and in-flight pressure; the collector reports continuity, display pressure, and age.\n" +
+            "ack latency and in-flight pressure; the collector reports continuity, display pressure, and age.\n\n" +
+            "--metrics-db is required. The forwarder reads the agent daemon's published SQLite metrics\n" +
+            "state read-only and publishes it to the collector as a typed collector.forwarder.health\n" +
+            "batch on the same Forward session that carries the display frames; the collector renders it\n" +
+            "beneath the video. The forwarder exits if the daemon has not published health yet.\n\n" +
             "The forwarder generates a procedural Doom-style test scene. Replace SyntheticDoomFrameSource\n" +
             "with a licensed source-port adapter for real game frames.");
         return 2;
@@ -318,7 +427,9 @@ internal static class Program
         int MaximumInFlight,
         long DisconnectEveryFrames,
         int RetryDelayMilliseconds,
-        string? MetricsJsonPath)
+        string? MetricsJsonPath,
+        string? MetricsDatabasePath,
+        int HealthIntervalMilliseconds)
     {
         public static CommandLineOptions Parse(string[] args)
         {
@@ -347,6 +458,10 @@ internal static class Program
                     "--disconnect-every" => options with { DisconnectEveryFrames = ParseLong(value, "disconnect-every", 0, 10_000_000) },
                     "--retry-delay-ms" => options with { RetryDelayMilliseconds = ParseInteger(value, "retry-delay-ms", 1, 60_000) },
                     "--metrics-json" => options with { MetricsJsonPath = value },
+                    "--metrics-db" => options with { MetricsDatabasePath = value },
+                    "--health-interval-ms" => options with {
+                        HealthIntervalMilliseconds = ParseInteger(value, "health-interval-ms", 100, 60_000)
+                    },
                     _ => throw new ArgumentException($"Unknown option {args[index]}.")
                 };
             }
@@ -370,7 +485,9 @@ internal static class Program
             MaximumInFlight: 4,
             DisconnectEveryFrames: 0,
             RetryDelayMilliseconds: 1_000,
-            MetricsJsonPath: null);
+            MetricsJsonPath: null,
+            MetricsDatabasePath: null,
+            HealthIntervalMilliseconds: 1_000);
 
         private static int ParseInteger(string value, string name, int minimum, int maximum)
         {

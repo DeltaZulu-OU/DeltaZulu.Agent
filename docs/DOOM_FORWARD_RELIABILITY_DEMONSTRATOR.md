@@ -6,7 +6,7 @@ This capability is a **DeltaZulu.Forward transport demonstrator**, not a Doom pr
 
 The stream remains deliberately separate from normal security telemetry. Resource events use `TypedBatch`/`ForwardLogBatch` and the agent’s existing event pipeline. Demonstration frames use `RawEnvelope`, the `doom-frame-v1` catalog, and a bounded in-memory display sink. [1]
 
-> A successful Doom display acknowledgement means that the collector validated and copied a frame into transient latest-frame memory. It does **not** prove durable recording, browser rendering, or lossless replay. It demonstrates a bounded live-delivery contract under the established Forward session mechanisms.
+> A successful Doom display acknowledgement means that the collector validated and copied a frame into transient latest-frame memory. A successful health acknowledgement likewise means the reading reached the panel, not that it was stored. It does **not** prove durable recording, browser rendering, or lossless replay. It demonstrates a bounded live-delivery contract under the established Forward session mechanisms.
 
 ## Build and run
 
@@ -26,10 +26,17 @@ dotnet run --project src/DeltaZulu.Agent.DoomDisplay -- collector \
 
 Run a bounded 24-frame benchmark at 30 FPS. It intentionally closes and reopens the Forward session after each eight-frame segment, preserving the frame sequence across the reconnects.
 
+`--metrics-db` is required and must point at a running agent daemon's published SQLite metrics
+state — the same file `dzagentctl metrics --metrics-db` reads, configured as the daemon's
+`diagnostics.sqliteFile`. The forwarder refuses to start if the daemon has not published a
+`forwarder_health` row yet, because the health panel reports measured agent state and never
+substitutes a placeholder for it.
+
 ```bash
 dotnet run --project src/DeltaZulu.Agent.DoomDisplay -- forwarder \
   --host 127.0.0.1 --port 46000 --width 160 --height 100 --fps 30 \
   --frames 24 --max-in-flight 4 --disconnect-every 8 \
+  --metrics-db ./state/dzagent-metrics.sqlite --health-interval-ms 1000 \
   --metrics-json forwarder-metrics.json
 ```
 
@@ -44,14 +51,17 @@ dotnet run --project src/DeltaZulu.Agent.DoomDisplay -- forwarder \
 | Collector validation | `DoomInputDecoder` validates MessagePack and BGR24 contract | `CollectorRejectedFrames`, with invalid data receiving non-success outcome. The forwarder never emits an invalid frame, so producing this evidence requires a separate peer that sends a malformed `RawEnvelope` payload. |
 | Bounded presentation | Two reusable frame slots with newest-frame replacement | `ReplacedPendingFrames`, rendered rate, and sequence progression. |
 | End-to-end freshness | Capture timestamp is retained through the buffer | `LastCaptureAgeMilliseconds` in collector metrics and terminal status. |
+| Two payload contracts, one session | `RawEnvelope` and `TypedBatch` multiplexed on the same `ForwardSession`, dispatched by the collector's `BatchHandler` | `HealthUpdatesSent` against `CollectorAcceptedFrames`, both nonzero for one run. |
+| Typed telemetry delivery | Agent health encoded with `ForwardLogBatchCodec` as a real `collector.forwarder.health` batch | `CollectorHealthUpdatesAccepted` and the rendered health panel. |
+| Shared backpressure budget | Health sends acquire credit from the same window as frames | Frame acknowledgment latency and in-flight maximum stay bounded while health publishes concurrently. |
 
 ## Metrics
 
 Both roles emit the same record shape, so each report also carries the other role's fields at
 zero. The forwarder owns `SendAttempts`, `AcknowledgedFrames`, `FailedSends`, `Reconnects`,
-`SessionFaults`, the acknowledgment latencies, and the in-flight gauges; the collector owns the
-`Collector*` counters, `SequenceGaps`, `OutOfOrderFrames`, the capture ages, and the `FrameBuffer`
-block. Read only the owning role's fields.
+`SessionFaults`, `HealthUpdatesSent`, `HealthUpdatesFailed`, the acknowledgment latencies, and the
+in-flight gauges; the collector owns the `Collector*` counters, `SequenceGaps`, `OutOfOrderFrames`,
+the capture ages, and the `FrameBuffer` block. Read only the owning role's fields.
 
 | Metric | Interpretation |
 |---|---|
@@ -63,6 +73,10 @@ block. Read only the owning role's fields.
 | `MeanAcknowledgmentLatencyMilliseconds` | Mean wall-clock time from sender entering `SendRawEnvelopeAsync` until successful completion. It includes transport, session, collector decode, and in-memory copy time. |
 | `MaximumAcknowledgmentLatencyMilliseconds` | Highest observed acknowledgment latency. Use it to identify spikes, not as a durable-delivery measure. |
 | `CurrentInFlight` / `MaximumInFlight` | Demonstrator-level sends currently awaiting outcome and their observed maximum. This remains bounded by `--max-in-flight`; the Forward credit window may impose a tighter bound. |
+| `HealthUpdatesSent` | Agent-health TypedBatch frames the collector acknowledged as committed. |
+| `HealthUpdatesFailed` | Health publishes that faulted before acknowledgment. A failed health publish is counted and dropped; it never interrupts the display stream. |
+| `CollectorHealthUpdatesAccepted` | Health batches decoded and shown on the panel. |
+| `CollectorHealthUpdatesRejected` | Health batches rejected for malformed MessagePack, a missing record, or a record that is not `agent-health`. |
 | `CollectorAcceptedFrames` | Frames decoded and copied to the collector back slot. |
 | `CollectorRejectedFrames` | Frames rejected for wrong frame type, malformed MessagePack, or semantic contract failure. |
 | `SequenceGaps` | Missing source sequence values observed by the collector. A nonzero value demonstrates a frame did not reach the collector; it is expected only when a failure was intentionally induced or a live stream was configured to drop stale frames upstream. |
@@ -85,6 +99,12 @@ It does not replace hostile-network or crash testing. An abrupt collector kill, 
 ## Interpretation and acceptance criteria
 
 For the bounded command above, the expected forwarder report has `SendAttempts = 24`, `AcknowledgedFrames = 24`, `FailedSends = 0`, `Reconnects = 2`, `SessionFaults = 0`, and an in-flight maximum no greater than the `--max-in-flight` value. The collector report should have `CollectorAcceptedFrames = 24`, `CollectorRejectedFrames = 0`, `SequenceGaps = 0`, and `OutOfOrderFrames = 0`.
+
+`HealthUpdatesSent` depends on how long the run lasts rather than on the frame count — roughly one
+per `--health-interval-ms` per session, with `HealthUpdatesFailed = 0`. It must match the
+collector's `CollectorHealthUpdatesAccepted`, with `CollectorHealthUpdatesRejected = 0`. A short
+bounded run can legitimately report only one or two health updates; raise `--frames` to watch the
+panel refresh.
 
 The collector may report `ReplacedPendingFrames > 0` and fewer `RenderedFrames` than received frames. That is the intended latest-frame-wins policy: it proves the renderer cannot cause an unbounded queue. Treat persistent drops at a desired viewing rate as a capacity signal to lower the source FPS or increase presentation capacity.
 

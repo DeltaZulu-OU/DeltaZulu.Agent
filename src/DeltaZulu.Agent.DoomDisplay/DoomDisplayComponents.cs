@@ -110,7 +110,8 @@ public sealed class AnsiDoomRenderer : IDisposable
     public void Render(
         DoomFramePacket packet,
         FrameBufferMetrics metrics,
-        DoomReliabilityMetrics reliability)
+        DoomReliabilityMetrics reliability,
+        AgentHealthView? health = null)
     {
         DoomFrameCodec.Validate(packet);
         if (!initialized || width != packet.Width || height != packet.Height)
@@ -155,8 +156,106 @@ public sealed class AnsiDoomRenderer : IDisposable
             .Append(" ooo=").Append(reliability.OutOfOrderFrames)
             .Append(" reject=").Append(reliability.CollectorRejectedFrames)
             .Append(" age=").Append(reliability.LastCaptureAgeMilliseconds?.ToString() ?? "n/a").Append("ms")
-            .Append("\u001b[K");
+            .Append("\u001b[K\n");
+        AppendHealthPanel(buffer, packet.Width / 2, health, reliability);
         Console.Write(buffer.ToString());
+    }
+
+    /// <summary>
+    /// Draws the agent-health panel beneath the video. Health arrives over the same Forward
+    /// session as the pixels, on the typed telemetry contract, so the panel reports both the
+    /// daemon's own state and how fresh the collector's copy of it is.
+    /// </summary>
+    private static void AppendHealthPanel(
+        StringBuilder target,
+        int panelWidth,
+        AgentHealthView? health,
+        DoomReliabilityMetrics reliability)
+    {
+        var width = Math.Clamp(panelWidth, 40, 160);
+        var received = health is { } view
+            ? $"{view.ReceivedAgo.TotalSeconds:F1}s ago"
+            : "never";
+        var accepted = reliability.CollectorHealthUpdatesAccepted;
+        var rejected = reliability.CollectorHealthUpdatesRejected;
+
+        AppendRule(target, width, $" Agent health (TypedBatch) - rx {accepted} rej {rejected} - {received} ");
+
+        if (health is not { } current)
+        {
+            AppendLine(target, width, "  Waiting for the agent to report over the Forward session.");
+            return;
+        }
+
+        var snapshot = current.Snapshot;
+        if (!snapshot.Available)
+        {
+            AppendLine(target, width, $"  UNAVAILABLE  {snapshot.UnavailableReason}");
+            return;
+        }
+
+        var observed = snapshot.ObservedAtUtc is { } observedAt
+            ? observedAt.UtcDateTime.ToString("HH:mm:ss")
+            : "--:--:--";
+
+        AppendLine(target, width,
+            $"  {Value(snapshot.AgentId, "unknown-agent")} @ {Value(snapshot.HostId, "unknown-host")}" +
+            $"  observed {observed}Z");
+        AppendLine(target, width,
+            $"  Buffer   {Value(snapshot.BufferState, "unknown"),-10}" +
+            $" disk {Bytes(snapshot.DiskBytesUsed)}/{Bytes(snapshot.DiskBytesLimit)}" +
+            $"  mem {Bytes(snapshot.MemoryBytesUsed)}" +
+            $"  sealed {Count(snapshot.SealedChunkCount)}" +
+            $"  oldest {Milliseconds(snapshot.OldestChunkAgeMilliseconds)}");
+        AppendLine(target, width,
+            $"  Records  accepted {Count(snapshot.RecordsAcceptedTotal)}" +
+            $"  rejected {Count(snapshot.RecordsRejectedTotal)}" +
+            $"  dropped {Count(snapshot.RecordsDroppedTotal)}" +
+            $"  chunks {Count(snapshot.ChunksCompletedTotal)} dead {Count(snapshot.ChunksDeadLetteredTotal)}");
+        AppendLine(target, width,
+            $"  Output   {(snapshot.TransportIsRunning == true ? "running   " : "stopped   ")}" +
+            $" send {Count(snapshot.TransportSendSuccessesTotal)}/{Count(snapshot.TransportSendAttemptsTotal)}" +
+            $"  transient {Count(snapshot.TransportTransientFailuresTotal)}" +
+            $"  permanent {Count(snapshot.TransportPermanentFailuresTotal)}");
+    }
+
+    private static void AppendRule(StringBuilder target, int width, string caption)
+    {
+        var trimmed = caption.Length > width ? caption[..width] : caption;
+        _ = target.Append("\u001b[0m").Append(trimmed).Append(new string('-', width - trimmed.Length))
+            .Append("\u001b[K\n");
+    }
+
+    private static void AppendLine(StringBuilder target, int width, string text)
+    {
+        var trimmed = text.Length > width ? text[..width] : text;
+        _ = target.Append("\u001b[0m").Append(trimmed).Append("\u001b[K\n");
+    }
+
+    private static string Value(string? text, string fallback) =>
+        string.IsNullOrWhiteSpace(text) ? fallback : text;
+
+    private static string Count(long? value) => value?.ToString("N0") ?? "-";
+
+    private static string Milliseconds(double? value) => value is null ? "-" : $"{value.Value:F0}ms";
+
+    private static string Bytes(long? value)
+    {
+        if (value is null)
+        {
+            return "-";
+        }
+
+        double size = value.Value;
+        var units = new[] { "B", "K", "M", "G", "T" };
+        var unit = 0;
+        while (size >= 1024d && unit < units.Length - 1)
+        {
+            size /= 1024d;
+            unit++;
+        }
+
+        return unit == 0 ? $"{value.Value}B" : $"{size:0.#}{units[unit]}";
     }
 
     public void Dispose()
