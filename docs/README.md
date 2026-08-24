@@ -25,6 +25,13 @@ The Agent's own architecture and analysis documents stay for now:
 `FORWARD_PROTOCOL_SPECIFICATION.md`, `KQL_SUPPORT_BOUNDARY.md` and the
 RealtimeKQL comparisons among them.
 
+`DOOM_DISPLAY_POC.md` and `DOOM_FORWARD_RELIABILITY_DEMONSTRATOR.md` document
+`src/DeltaZulu.Agent.DoomDisplay`, a loopback-only transport demonstrator that
+lives in this repository. They are component and run documentation for code
+here, not a Decision, roadmap, or verification report, so they stay with the
+code they describe. The JSON metrics a demonstration run produces are evidence
+and belong in the docs repository's `reports/` if one is worth keeping.
+
 `ROADMAP.md` and `DZAGENTCTL_CONTROLLER_ROADMAP.md` have moved to the docs
 repository and gained review triggers.
 
