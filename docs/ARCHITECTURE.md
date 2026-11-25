@@ -6,7 +6,7 @@
 This is the authoritative target architecture for DeltaZulu.Agent. It replaces the
 legacy profile-per-input pipeline and direct DurableBuffer forwarding diagrams.
 Implementation sequencing and current migration status are in
-[`ROADMAP.md`](ROADMAP.md).
+[`ROADMAP.md`](https://github.com/DeltaZulu-OU/docs/blob/master/roadmaps/DeltaZulu.Agent-ROADMAP.md).
 
 ## Invariants
 

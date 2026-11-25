@@ -69,4 +69,4 @@ than message text, allowing each host to make a safe diagnostic-display choice.
 
 For authoring and provenance guidance, see
 [the KQL support boundary](KQL_SUPPORT_BOUNDARY.md) and
-[ADR 0004](adr/0004-kql-capability-alignment.md).
+[ADR 0004](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0004-kql-capability-alignment.md).

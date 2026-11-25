@@ -3,7 +3,7 @@
 This note tracks the ETW behavior that DeltaZulu intentionally keeps close to
 [`microsoft/KqlTools/Source/RealTimeKqlLibrary`](https://github.com/microsoft/KqlTools/tree/master/Source/RealTimeKqlLibrary) and the places where DeltaZulu
 still differs. Library boundary decisions for TraceEvent, Tx, and P/Invoke live
-in [`docs/adr/0001-windows-eventing-library-boundaries.md`](adr/0001-windows-eventing-library-boundaries.md).
+in [`docs/adr/0001-windows-eventing-library-boundaries.md`](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0001-windows-eventing-library-boundaries.md).
 
 ## Behavior kept aligned
 

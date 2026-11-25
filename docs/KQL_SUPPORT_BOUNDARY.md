@@ -38,7 +38,7 @@ and run their KQL queries over those events. The Agent preserves the delivery
 metadata envelope and performs deterministic Agent-owned enrichment separately;
 DeltaZulu.Platform remains authoritative for semantic normalization and canonical
 mapping. This architectural guidance is described in
-[ADR 0004](adr/0004-kql-capability-alignment.md).
+[ADR 0004](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0004-kql-capability-alignment.md).
 
 Profile authors should use source-preserving predicates for forwarding whenever
 possible. Projection and display-oriented queries are appropriate for interactive

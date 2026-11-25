@@ -39,7 +39,7 @@ filter dispatcher and the `agent.output` commit. The current
 filter-then-enrich-then-output ordering described above is a property of the
 transitional `ResourcePipeline`, not a target-architecture decision recorded in
 an ADR. Reconcile this — most likely as a clarification to ADR 0008 or a new
-ADR — before or during [`ROADMAP.md`](ROADMAP.md) Phase 12 (coordinated filter
+ADR — before or during [`ROADMAP.md`](https://github.com/DeltaZulu-OU/docs/blob/master/roadmaps/DeltaZulu.Agent-ROADMAP.md) Phase 12 (coordinated filter
 dispatch), since the dispatcher's per-event output list is exactly where an
 enrichment step would need to run if it stays positioned after filtering.
 

@@ -1,6 +1,6 @@
 # DeltaZulu Agent
 
-DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters source-native event fields with YAML profiles, writes NDJSON for exploration, and currently forwards records mapped into DeltaZulu.Forward's `ForwardLogBatch` contract through the pipeline-owned FORWARDER compatibility path backed by `DeltaZulu.DurableBuffer`. The target daemon uses LocalStream as its primitive in-agent stream substrate and DeltaZulu.Forward, a RELP-derived but non-wire-compatible protocol owned by Pipeline, as its transport (see [ADR 0011](docs/adr/0011-deltazulu-forward-transport.md)); the direct DurableBuffer forwarding path is transitional.
+DeltaZulu.Agent is a resource-native .NET 10 collection and forwarding agent. It filters source-native event fields with YAML profiles, writes NDJSON for exploration, and currently forwards records mapped into DeltaZulu.Forward's `ForwardLogBatch` contract through the pipeline-owned FORWARDER compatibility path backed by `DeltaZulu.DurableBuffer`. The target daemon uses LocalStream as its primitive in-agent stream substrate and DeltaZulu.Forward, a RELP-derived but non-wire-compatible protocol owned by Pipeline, as its transport (see [ADR 0011](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0011-deltazulu-forward-transport.md)); the direct DurableBuffer forwarding path is transitional.
 
 This package is not a SIEM, server-side normalization engine, or production syslog daemon replacement. It includes `dzagentctl` as the local agent controller, a separate `dzagentd` daemon host for service deployment, and a `dzagentd` collector configuration for local FORWARDER validation.
 
@@ -28,7 +28,7 @@ Controller modes:
 
 Examples:
 
-The controller implementation roadmap is tracked in [`docs/DZAGENTCTL_CONTROLLER_ROADMAP.md`](docs/DZAGENTCTL_CONTROLLER_ROADMAP.md).
+Controller implementation and verification are tracked under C13 in the [consolidated roadmap](https://github.com/DeltaZulu-OU/docs/blob/master/roadmaps/CONSISTENCY-CORRECTNESS-ROADMAP.md).
 
 ```bash
 dzagentctl --tui
@@ -140,13 +140,13 @@ The `schemas` command always lists built-in input resource schemas, so it works 
   parsing, LocalStream runtime behavior, the target binary, or the
   execution-plan daemon.
 - `DeltaZulu.Pipeline` is the single reusable, multi-targeted pipeline assembly. Its internal `Core`, `Inputs`, `Parsing`, `Assembly`, `Streaming`, `Dispatch`, `Enrichment`, `Outputs`, and `Tunnel` boundaries are folders and namespaces, not separate projects.
-- The target has distinct text and structured input contracts. Inputs acquire, frame, decode, or map; `DeltaZulu.Parse` (renamed from `DeltaZulu.Normalize`, [ADR 0013](docs/adr/0013-parse-naming.md)) will be the only plaintext structural parser, while deterministic/native structured inputs bypass it.
+- The target has distinct text and structured input contracts. Inputs acquire, frame, decode, or map; `DeltaZulu.Parse` (renamed from `DeltaZulu.Normalize`, [ADR 0013](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0013-parse-naming.md)) will be the only plaintext structural parser, while deterministic/native structured inputs bypass it.
 - The current daemon remains transitional: it still executes profile-centric pipelines, uses direct `DeltaZulu.DurableBuffer` forwarding, and serializes legacy concurrent output with `ChannelOutputMultiplexer`.
 - The target daemon uses one LocalStream host with `agent.parsed` (materialization-to-filter) and `agent.output` (filter-to-forwarder). LocalStream is a primitive in-agent stream substrate; it is not a DurableBuffer wrapper. Logical topics are parsed-envelope values; they are not physical streams.
-- DeltaZulu.Forward ([ADR 0011](docs/adr/0011-deltazulu-forward-transport.md)) is the target transport. The FORWARDER compatibility path now sends `ForwardLogBatch` typed-batch frames, encoded by `ForwardLogBatchCodec` in the DeltaZulu.Forward package rather than by Pipeline. Output commits occur only after a forwarding acknowledgement either way.
+- DeltaZulu.Forward ([ADR 0011](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0011-deltazulu-forward-transport.md)) is the target transport. The FORWARDER compatibility path now sends `ForwardLogBatch` typed-batch frames, encoded by `ForwardLogBatchCodec` in the DeltaZulu.Forward package rather than by Pipeline. Output commits occur only after a forwarding acknowledgement either way.
 - `parse.query` will be an optional restricted Parse-rule contract; `filter.query` remains Rx.Kql-owned. Profiles do not configure streams, offsets, partitions, parser generations, or multiplexer behavior.
 - Unrecognized plaintext is preserved and coverage distinguishes admission rejection, parser no-match, filter no-candidate, filter no-match, and operational errors.
-- Agent output preserves source-native field names; server-side DeltaZulu components perform canonical semantic normalization. The type-contract catalog ([ADR 0010](docs/adr/0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md)) governs representation, not this semantic layer.
+- Agent output preserves source-native field names; server-side DeltaZulu components perform canonical semantic normalization. The type-contract catalog ([ADR 0010](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md)) governs representation, not this semantic layer.
 
 ## Project layout
 
@@ -185,8 +185,8 @@ placeholder.
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) is the authoritative target topology and dependency boundary.
-- [Roadmap](docs/ROADMAP.md) tracks the staged migration and current transitional baseline.
-- [Architecture ADRs](docs/adr/) record the durable assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](docs/adr/0011-deltazulu-forward-transport.md), [MessagePack as the wire format, superseding Avro](docs/adr/0014-messagepack-wire-supersedes-avro.md), [no Arrow — catalog-typed records](docs/adr/0015-no-arrow-catalog-typed-records.md), and [a bespoke native Proton sink, superseding the Kafka-API intermediate](docs/adr/0016-bespoke-proton-sink-supersedes-kafka-intermediate.md).
+- [Roadmap](https://github.com/DeltaZulu-OU/docs/blob/master/roadmaps/CONSISTENCY-CORRECTNESS-ROADMAP.md) tracks the staged migration and current transitional baseline.
+- [Archived Agent ADRs](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/README.md) record earlier assembly, input, parsing, streaming, transport, and coverage decisions, including [DeltaZulu.Forward transport naming](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0011-deltazulu-forward-transport.md), [MessagePack as the wire format, superseding Avro](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0014-messagepack-wire-supersedes-avro.md), [no Arrow — catalog-typed records](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0015-no-arrow-catalog-typed-records.md), and [a bespoke native Proton sink, superseding the Kafka-API intermediate](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0016-bespoke-proton-sink-supersedes-kafka-intermediate.md).
 - [DeltaZulu.Forward Protocol Specification (FWD-CONTRACT-v1)](docs/FORWARD_PROTOCOL_SPECIFICATION.md) is the standalone wire-protocol definition — frame format, handshake, reliability semantics, and the `TypedBatch` payload contract — extracted from the reference `DeltaZulu.Forward` implementation.
 
 ## License

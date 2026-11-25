@@ -93,7 +93,7 @@ Unknown or newly supported parsers must declare:
 
 The endpoint schema tree presents fields, but field names alone are not the type
 contract. Each visible field should resolve to a type-contract catalog
-([ADR 0010](adr/0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md)) logical
+([ADR 0010](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0010-type-catalog-avro-arrow-and-ndjson-edge-dialect.md)) logical
 type before it is considered production-stable. The catalog entry records
 nullability, canonical timestamp precision, duration units, numeric
 width/decimal scale, and specialized logical annotations such as UUID, IP,

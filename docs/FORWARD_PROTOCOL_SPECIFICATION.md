@@ -6,8 +6,8 @@ This is the authoritative, standalone wire-protocol specification for
 **DeltaZulu.Forward**, DeltaZulu's proprietary agent-to-collector log
 forwarding protocol. It exists because the protocol had accumulated a
 correct but scattered description — spread across
-[ADR 0011](adr/0011-deltazulu-forward-transport.md) (transport naming and
-design), [ADR 0014](adr/0014-messagepack-wire-supersedes-avro.md) (wire
+[ADR 0011](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0011-deltazulu-forward-transport.md) (transport naming and
+design), [ADR 0014](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0014-messagepack-wire-supersedes-avro.md) (wire
 payload format), and the `DeltaZulu.Forward` library's own source comments
 and README — without one document a reader or a from-scratch reimplementer
 could point to. The library's own source already calls its wire contract
@@ -807,13 +807,13 @@ goal (§1.1).
 
 ## Appendix B — Relationship to this repository's ADRs
 
-- [ADR 0011](adr/0011-deltazulu-forward-transport.md) — names and adopts
+- [ADR 0011](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0011-deltazulu-forward-transport.md) — names and adopts
   DeltaZulu.Forward as this repository's target transport; describes the
   design rationale this specification's §1/§12 draw on.
-- [ADR 0014](adr/0014-messagepack-wire-supersedes-avro.md) — establishes
+- [ADR 0014](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0014-messagepack-wire-supersedes-avro.md) — establishes
   that the wire payload is MessagePack, not Avro; §10 of this document is
   the detailed contract that decision points at.
-- [ADR 0015](adr/0015-no-arrow-catalog-typed-records.md) — the collector
+- [ADR 0015](https://github.com/DeltaZulu-OU/docs/blob/master/archive/DeltaZulu.Agent/0015-no-arrow-catalog-typed-records.md) — the collector
   decodes directly to catalog-typed records with no Arrow layer; §10.2's
   note on record-identity-driven catalog resolution is why that works
   without a wire-carried schema.
