@@ -1,5 +1,8 @@
 # Target architecture
 
+> **Authority and status note — 2026-11-25.** The current estate architecture is [DEC-0033 / NRT pipeline](https://github.com/DeltaZulu-OU/docs/blob/master/architecture/NRT-PIPELINE.md). The Proton sink/collector, direct lake outputs, older ADR numbering and target LocalStream migration diagrams below are historical wherever they conflict. Platform owns the production collector, Forward owns inter-node transport, and LocalStream/Query owns node-local processing. In the 2026-11-25 inspected Agent source, `AgentRuntime` still instantiates `ChannelOutputMultiplexer`; a diagram without that component is a target, not an implementation assertion. See [C05/C12/C13/C17](https://github.com/DeltaZulu-OU/docs/blob/master/roadmaps/CONSISTENCY-CORRECTNESS-ROADMAP.md) for current work.
+
+
 This is the authoritative target architecture for DeltaZulu.Agent. It replaces the
 legacy profile-per-input pipeline and direct DurableBuffer forwarding diagrams.
 Implementation sequencing and current migration status are in
