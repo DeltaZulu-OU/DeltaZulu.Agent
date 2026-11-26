@@ -51,7 +51,10 @@ public sealed class ForwarderOutputWorkerTests
         using var directory = new TemporaryDirectory();
         var reader = new StubBufferReader();
         long attempts = 0;
+        var deliveries = new List<(Guid BatchId, string DeliveryId, string RecordId)>();
         var transport = new CallbackTransport(batch => {
+            var record = batch.Records.Single();
+            deliveries.Add((batch.BatchId, record.DeliveryId, record.RecordId));
             var attempt = Interlocked.Increment(ref attempts);
             return new DeliveryAck {
                 BatchId = batch.BatchId,
@@ -72,6 +75,12 @@ public sealed class ForwarderOutputWorkerTests
         await worker.RunAsync(TestContext.CancellationToken);
 
         Assert.AreEqual(3, Interlocked.Read(ref attempts));
+        Assert.HasCount(3, deliveries);
+        Assert.AreEqual(Guid.Parse(chunk.Id.Value), deliveries[0].BatchId);
+        Assert.AreEqual("42", deliveries[0].RecordId);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(deliveries[0].DeliveryId));
+        Assert.IsTrue(deliveries.All(delivery => delivery == deliveries[0]),
+            "Buffered retries must preserve batch, delivery and record identities.");
         Assert.HasCount(1, reader.Completed);
         Assert.IsEmpty(reader.DeadLettered);
     }
