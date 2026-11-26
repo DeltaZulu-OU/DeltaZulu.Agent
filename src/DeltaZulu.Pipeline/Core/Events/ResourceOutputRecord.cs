@@ -118,6 +118,11 @@ public sealed record ResourceOutputRecord
         }
 
         ApplyQueryResultProvenance(metadata, eventFields, sourceEvent);
+        if (sourceEvent is not null
+            && Equals(metadata[QueryResultShapeMetadataKey], SourceShapedQueryResult))
+        {
+            metadata["eventUid"] = sourceEvent.Metadata.EventUid;
+        }
 
         return new ResourceOutputRecord {
             Metadata = metadata,
